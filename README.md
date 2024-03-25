@@ -16,8 +16,24 @@ Note: This document will fill up as requirements are coming in and we run things
 
 ## Development guide:
 
-It is necessary that the project maintains good code style and has a low threshold for other people to contribute. For that reason, Black code formatting, linting, and typing are essential. They may increase the time to development slightly, but they significantly reduce the time to contribution.
+### Ensure PEP8 compliance (mandatory) and format your code with Darker (optional)
 
-Unit tests are also required for every function that does something significant.
+`darker` is a *partial formatting* tool that helps to reformat new or modified code lines so the codebase progressively adapts a code style instead of doing a full reformat, which would be a big commitment. It was designed with the ``black`` formatter in mind, hence the name.
 
-When contributing code please use darker.
+In this repo **we only require PEP8 compliance**, so if you want to make sure that your PR passes the darker bot, you'll need both darker and `flake8`:
+
+    pip install darker flake8
+
+
+You'll also need the original codebase so darker can first get a diff between the current ``develop`` branch and your code.
+After making your changes to your local branch, check your modifications on the package:
+
+    darker --diff -r origin/develop package/src -L flake8
+
+Darker will first suggest changes so that the new code lines comply with ``black``'s rules, and then show flake8 errors and warnings.
+
+You are free to skip the diffs and then manually fix the PEP8 faults.
+Or if you're ok with the suggested formatting changes, just apply the suggested fixes: ::
+
+    darker -r origin/develop package/scr -L flake8
+
