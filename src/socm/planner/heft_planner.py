@@ -28,10 +28,13 @@ class HeftPlanner(Planner):
     estimated finish time.
     """
 
-    def __init__(self, campaign, resources, num_oper, sid=None):
+    def __init__(self, campaign, resources, resource_requirements, policy, sid=None):
 
         super(HeftPlanner, self).__init__(
-            campaign=campaign, resources=resources, num_oper=num_oper, sid=sid
+            campaign=campaign,
+            resources=resources,
+            resource_requirements=resource_requirements,
+            sid=sid,
         )
 
         # Calculate the estimated execution time of each workflow on to each
@@ -40,11 +43,9 @@ class HeftPlanner(Planner):
         # <workflow_idx, resource_idx>, and each entry is the estimated
         # execution time of a workflow on a resource.
         # TODO: not all workflows can run in a resource
-        res_perf = list()
-        for resource in self._resources:
-            res_perf.append(resource["performance"])
-
-        self._est_tx = self._calc_est_tx(cmp_oper=self._num_oper, resources=res_perf)
+        self._est_tx = list()
+        for resource_req in resource_requirements:
+            self._est_tx.append(resource_requirements["req_walltime"])
 
     def plan(
         self, campaign=None, resources=None, num_oper=None, start_time=None, **kargs

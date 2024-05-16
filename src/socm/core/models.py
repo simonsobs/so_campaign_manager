@@ -1,4 +1,4 @@
-from typing import List, Optional
+from typing import Callable, List, Optional
 
 from pydantic import BaseModel
 from sotodlid.core import Context
@@ -9,28 +9,27 @@ class Resource(BaseModel):
     nodes: int
     cores_per_node: int
     memory_per_node: int
-
-
-class PerformanceModel(BaseModel):
-    resource: Resource
-    model_parameters: List[float]
+    default_queue: str = "normal"
+    maximum_walltime: int = 1440
 
 
 class Task(BaseModel):
     name: str
-    performance: PerformanceModel
+    performance: Callable
 
 
 class Workflow(BaseModel):
     id: int
     config: str
     ordered_tasks: List[Task]
-    experiment: str = "so" | "act"
     observations: List[str]
     context_file: str
-    observations_length: Optional[int] = 0
 
-    def get_observation_length(self):
+    def get_num_nodes(self, resource: Resource) -> int:
+        """
+        Based on the observation list, and task memory requirements return the
+        total memory of this workflow
+        """
 
         context = Context(self.context_file)
 
@@ -38,8 +37,22 @@ class Workflow(BaseModel):
             obs = context.get_obs(observation)
             self.observations_length += obs.obs_info.duration
 
+        total_memory = 500 * self.observations_length
+
+        return total_memory / resource.memory_per_node
+
+    def get_expected_execution_time(self, resource: Resource) -> int:
+        """
+        Calculate the expected execution time based on the the number of nodes,
+        task list and observation size
+        """
+        import random
+
+        return random.random() * 1000
+
 
 class Campaign(BaseModel):
     id: int
     workflows: List[Workflow]
+    capaign_policy: str = "nodes" | "time" | "mixed"
     resource: str = "tiger"

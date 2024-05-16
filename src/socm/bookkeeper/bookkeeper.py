@@ -2,12 +2,12 @@ import os
 import threading as mt
 from copy import deepcopy
 from time import sleep
-from typing import List
+from typing import Dict
 
 import radical.utils as ru
 
 from ..core import Campaign, Resource
-from ..enactor import SimulatedEnactor
+from ..enactor import RPEnactor
 from ..planner import HeftPlanner
 from ..utils import states as st
 
@@ -24,7 +24,13 @@ class Bookkeeper(object):
     *objective:* The campaign's objective
     """
 
-    def __init__(self, campaign: Campaign, resources: List[Resource]):
+    def __init__(
+        self,
+        campaign: Campaign,
+        resources: Dict[str, Resource],
+        policy: str,
+        target_resource: str,
+    ):
 
         self._campaign = {"campaign": campaign, "state": st.NEW}
         self._session_id = ru.generate_id("socm.session", mode=ru.ID_PRIVATE)
@@ -32,18 +38,18 @@ class Bookkeeper(object):
             "bookkeper.%(counter)04d", mode=ru.ID_CUSTOM, ns=self._session_id
         )
 
-        self._resources = resources
+        self._resource = resources[target_resource]
         self._checkpoints = None
         self._plan = None
         self._unavail_resources = []
         self._workflows_state = dict()
-
+        self._objective = self._resource.maximum_walltime
         self._exec_state_lock = ru.RLock("workflows_state_lock")
         self._monitor_lock = ru.RLock("monitor_list_lock")
         self._time = 0  # The time in the campaign's world.
         self._workflows_to_monitor = list()
         self._est_end_times = dict()
-        self._enactor = SimulatedEnactor(env=self._env, sid=self._sid)
+        self._enactor = RPEnactor(sid=self._sid)
         self._enactor.register_state_cb(self.state_update_cb)
 
         # Creating a thread to execute the monitoring and work methods.
@@ -61,16 +67,19 @@ class Bookkeeper(object):
 
         workflow_requirements = {}
         for workflow in self._campaign.workflows:
+            req_nodes = workflow.get_num_nodes()
+            req_walltime = workflow.get_expected_execution_time(self._resource)
             workflow_requirements[workflow.id] = {
-                "workflow_size": workflow.get_observation_length(),
-                "resource_requirements": "something goes here",
+                "req_nodes": req_nodes,
+                "req_walltime": req_walltime,
             }
 
         self._planner = HeftPlanner(
             campaign=self._campaign["campaign"],
-            resources=self._resources,
-            num_oper=workflow_requirements,
+            resources=self._resource,
+            resource_requirements=workflow_requirements,
             sid=self._session_id,
+            policy=policy,
         )
 
     def _update_checkpoints(self):
@@ -92,17 +101,15 @@ class Bookkeeper(object):
 
     def _verify_objective(self):
         """
-        This private method verifies the objective. It check the estimated
-        makespan of the campaign and compares it with the objective. If no
-        objective is defined or the campaign is estimated to satisfy the objective
-        it returns `True`, else ot returns `False`.
+        This private method verifies that the plan has not deviated from the
+        maximum walltime. It checks the estimated makespan of the campaign and
+        compares it with the maximum walltime.
 
         TODO: Currently the objective is given as a number in some unit of time.
               The objective can be in a more general representation.
         """
 
-        if not self._objective:
-            return True
+        self._update_checkpoints()
 
         if self._checkpoints[-1] > self._objective:
             return False
@@ -137,7 +144,11 @@ class Bookkeeper(object):
             # self._logger.debug('Calculated plan: %s', self._plan)
         self._prof.prof("planning_ended", uid=self._uid)
 
+        # Update checkpoints and objective.
         self._update_checkpoints()
+        self._objective = min(
+            self._checkpoints[-1] * 1.25, self._resource.maximum_walltime
+        )
 
         with self._exec_state_lock:
             self._campaign["state"] = st.EXECUTING
@@ -170,13 +181,6 @@ class Bookkeeper(object):
                         workflows.append(wf)
                         resources.append(rc)
                         self._est_end_times[rc["id"]] = est_end_time
-                        self._logger.debug(
-                            "Time: %s: Enacting %s workflow on %s resource. Will end %f",
-                            self._env.now,
-                            wf,
-                            rc,
-                            est_end_time,
-                        )
 
                 # There is no need to call the enactor when no new things
                 # should happen.

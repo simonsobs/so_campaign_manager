@@ -1,9 +1,3 @@
-"""
-Author: Ioannis Paraskevakos
-License: MIT
-Copyright: 2018-2019
-"""
-
 import os
 
 import radical.utils as ru
@@ -23,47 +17,42 @@ class Planner(object):
     to do.
     """
 
-    def __init__(self, campaign, resources, num_oper, sid=None):
+    def __init__(self, campaign, resources, resource_requirements, policy, sid=None):
         self._campaign = campaign
         self._resources = resources
-        self._num_oper = num_oper
+        self._resource_requirements = resource_requirements
+        self._policy = policy
         self._plan = list()
         self._uid = ru.generate_id("planner.%(counter)04d", mode=ru.ID_CUSTOM, ns=sid)
         path = os.getcwd() + "/" + sid
         self._logger = ru.Logger(name=self._uid, level="DEBUG", path=path)
 
-    def _calc_est_tx(self, cmp_oper, resources):
-        """
-        Calculate the execution time of each workflow on all resources.
-        """
-
-        est_tx = list()
-        for wf_oper in cmp_oper:
-            tmp_est_tx = list()
-            for resource in resources:
-                tmp_est_tx.append(float(wf_oper / resource))
-
-            est_tx.append(tmp_est_tx)
-
-        return est_tx
-
-    def plan(self, campaign=None, resources=None, num_oper=None, start_time=0, **kargs):
+    def plan(
+        self,
+        campaign=None,
+        resources=None,
+        resource_requirements=None,
+        start_time=0,
+        **kargs,
+    ):
         """
         The planning method
         """
 
         raise NotImplementedError("Plan method is not implemented")
 
-    def replan(self, campaign=None, resources=None, num_oper=None, start_time=0):
+    def replan(
+        self, campaign=None, resources=None, resource_requirements=None, start_time=0
+    ):
         """
         The planning method
         """
-        if campaign and resources and num_oper:
+        if campaign and resources and resource_requirements:
             self._logger.debug("Replanning")
             self._plan = self.plan(
                 campaign=campaign,
                 resources=resources,
-                num_oper=num_oper,
+                resource_requirements=resource_requirements,
                 start_time=start_time,
             )
         else:
