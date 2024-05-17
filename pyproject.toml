@@ -1,7 +1,7 @@
 [project]
-    dynamic=["version"]
+    # dynamic=["version"]
+    version="0.0.1"
     name="so_campaing_manager"
-    version = '0.0.1'
     description = "A campaign manager to execute SO mapmaking campaign"
     readme = 'README.md'
     requires-python = '>=3.9'

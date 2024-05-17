@@ -67,15 +67,16 @@ class Bookkeeper(object):
 
         workflow_requirements = {}
         for workflow in self._campaign.workflows:
-            req_nodes = workflow.get_num_nodes()
+            req_cpus, req_memory = workflow.get_num_cores_memory()
             req_walltime = workflow.get_expected_execution_time(self._resource)
             workflow_requirements[workflow.id] = {
-                "req_nodes": req_nodes,
+                "req_cpus": req_cpus,
+                "req_memory": req_memory,
                 "req_walltime": req_walltime,
             }
 
         self._planner = HeftPlanner(
-            campaign=self._campaign["campaign"],
+            campaign=self._campaign.workflows,
             resources=self._resource,
             resource_requirements=workflow_requirements,
             sid=self._session_id,

@@ -1,7 +1,7 @@
-from typing import Callable, List, Optional
+from typing import Callable, List, Optional, Tuple
 
 from pydantic import BaseModel
-from sotodlid.core import Context
+# from sotodlid.core import Context
 
 
 class Resource(BaseModel):
@@ -15,7 +15,7 @@ class Resource(BaseModel):
 
 class Task(BaseModel):
     name: str
-    performance: Callable
+    performance: Optional[Callable] = None
 
 
 class Workflow(BaseModel):
@@ -25,21 +25,21 @@ class Workflow(BaseModel):
     observations: List[str]
     context_file: str
 
-    def get_num_nodes(self, resource: Resource) -> int:
+    def get_num_cores_memory(self, resource: Resource) -> Tuple[int, int]:
         """
         Based on the observation list, and task memory requirements return the
         total memory of this workflow
         """
 
-        context = Context(self.context_file)
+        # context = Context(self.context_file)
 
-        for observation in self.observations:
-            obs = context.get_obs(observation)
-            self.observations_length += obs.obs_info.duration
+        # for observation in self.observations:
+        #     obs = context.get_obs(observation)
+        #     self.observations_length += obs.obs_info.duration
 
-        total_memory = 500 * self.observations_length
+        # total_memory = 500 * self.observations_length
 
-        return total_memory / resource.memory_per_node
+        return 5, 2000  # total_memory / resource.memory_per_node
 
     def get_expected_execution_time(self, resource: Resource) -> int:
         """
@@ -54,5 +54,5 @@ class Workflow(BaseModel):
 class Campaign(BaseModel):
     id: int
     workflows: List[Workflow]
-    capaign_policy: str = "nodes" | "time" | "mixed"
+    capaign_policy: str
     resource: str = "tiger"

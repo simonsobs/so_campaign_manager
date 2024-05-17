@@ -1,1 +1,1 @@
-from .models import Campaign, PerformanceModel, Resource, Workflow
+from .models import Campaign, Resource, Workflow, Task
