@@ -47,20 +47,21 @@ class RPEnactor(Enactor):
         self._run = False
 
         self._prof.prof("enactor_started", uid=self._uid)
-        self._rp_session = rp.Session(session_id=self._sid)
+        self._rp_session = rp.Session(uid=self._uid)
         self._rp_pmgr = rp.PilotManager(session=self._rp_session)
         self._rp_tmgr = rp.TaskManager(session=self._rp_session)
+        self._logger.info("Enactor is ready")
 
     def setup(self, resource: Resource, walltime: int, cores: int) -> None:
         """
         Sets up the enactor to execute workflows.
         """
         pd_init = {
-            "resource": resource.name,
+            "resource": "local.localhost",
             "runtime": walltime,  # pilot runtime (min)
             "exit_on_error": True,
-            "queue": resource.default_queue,
-            "access_schema": "interactive",
+            # "queue": resource.default_queue,
+            # "access_schema": "interactive",
             "cores": cores,
         }
 
@@ -100,8 +101,7 @@ class RPEnactor(Enactor):
                     rp.TaskDescription()
                 )  # Use workflow description and resources to create the TaskDescription
                 exec_workflow.uid = workflow["id"]
-                exec_workflow.executable = "toast_something"
-                exec_workflow.arguments = ["1"]
+                exec_workflow.executable = "/bin/date"
                 exec_workflow.ranks = 1
                 exec_workflow.cores_per_rank = 1
 
