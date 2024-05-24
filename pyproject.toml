@@ -8,4 +8,4 @@
     authors = [
     {name = 'Giannis Paraskevakos', email = 'iparask@princeton.edu'},
     ]
-    dependencies=["pydantic", "radical.utils"]
+    dependencies=["pydantic", "numpy", "radical.pilot"]
