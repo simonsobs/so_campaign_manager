@@ -49,7 +49,7 @@ class Bookkeeper(object):
         self._time = 0  # The time in the campaign's world.
         self._workflows_to_monitor = list()
         self._est_end_times = dict()
-        self._enactor = RPEnactor(sid=self._sid)
+        self._enactor = RPEnactor(sid=self._uid)
         self._enactor.register_state_cb(self.state_update_cb)
 
         # Creating a thread to execute the monitoring and work methods.
@@ -66,8 +66,8 @@ class Bookkeeper(object):
         self._prof = ru.Profiler(name=self._uid, path=path)
 
         workflow_requirements = {}
-        for workflow in self._campaign.workflows:
-            req_cpus, req_memory = workflow.get_num_cores_memory()
+        for workflow in self._campaign["campaign"].workflows:
+            req_cpus, req_memory = workflow.get_num_cores_memory(self._resource)
             req_walltime = workflow.get_expected_execution_time(self._resource)
             workflow_requirements[workflow.id] = {
                 "req_cpus": req_cpus,
@@ -75,8 +75,9 @@ class Bookkeeper(object):
                 "req_walltime": req_walltime,
             }
 
+
         self._planner = HeftPlanner(
-            campaign=self._campaign.workflows,
+            campaign=self._campaign["campaign"].workflows,
             resources=self._resource,
             resource_requirements=workflow_requirements,
             sid=self._session_id,
@@ -311,7 +312,7 @@ class Bookkeeper(object):
 
         return self._checkpoints[-1]
 
-    def _terminate(self):
+    def terminate(self):
 
         self._logger.info("Start terminating procedure")
         self._prof.prof("str_bookkeper_terminating", uid=self._uid)
@@ -326,14 +327,16 @@ class Bookkeeper(object):
         if self._hold:
             self._hold = False
         self._prof.prof("monitor_bookkeper_terminate", uid=self._uid)
-        self._monitoring_thread.join()
+        if self._monitoring_thread:
+            self._monitoring_thread.join()
         self._prof.prof("monitor_bookkeper_terminated", uid=self._uid)
         self._logger.debug("Monitor thread terminated")
 
         if not self._cont:
             self._cont = True
         self._prof.prof("work_bookkeper_terminate", uid=self._uid)
-        self._work_thread.join()  # Private attribute that will hold the thread
+        if self._work_thread:
+            self._work_thread.join()  # Private attribute that will hold the thread
         self._prof.prof("work_bookkeper_terminated", uid=self._uid)
         self._logger.debug("Working thread terminated")
 
@@ -398,7 +401,7 @@ class Bookkeeper(object):
         except Exception as ex:
             print(ex)
         finally:
-            self._terminate()
+            self.terminate()
 
     def get_campaign_state(self):
 
