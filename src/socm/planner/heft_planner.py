@@ -109,13 +109,23 @@ class HeftPlanner(Planner):
             wf_est_tx = self._est_tx[sorted_idx]
             wf_est_cpus = self._est_cpus[sorted_idx]
             min_end_time = float("inf")
-            for i in range(0, len(tmp_res), wf_est_cpus):
+            i = 0
+            while (i + wf_est_cpus) < len(tmp_res):
+                # for i in range(0, len(tmp_res), wf_est_cpus):
                 tmp_str_time = resource_free[i : i + wf_est_cpus]
                 tmp_end_time = tmp_str_time + wf_est_tx
-                if tmp_end_time.ptp() == 0 and (tmp_end_time < min_end_time).all():
-                    min_end_time = tmp_end_time
+                self._logger.debug(
+                    f"Core ID from {i} to {i + wf_est_cpus}. total resources {len(tmp_res)}"
+                )
+                self._logger.debug(
+                    f"Estimated Finish time {sorted_idx}: {tmp_end_time}"
+                )
+                if (tmp_end_time < min_end_time).all():
+                    min_end_time = tmp_end_time.max()
                     tmp_min_idx = i
-            start_times = resource_free[tmp_min_idx : tmp_min_idx + wf_est_cpus].copy()
+                self._logger.debug(f"Minimum Finish Time {sorted_idx}: {min_end_time}")
+                i += wf_est_cpus
+            start_times = resource_free[tmp_min_idx : tmp_min_idx + wf_est_cpus].max()
             self._plan.append(
                 (
                     tmp_cmp[sorted_idx],
@@ -125,7 +135,7 @@ class HeftPlanner(Planner):
                 )
             )
             resource_free[tmp_min_idx : tmp_min_idx + wf_est_cpus] = (
-                resource_free[tmp_min_idx : tmp_min_idx + wf_est_cpus] + wf_est_tx
+                start_times + wf_est_tx
             )
 
         self._logger.info("Derived plan %s", self._plan)

@@ -30,6 +30,7 @@ class Workflow(BaseModel):
         Based on the observation list, and task memory requirements return the
         total memory of this workflow
         """
+        import random
 
         # context = Context(self.context_file)
 
@@ -39,7 +40,7 @@ class Workflow(BaseModel):
 
         # total_memory = 500 * self.observations_length
 
-        return 5, 2000  # total_memory / resource.memory_per_node
+        return random.randint(1, 8), 2000  # total_memory / resource.memory_per_node
 
     def get_expected_execution_time(self, resource: Resource) -> int:
         """
