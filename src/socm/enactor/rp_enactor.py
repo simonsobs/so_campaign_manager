@@ -45,9 +45,8 @@ class RPEnactor(Enactor):
         self._terminate_monitor = mt.Event()  # Thread event to terminate.
 
         self._run = False
-
         self._prof.prof("enactor_started", uid=self._uid)
-        self._rp_session = rp.Session(uid=self._uid)
+        self._rp_session = rp.Session(uid=sid)
         self._rp_pmgr = rp.PilotManager(session=self._rp_session)
         self._rp_tmgr = rp.TaskManager(session=self._rp_session)
         self._logger.info("Enactor is ready")
@@ -57,12 +56,12 @@ class RPEnactor(Enactor):
         Sets up the enactor to execute workflows.
         """
         pd_init = {
-            "resource": "local.localhost",
-            "runtime": walltime,  # pilot runtime (min)
-            "exit_on_error": True,
-            # "queue": resource.default_queue,
-            # "access_schema": "interactive",
-            "cores": cores,
+            "resource": "princeton.tiger2",
+            "runtime"       : walltime,  # pilot runtime (min)
+            "exit_on_error" : True,
+            "queue"         : "tiger-test",
+            "access_schema" : "interactive",
+            "cores"         : cores,
         }
 
         pdesc = rp.PilotDescription(pd_init)
@@ -84,7 +83,7 @@ class RPEnactor(Enactor):
         for workflow in workflows:
             # If the enactor has already received a workflow issue a warning and
             # proceed.
-            if workflow["id"] in self._execution_status:
+            if workflow.id in self._execution_status:
                 self._logger.info(
                     "Workflow %s is in state %s",
                     workflow,
@@ -100,35 +99,39 @@ class RPEnactor(Enactor):
                 exec_workflow = (
                     rp.TaskDescription()
                 )  # Use workflow description and resources to create the TaskDescription
-                exec_workflow.uid = workflow["id"]
-                exec_workflow.executable = "/bin/date"
+                exec_workflow.uid = f"workflow.{workflow.id}"
+                exec_workflow.pre_exec = ["module load openmpi/gcc/4.1.1/64"
+                                          "module load anaconda3/2022.10",
+                                          "conda activate /scratch/gpfs/SIMONSOBS/env/20240517/soconda_3.10"]
+                exec_workflow.executable = "toast_env"
                 exec_workflow.ranks = 1
                 exec_workflow.cores_per_rank = 1
 
                 self._logger.info(
-                    "Enacting workflow %s on resource %s", workflow["id"], resource
+                    "Enacting workflow %s", workflow.id
                 )
                 exec_workflows.append(exec_workflow)
                 # Lock the monitoring list and update it, as well as update
                 # the state of the workflow.
                 with self._monitoring_lock:
-                    self._to_monitor.append(workflow["id"])
-                    self._execution_status[workflow["id"]] = {
+                    self._to_monitor.append(workflow.id)
+                    self._execution_status[workflow.id] = {
                         "state": st.EXECUTING,
                         "endpoint": exec_workflow,
                         "exec_thread": None,
-                        "start_time": self._sim_env.now,
+                        "start_time": 0,
                         "end_time": None,
                     }
                 for cb in self._callbacks:
                     self._callbacks[cb](
-                        workflow_ids=[workflow["id"]], new_state=st.EXECUTING
+                        workflow_ids=[workflow.id], new_state=st.EXECUTING
                     )
                 # Execute the task.
-            except:
+            except Exception as ex:
                 self._logger.error(f"Workflow {workflow} could not be executed")
+                self._logger.error(f"Exception raised {ex}")
 
-        self._tmgr.submit_tasks(exec_workflows)
+        self._rp_tmgr.submit_tasks(exec_workflows)
 
         self._prof.prof("enacting_stop", uid=self._uid)
         # If there is no monitoring tasks, start one.
@@ -150,14 +153,14 @@ class RPEnactor(Enactor):
                 self._prof.prof("workflow_monitor_start", uid=self._uid)
                 # with self._monitoring_lock:
                 # It does not iterate correctly.
-
                 monitoring_list = deepcopy(self._to_monitor)
-                self._logger.info("Monitoring workflows %s" % monitoring_list)
+                # self._logger.info("Monitoring workflows %s" % monitoring_list)
                 to_remove = list()
                 for workflow_id in monitoring_list:
-                    rp_workflow = self._rp_tmgr.get_tasks(uids=workflow_id)
+                    rp_workflow = self._rp_tmgr.get_tasks(uids=f"workflow.{workflow_id}")
                     if rp_workflow.state in rp.DONE:
                         with self._monitoring_lock:
+                            self._logger.debug(f"workflow.{workflow_id} Done")
                             self._execution_status[workflow_id]["state"] = st.DONE
                             self._execution_status[workflow_id][
                                 "end_time"

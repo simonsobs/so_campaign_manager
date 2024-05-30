@@ -41,7 +41,9 @@ class Enactor(object):
         self._execution_status = dict()  # This will create a hash table of workflows
 
         self._uid = ru.generate_id("enactor.%(counter)04d", mode=ru.ID_CUSTOM, ns=sid)
+
         path = os.getcwd() + "/" + sid
+        # print(path)
         name = self._uid
 
         self._logger = ru.Logger(name=self._uid, path=path, level="DEBUG")
