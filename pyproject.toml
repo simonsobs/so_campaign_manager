@@ -1,6 +1,5 @@
 [project]
-    # dynamic=["version"]
-    version="0.0.1"
+    dynamic=["version"]
     name="so_campaing_manager"
     description = "A campaign manager to execute SO mapmaking campaign"
     readme = 'README.md'
@@ -9,3 +8,15 @@
     {name = 'Giannis Paraskevakos', email = 'iparask@princeton.edu'},
     ]
     dependencies=["pydantic", "numpy", "radical.pilot"]
+
+[build-system]
+requires = ["setuptools", "versioneer[toml]"]
+build-backend = "setuptools.build_meta"
+
+[tool.versioneer]
+    VCS = "git"
+    style = "pep440"
+    versionfile_source = "src/socm/_version.py"
+    versionfile_build = "socm/_version.py"
+    tag_prefix = "v"
+    parentdir_prefix = "socm-"
