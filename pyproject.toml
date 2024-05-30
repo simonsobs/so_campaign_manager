@@ -7,7 +7,7 @@
     authors = [
     {name = 'Giannis Paraskevakos', email = 'iparask@princeton.edu'},
     ]
-    dependencies=["pydantic", "numpy", "radical.pilot"]
+    dependencies=["pydantic", "numpy", "radical.pilot", "black", "darker", "flake8"]
 
 [build-system]
 requires = ["setuptools", "versioneer[toml]"]
