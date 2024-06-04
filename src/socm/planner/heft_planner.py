@@ -73,7 +73,7 @@ class HeftPlanner(Planner):
         for i in range(len(resources)):
             deps[i] = None
 
-        for workflow, cores, start, _ in plan:
+        for workflow, cores, _, _ in plan:
             previous_tasks = set()
             # print('Before', workflow.id, cores, start, previous_tasks, deps)
             for i in cores:
@@ -84,7 +84,7 @@ class HeftPlanner(Planner):
 
             # print('After', workflow.id, cores, start, previous_tasks, deps)
             if len(previous_tasks) == 0:
-                graph.add_edges_from([("root", workflow.id)])
+                graph.add_node(workflow.id)
             else:
                 for n in previous_tasks:
                     graph.add_edges_from([(n, workflow.id)])
@@ -155,8 +155,8 @@ class HeftPlanner(Planner):
                 tmp_str_time = resource_free[i : i + wf_est_cpus]
                 tmp_end_time = tmp_str_time + wf_est_tx
                 self._logger.debug(
-                    f"Core ID from {i} to {i + wf_est_cpus}. ",
-                    f"total resources {len(tmp_res)}",
+                    f"Core ID from {i} to {i + wf_est_cpus}. "
+                    + f"total resources {len(tmp_res)}",
                 )
                 self._logger.debug(
                     f"Estimated Finish time {sorted_idx}: {tmp_end_time}"
@@ -181,7 +181,9 @@ class HeftPlanner(Planner):
 
         plan_graph = self._get_plan_graph(self._plan, tmp_res)
         self._logger.info("Derived plan %s", self._plan)
-
+        self._plan = sorted(
+            [place for place in self._plan], key=lambda place: place[0].id
+        )
         return self._plan, plan_graph
 
     def replan(
