@@ -4,6 +4,7 @@ License: MIT
 Copyright: 2018-2019
 """
 import numpy as np
+import networkx as nx
 from .base import Planner
 
 
@@ -50,6 +51,28 @@ class HeftPlanner(Planner):
             self._est_tx.append(resource_req["req_walltime"])
             self._est_cpus.append(resource_req["req_cpus"])
 
+    def _get_plan_graph(self, plan, resources):
+        graph = nx.DiGraph()
+        deps = {}
+        for i in range(len(resources)):
+            deps[i] = None
+
+        for workflow, cores, start, _ in plan:
+            previous_tasks = set()
+            # print('Before', workflow.id, cores, start, previous_tasks, deps)
+            for i in cores:
+                if deps[i] is not None:
+                    # print(workflow.id, i, deps[i], previous_tasks)
+                    previous_tasks.add(deps[i])
+                deps[i] = workflow.id
+
+            # print('After', workflow.id, cores, start, previous_tasks, deps)
+            if len(previous_tasks) == 0:
+                graph.add_edges_from([('root', workflow.id)])
+            else:
+                for n in previous_tasks:
+                    graph.add_edges_from([(n, workflow.id)])
+
     def plan(
         self,
         campaign=None,
@@ -66,7 +89,7 @@ class HeftPlanner(Planner):
         any of these has changed. They default to `None`
 
         *Returns:*
-            list(tuples)
+            list(tuples), DAG
         """
 
         tmp_cmp = campaign if campaign else self._campaign
@@ -138,8 +161,10 @@ class HeftPlanner(Planner):
                 start_times + wf_est_tx
             )
 
+        plan_graph = self._get_plan_graph(self._plan, tmp_res)
         self._logger.info("Derived plan %s", self._plan)
-        return self._plan
+
+        return self._plan, plan_graph
 
     def replan(self, campaign=None, resources=None, num_oper=None, start_time=0):
         """
@@ -147,7 +172,7 @@ class HeftPlanner(Planner):
         """
         if campaign and resources and num_oper:
             self._logger.debug("Replanning")
-            self._plan = self.plan(
+            self._plan, plan_graph = self.plan(
                 campaign=campaign,
                 resources=resources,
                 num_oper=num_oper,
@@ -156,4 +181,4 @@ class HeftPlanner(Planner):
         else:
             self._logger.debug("Nothing to plan for")
 
-        return self._plan
+        return self._plan, plan_graph

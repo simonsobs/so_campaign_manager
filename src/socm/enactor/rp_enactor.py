@@ -68,6 +68,9 @@ class RPEnactor(Enactor):
         pilot = self._rp_pmgr.submit_pilots(pdesc)
         self._rp_tmgr.add_pilots(pilot)
 
+        pilot.wait(state=rp.PMGR_ACTIVE)
+        self._logger.info("Pilot is ready")
+
     def enact(self, workflows):
         """
         Method enact receives a set workflows and resources. It is responsible to
@@ -87,7 +90,7 @@ class RPEnactor(Enactor):
                 self._logger.info(
                     "Workflow %s is in state %s",
                     workflow,
-                    st.state_dict[self._get_workflow_state(workflow["id"])],
+                    st.state_dict[self._get_workflow_state(workflow.id)],
                 )
                 continue
 
@@ -119,7 +122,7 @@ class RPEnactor(Enactor):
                         "state": st.EXECUTING,
                         "endpoint": exec_workflow,
                         "exec_thread": None,
-                        "start_time": 0,
+                        "start_time": datetime.now(),
                         "end_time": None,
                     }
                 for cb in self._callbacks:
@@ -164,7 +167,7 @@ class RPEnactor(Enactor):
                             self._execution_status[workflow_id]["state"] = st.DONE
                             self._execution_status[workflow_id][
                                 "end_time"
-                            ] = datetime.now
+                            ] = datetime.now()
                             self._logger.debug(
                                 "Workflow %s finished: %s",
                                 workflow_id,
@@ -229,8 +232,8 @@ class RPEnactor(Enactor):
             self._monitoring_thread.join()
             self._prof.prof("monitor_terminated", uid=self._uid)
         self._logger.debug("Monitor thread terminated")
-        self._rp_tmgr.close()
-        self._rp_pmgr.close(terminate=True)
+        # self._rp_tmgr.close()
+        # self._rp_pmgr.close(terminate=True)
         self._rp_session.close(terminate=True)
         self._logger.debug("Simulation thread terminated")
 
