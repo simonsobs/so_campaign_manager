@@ -3,9 +3,14 @@ Author: Ioannis Paraskevakos
 License: MIT
 Copyright: 2018-2019
 """
+
 import numpy as np
 import networkx as nx
+
+from typing import List, Tuple, Dict
 from .base import Planner
+
+from ..core import Workflow, Campaign, Resource
 
 
 class HeftPlanner(Planner):
@@ -29,7 +34,14 @@ class HeftPlanner(Planner):
     estimated finish time.
     """
 
-    def __init__(self, campaign, resources, resource_requirements, policy, sid=None):
+    def __init__(
+        self,
+        campaign: Campaign,
+        resources: Resource,
+        resource_requirements: Dict[int, Dict[str, float]],
+        policy: str,
+        sid: str = None,
+    ):
 
         super(HeftPlanner, self).__init__(
             campaign=campaign,
@@ -51,7 +63,11 @@ class HeftPlanner(Planner):
             self._est_tx.append(resource_req["req_walltime"])
             self._est_cpus.append(resource_req["req_cpus"])
 
-    def _get_plan_graph(self, plan, resources):
+    def _get_plan_graph(
+        self, plan: List[Tuple[Workflow, range, float, float]], resources: range
+    ) -> nx.DiGraph:
+
+        self._logger.debug("Create resource dependency DAG")
         graph = nx.DiGraph()
         deps = {}
         for i in range(len(resources)):
@@ -68,19 +84,21 @@ class HeftPlanner(Planner):
 
             # print('After', workflow.id, cores, start, previous_tasks, deps)
             if len(previous_tasks) == 0:
-                graph.add_edges_from([('root', workflow.id)])
+                graph.add_edges_from([("root", workflow.id)])
             else:
                 for n in previous_tasks:
                     graph.add_edges_from([(n, workflow.id)])
+        self._logger.info(f"Calculated graph {graph}")
+
+        return graph
 
     def plan(
         self,
-        campaign=None,
-        resources=None,
-        resource_requirements=None,
-        start_time=None,
-        **kargs,
-    ):
+        campaign: List[Workflow] = None,
+        resources: range = None,
+        resource_requirements: Dict[int, Dict[str, float]] = None,
+        start_time: int = 0,
+    ) -> Tuple[List[Tuple[Workflow, range, float, float]], nx.DiGraph]:
         """
         This method implements the basic HEFT algorithm. It returns a list of tuples
         Each tuple contains: Workflow ID, Resource ID, Start Time, End Time.
@@ -103,8 +121,7 @@ class HeftPlanner(Planner):
             if resource_requirements
             else self._resource_requirements
         )
-        res_perf = [1] * self._resources.nodes * self._resources.cores_per_node
-        # print(res_perf)
+
         self._est_tx = list()
         self._est_cpus = list()
         for _, resource_req in tmp_nop.items():
@@ -166,16 +183,22 @@ class HeftPlanner(Planner):
 
         return self._plan, plan_graph
 
-    def replan(self, campaign=None, resources=None, num_oper=None, start_time=0):
+    def replan(
+        self,
+        campaign: List[Workflow] = None,
+        resources: range = None,
+        resource_requirements: Dict[int, Dict[str, float]] = None,
+        start_time: int = 0,
+    ) -> Tuple[List[Tuple[Workflow, range, float, float]], nx.DiGraph]:
         """
         The planning method
         """
-        if campaign and resources and num_oper:
+        if campaign and resources and resource_requirements:
             self._logger.debug("Replanning")
             self._plan, plan_graph = self.plan(
                 campaign=campaign,
                 resources=resources,
-                num_oper=num_oper,
+                resource_requirements=resource_requirements,
                 start_time=start_time,
             )
         else:

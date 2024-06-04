@@ -50,8 +50,7 @@ class Bookkeeper(object):
         self._monitor_lock = ru.RLock("monitor_list_lock")
         # The time in the campaign's world. The first element is the actual time
         # of the campaign world. The second element is the
-        self._time = {"time": 0,
-                      "step": []}
+        self._time = {"time": 0, "step": []}
 
         self._workflows_to_monitor = list()
         self._est_end_times = dict()
@@ -80,7 +79,6 @@ class Bookkeeper(object):
                 "req_memory": req_memory,
                 "req_walltime": req_walltime,
             }
-
 
         self._planner = HeftPlanner(
             campaign=self._campaign["campaign"].workflows,
@@ -134,7 +132,7 @@ class Bookkeeper(object):
         """
         This method is responsible to execute the campaign.
         """
-    
+
         # There is no need to check since I know there is no plan.
         self._logger.debug("Campaign state to PLANNING")
         self._prof.prof("planning_start", uid=self._uid)
@@ -155,15 +153,16 @@ class Bookkeeper(object):
         self._objective = min(
             self._checkpoints[-1] * 1.25, self._resource.maximum_walltime
         )
-        self._logger.debug(f"Campaign makespan {self._checkpoints[-1]}, and objective {self._objective}")
+        self._logger.debug(
+            f"Campaign makespan {self._checkpoints[-1]}, and objective {self._objective}"
+        )
         self._logger.debug(f"Resource max walltime {self._resource.maximum_walltime}")
 
-        self._enactor.setup(resource='tiger', walltime=30, cores=40)
+        self._enactor.setup(resource="tiger", walltime=30, cores=40)
 
         with self._exec_state_lock:
             self._campaign["state"] = st.EXECUTING
         self._logger.debug("Campaign state to EXECUTING")
-
 
         self._prof.prof("work_start", uid=self._uid)
         while not self._terminate_event.is_set():
@@ -182,7 +181,9 @@ class Bookkeeper(object):
                     continue
                 # self._logger.debug(f"Plan {self._plan}")
                 for wf, rc, start_time, est_end_time in self._plan:
-                    self._logger.debug(f"{wf}, {rc}, {start_time}, {self._time['time']}, {est_end_time}")
+                    self._logger.debug(
+                        f"{wf}, {rc}, {start_time}, {self._time['time']}, {est_end_time}"
+                    )
                     # Do not enact to workflows that sould have been executed
                     # already.
                     if (
@@ -197,8 +198,10 @@ class Bookkeeper(object):
                         # self._logger.debug(f"{rc}")
                         for rc_id in rc:
                             self._est_end_times[rc_id] = est_end_time
-                
-                self._logger.debug(f"Submitting workflows {workflows} to resources {resources}")
+
+                self._logger.debug(
+                    f"Submitting workflows {workflows} to resources {resources}"
+                )
                 # There is no need to call the enactor when no new things
                 # should happen.
                 # self._logger.debug('Adding items: %s, %s', workflows, resources)
@@ -210,10 +213,12 @@ class Bookkeeper(object):
                     with self._monitor_lock:
                         self._workflows_to_monitor += workflows
                         self._unavail_resources.append(resources)
-                    self._logger.debug('Things monitored: %s, %s, %s',
-                                       self._workflows_to_monitor,
-                                       self._unavail_resources,
-                                       self._est_end_times)
+                    self._logger.debug(
+                        "Things monitored: %s, %s, %s",
+                        self._workflows_to_monitor,
+                        self._unavail_resources,
+                        self._est_end_times,
+                    )
                 # Inform the enactor to continue until everything ends.
                 self._prof.prof("enactor_cont", uid=self._uid)
                 remain = True
@@ -245,11 +250,15 @@ class Bookkeeper(object):
             while self._workflows_to_monitor:
                 self._prof.prof("workflow_monitor", uid=self._uid)
                 workflows = deepcopy(self._workflows_to_monitor)
-                self._logger.debug(f"Total number of workflows to monitor {len(workflows)}")
+                self._logger.debug(
+                    f"Total number of workflows to monitor {len(workflows)}"
+                )
                 finished = list()
                 tmp_start_times = list()
                 for i in range(len(workflows)):
-                    print(f"Workflows {workflows[i]}, to monitor {self._workflows_to_monitor}")
+                    print(
+                        f"Workflows {workflows[i]}, to monitor {self._workflows_to_monitor}"
+                    )
                     if self._workflows_state[workflows[i].id] in st.CFINAL:
                         resource = self._unavail_resources[i]
                         finished.append((workflows[i], resource))
@@ -391,7 +400,7 @@ class Bookkeeper(object):
             self._prof.prof("bookkeper_wait", uid=self._uid)
             self._cont = True
             while self._campaign["state"] not in st.CFINAL:
-                if self._time["time"] != self._time["step"][0]:
+                # if self._time["time"] != self._time["step"][0]:
                 #     self._time["time"] = (datetime.now().timestamp() - self._time["globaltime"])
                 #     self._cont = True
 
@@ -413,10 +422,10 @@ class Bookkeeper(object):
             self._prof.prof("bookkeper_stopping", uid=self._uid)
         except Exception as ex:
             self._logger.debug(
-                        "Time now: %s, checkpoint: %s",
-                        self._time["time"],
-                        self._checkpoints[-1],
-                    )
+                "Time now: %s, checkpoint: %s",
+                self._time["time"],
+                self._checkpoints[-1],
+            )
             print(ex)
         finally:
             self.terminate()

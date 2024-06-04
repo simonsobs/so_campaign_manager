@@ -57,11 +57,11 @@ class RPEnactor(Enactor):
         """
         pd_init = {
             "resource": "princeton.tiger2",
-            "runtime"       : walltime,  # pilot runtime (min)
-            "exit_on_error" : True,
-            "queue"         : "tiger-test",
-            "access_schema" : "interactive",
-            "cores"         : cores,
+            "runtime": walltime,  # pilot runtime (min)
+            "exit_on_error": True,
+            "queue": "tiger-test",
+            "access_schema": "interactive",
+            "cores": cores,
         }
 
         pdesc = rp.PilotDescription(pd_init)
@@ -103,16 +103,15 @@ class RPEnactor(Enactor):
                     rp.TaskDescription()
                 )  # Use workflow description and resources to create the TaskDescription
                 exec_workflow.uid = f"workflow.{workflow.id}"
-                exec_workflow.pre_exec = ["module load openmpi/gcc/4.1.1/64"
-                                          "module load anaconda3/2022.10",
-                                          "conda activate /scratch/gpfs/SIMONSOBS/env/20240517/soconda_3.10"]
+                exec_workflow.pre_exec = [
+                    "module load openmpi/gcc/4.1.1/64" "module load anaconda3/2022.10",
+                    "conda activate /scratch/gpfs/SIMONSOBS/env/20240517/soconda_3.10",
+                ]
                 exec_workflow.executable = "toast_env"
                 exec_workflow.ranks = 1
                 exec_workflow.cores_per_rank = 1
 
-                self._logger.info(
-                    "Enacting workflow %s", workflow.id
-                )
+                self._logger.info("Enacting workflow %s", workflow.id)
                 exec_workflows.append(exec_workflow)
                 # Lock the monitoring list and update it, as well as update
                 # the state of the workflow.
@@ -160,7 +159,9 @@ class RPEnactor(Enactor):
                 # self._logger.info("Monitoring workflows %s" % monitoring_list)
                 to_remove = list()
                 for workflow_id in monitoring_list:
-                    rp_workflow = self._rp_tmgr.get_tasks(uids=f"workflow.{workflow_id}")
+                    rp_workflow = self._rp_tmgr.get_tasks(
+                        uids=f"workflow.{workflow_id}"
+                    )
                     if rp_workflow.state in rp.DONE:
                         with self._monitoring_lock:
                             self._logger.debug(f"workflow.{workflow_id} Done")

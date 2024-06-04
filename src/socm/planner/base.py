@@ -1,6 +1,10 @@
 import os
+import networkx as nx
+from typing import Dict, List, Tuple
 
 import radical.utils as ru
+
+from ..core import Campaign, Resource, Workflow
 
 
 class Planner(object):
@@ -17,7 +21,14 @@ class Planner(object):
     to do.
     """
 
-    def __init__(self, campaign, resources, resource_requirements, policy, sid=None):
+    def __init__(
+        self,
+        campaign: Campaign,
+        resources: Resource,
+        resource_requirements: Dict[int, Dict[str, float]],
+        policy: str,
+        sid: str = None,
+    ):
         self._campaign = campaign
         self._resources = resources
         self._resource_requirements = resource_requirements
@@ -29,12 +40,12 @@ class Planner(object):
 
     def plan(
         self,
-        campaign=None,
-        resources=None,
-        resource_requirements=None,
-        start_time=0,
+        campaign: List[Workflow] = None,
+        resources: range = None,
+        resource_requirements: Dict[int, Dict[str, float]] = None,
+        start_time: int = 0,
         **kargs,
-    ):
+    ) -> Tuple[List[Tuple[Workflow, range, float, float]], nx.DiGraph]:
         """
         The planning method
         """
@@ -42,8 +53,12 @@ class Planner(object):
         raise NotImplementedError("Plan method is not implemented")
 
     def replan(
-        self, campaign=None, resources=None, resource_requirements=None, start_time=0
-    ):
+        self,
+        campaign: List[Workflow] = None,
+        resources: range = None,
+        resource_requirements: Dict[int, Dict[str, float]] = None,
+        start_time: int = 0,
+    ) -> Tuple[List[Tuple[Workflow, range, float, float]], nx.DiGraph]:
         """
         The planning method
         """
