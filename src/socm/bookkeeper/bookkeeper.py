@@ -170,7 +170,7 @@ class Bookkeeper(object):
                 self._logger.error("Objective cannot be satisfied. Ending execution")
                 with self._exec_state_lock:
                     self._campaign["state"] = st.FAILED
-                    self._terminate()
+                    self.terminate()
             else:
 
                 self._prof.prof("work_submit", uid=self._uid)
@@ -182,8 +182,8 @@ class Bookkeeper(object):
                 # self._logger.debug(f"Plan {self._plan}")
                 for wf_id in self._plan_graph.nodes():
                     self._logger.debug(
-                        f"{self._plan[wf_id][0]}, {self._plan[wf_id][1]}, "
-                        + f"{self._plan[wf_id][2]}, {self._plan[wf_id][3]}"
+                        f"{self._plan[wf_id-1][0]}, {self._plan[wf_id-1][1]}, "
+                        + f"{self._plan[wf_id-1][2]}, {self._plan[wf_id-1][3]}"
                     )
                     predecessors_states = set()
                     for predecessor in self._plan_graph.predecessors(wf_id):
@@ -191,12 +191,12 @@ class Bookkeeper(object):
                     # Do not enact to workflows that sould have been executed
                     # already.
                     if len(predecessors_states) in [0, 1]:
-                        workflows.append(self._plan[wf_id][0])
-                        resources.append(self._plan[wf_id][1])
+                        workflows.append(self._plan[wf_id-1][0])
+                        resources.append(self._plan[wf_id-1][1])
                         # self._time["step"].append(est_end_time)
                         # self._logger.debug(f"{rc}")
-                        for rc_id in self._plan[wf_id][1]:
-                            self._est_end_times[rc_id] = self._plan[wf_id][3]
+                        for rc_id in self._plan[wf_id-1][1]:
+                            self._est_end_times[rc_id] = self._plan[wf_id-1][3]
 
                 self._logger.debug(
                     f"Submitting workflows {workflows} to resources {resources}"
@@ -211,7 +211,7 @@ class Bookkeeper(object):
 
                     with self._monitor_lock:
                         self._workflows_to_monitor += workflows
-                        self._unavail_resources.append(resources)
+                        self._unavail_resources += resources
                     self._logger.debug(
                         "Things monitored: %s, %s, %s",
                         self._workflows_to_monitor,
@@ -255,10 +255,6 @@ class Bookkeeper(object):
                 finished = list()
                 # tmp_start_times = list()
                 for i in range(len(workflows)):
-                    print(
-                        f"Workflows {workflows[i]},",
-                        f" to monitor {self._workflows_to_monitor}",
-                    )
                     if self._workflows_state[workflows[i].id] in st.CFINAL:
                         resource = self._unavail_resources[i]
                         finished.append((workflows[i], resource))
@@ -391,9 +387,9 @@ class Bookkeeper(object):
             # This waits regardless if workflows are failing or not. This loop can
             # do meaningful work such as checking the state of the campaign. It can
             # be a while true, until something happens.
-            self._logger.debug(
-                "Time now: %s, checkpoints: %s", self._time, self._checkpoints
-            )
+            # self._logger.debug(
+            #     "Time now: %s, checkpoints: %s", self._time, self._checkpoints
+            # )
             while self._checkpoints is None:
                 continue
 
@@ -421,12 +417,7 @@ class Bookkeeper(object):
                 self._campaign["state"] = st.DONE
             self._prof.prof("bookkeper_stopping", uid=self._uid)
         except Exception as ex:
-            self._logger.debug(
-                "Time now: %s, checkpoint: %s",
-                self._time["time"],
-                self._checkpoints[-1],
-            )
-            print(ex)
+            self._logger.error(f"Exception occured: {ex}")
         finally:
             self.terminate()
 
