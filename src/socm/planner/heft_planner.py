@@ -155,7 +155,8 @@ class HeftPlanner(Planner):
                 tmp_str_time = resource_free[i : i + wf_est_cpus]
                 tmp_end_time = tmp_str_time + wf_est_tx
                 self._logger.debug(
-                    f"Core ID from {i} to {i + wf_est_cpus}. total resources {len(tmp_res)}"
+                    f"Core ID from {i} to {i + wf_est_cpus}. ",
+                    f"total resources {len(tmp_res)}",
                 )
                 self._logger.debug(
                     f"Estimated Finish time {sorted_idx}: {tmp_end_time}"

@@ -146,7 +146,7 @@ class Bookkeeper(object):
             )
             # self._logger.debug('Calculated plan: %s', self._plan)
         self._prof.prof("planning_ended", uid=self._uid)
-        self._logger.debug(f"Calculated campaign plan")
+        self._logger.debug("Calculated campaign plan")
 
         # Update checkpoints and objective.
         self._update_checkpoints()
@@ -257,7 +257,8 @@ class Bookkeeper(object):
                 tmp_start_times = list()
                 for i in range(len(workflows)):
                     print(
-                        f"Workflows {workflows[i]}, to monitor {self._workflows_to_monitor}"
+                        f"Workflows {workflows[i]},",
+                        f" to monitor {self._workflows_to_monitor}",
                     )
                     if self._workflows_state[workflows[i].id] in st.CFINAL:
                         resource = self._unavail_resources[i]
