@@ -1,9 +1,3 @@
-"""
-Author: Ioannis Paraskevakos
-License: MIT
-Copyright: 2018-2019
-"""
-
 import numpy as np
 import networkx as nx
 

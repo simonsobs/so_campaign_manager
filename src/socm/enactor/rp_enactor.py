@@ -1,9 +1,3 @@
-"""
-Author: Ioannis Paraskevakos
-License: MIT
-Copyright: 2018-2019
-"""
-
 # Imports from general packages
 import threading as mt
 from copy import deepcopy

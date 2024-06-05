@@ -3,7 +3,6 @@ import threading as mt
 from copy import deepcopy
 from time import sleep
 from typing import Dict
-from datetime import datetime
 
 import numpy as np
 import radical.utils as ru
@@ -147,15 +146,19 @@ class Bookkeeper(object):
 
         # Update checkpoints and objective.
         self._update_checkpoints()
-        self._objective = int(np.ceil(min(
-            self._checkpoints[-1] * 1.25, self._resource.maximum_walltime
-        )))
+        self._objective = int(
+            np.ceil(min(self._checkpoints[-1] * 1.25, self._resource.maximum_walltime))
+        )
         self._logger.debug(
             f"Campaign makespan {self._checkpoints[-1]}, and objective {self._objective}"
         )
         self._logger.debug(f"Resource max walltime {self._resource.maximum_walltime}")
 
-        self._enactor.setup(resource=self._resource, walltime=self._objective, cores=self._resource.nodes * self._resource.cores_per_node)
+        self._enactor.setup(
+            resource=self._resource,
+            walltime=self._objective,
+            cores=self._resource.nodes * self._resource.cores_per_node,
+        )
 
         with self._exec_state_lock:
             self._campaign["state"] = st.EXECUTING
@@ -174,47 +177,48 @@ class Bookkeeper(object):
                 workflows = list()  # Workflows to enact
                 resources = list()  # The selected resources
 
-                # self._logger.debug(f"Plan {self._plan}")
                 for wf_id in self._plan_graph.nodes():
-                    # self._logger.debug(
-                    #     f"{self._plan[wf_id-1][0]}, {self._plan[wf_id-1][1]}, "
-                    #     + f"{self._plan[wf_id-1][2]}, {self._plan[wf_id-1][3]}"
-                    # )
+
                     predecessors_states = set()
                     for predecessor in self._plan_graph.predecessors(wf_id):
                         predecessors_states.add(self._workflows_state[predecessor])
                     # Do not enact to workflows that sould have been executed
                     # already.
-                    # self._logger.debug(f"Checking workflow {wf_id}, with predecessors {[st.state_dict[x] for x in predecessors_states]}, and state {st.state_dict[self._workflows_state[wf_id]]}")
-                    if (predecessors_states == set() or predecessors_states == set([st.DONE])) and self._workflows_state[wf_id] == st.NEW:
-                        # self._logger.debug(f"Adding {wf_id}, with predecessors {[st.state_dict[x] for x in predecessors_states]}, and state {st.state_dict[self._workflows_state[wf_id]]} for execution")
-                        workflows.append(self._plan[wf_id-1][0])
-                        resources.append(self._plan[wf_id-1][1])
+                    if (
+                        predecessors_states == set()
+                        or predecessors_states == set([st.DONE])
+                    ) and self._workflows_state[wf_id] == st.NEW:
+                        workflows.append(self._plan[wf_id - 1][0])
+                        resources.append(self._plan[wf_id - 1][1])
 
                         self._logger.debug(
-                            f"To submit workflows {[x.id for x in workflows]} to resources {resources}"
+                            f"To submit workflows {[x.id for x in workflows]}"
+                            + f" to resources {resources}"
                         )
 
-                        for rc_id in self._plan[wf_id-1][1]:
-                            self._est_end_times[rc_id] = self._plan[wf_id-1][3]
+                        for rc_id in self._plan[wf_id - 1][1]:
+                            self._est_end_times[rc_id] = self._plan[wf_id - 1][3]
 
                 self._logger.debug(
-                    f"Submitting workflows {[x.id for x in workflows]} to resources {resources}"
+                    f"Submitting workflows {[x.id for x in workflows]}"
+                    + f" to resources {resources}"
                 )
                 # There is no need to call the enactor when no new things
                 # should happen.
                 # self._logger.debug('Adding items: %s, %s', workflows, resources)
                 if workflows and resources:
                     self._prof.prof("enactor_submit", uid=self._uid)
-                    self._enactor.enact(workflows=workflows, resource_requirements=resources)
+                    self._enactor.enact(
+                        workflows=workflows, resource_requirements=resources
+                    )
                     self._prof.prof("enactor_submitted", uid=self._uid)
 
                     with self._monitor_lock:
                         self._workflows_to_monitor += workflows
                         self._unavail_resources += resources
                         self._logger.info(
-                    f"Total number of workflows to monitor {len(workflows)}"
-                )
+                            f"Total number of workflows to monitor {len(workflows)}"
+                        )
                     self._logger.debug(
                         "Things monitored: %s, %s, %s",
                         self._workflows_to_monitor,
@@ -239,14 +243,11 @@ class Bookkeeper(object):
                 finished = list()
                 # tmp_start_times = list()
                 for i in range(len(workflows)):
-                    # self._logger.debug(f"MONITOR: Workflow {workflows[i].id} with state {st.state_dict[self._workflows_state[workflows[i].id]]}")
                     if self._workflows_state[workflows[i].id] in st.CFINAL:
                         resource = self._unavail_resources[i]
                         finished.append((workflows[i], resource))
-                        # time_now = datetime.now()
-                        # if time_now == self._est_end_times[resource["id"]]:
                         self._logger.info(
-                            "Workflow %s finished at expected time",
+                            "Workflow %s finished",
                             workflows[i].id,
                         )
 

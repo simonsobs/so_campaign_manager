@@ -1,9 +1,3 @@
-"""
-Author: Ioannis Paraskevakos
-License: MIT
-Copyright: 2018-2019
-"""
-
 import os
 
 import radical.utils as ru
