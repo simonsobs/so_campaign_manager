@@ -184,6 +184,7 @@ class HeftPlanner(Planner):
         self._plan = sorted(
             [place for place in self._plan], key=lambda place: place[0].id
         )
+        self._logger.info("Sorted plan %s", self._plan)
         return self._plan, plan_graph
 
     def replan(

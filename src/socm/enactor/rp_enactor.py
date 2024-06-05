@@ -56,10 +56,10 @@ class RPEnactor(Enactor):
         Sets up the enactor to execute workflows.
         """
         pd_init = {
-            "resource": "princeton.tiger2",
+            "resource": resource.name,
             "runtime": walltime,  # pilot runtime (min)
             "exit_on_error": True,
-            "queue": "tiger-test",
+            "queue": resource.default_queue,
             "access_schema": "interactive",
             "cores": cores,
         }
@@ -71,7 +71,7 @@ class RPEnactor(Enactor):
         pilot.wait(state=rp.PMGR_ACTIVE)
         self._logger.info("Pilot is ready")
 
-    def enact(self, workflows):
+    def enact(self, workflows, resource_requirements):
         """
         Method enact receives a set workflows and resources. It is responsible to
         start the execution of the workflow and set a endpoint to the WMF that
@@ -83,7 +83,7 @@ class RPEnactor(Enactor):
 
         self._prof.prof("enacting_start", uid=self._uid)
         exec_workflows = []
-        for workflow in workflows:
+        for workflow, ncpus in zip(workflows, resource_requirements):
             # If the enactor has already received a workflow issue a warning and
             # proceed.
             if workflow.id in self._execution_status:
@@ -108,7 +108,7 @@ class RPEnactor(Enactor):
                     "conda activate /scratch/gpfs/SIMONSOBS/env/20240517/soconda_3.10",
                 ]
                 exec_workflow.executable = "toast_env"
-                exec_workflow.ranks = 1
+                exec_workflow.ranks = len(ncpus)
                 exec_workflow.cores_per_rank = 1
 
                 self._logger.info("Enacting workflow %s", workflow.id)
@@ -152,6 +152,7 @@ class RPEnactor(Enactor):
 
         while not self._terminate_monitor.is_set():
             if self._to_monitor:
+                workflows_executing = self._rp_tmgr.list_tasks()
                 self._prof.prof("workflow_monitor_start", uid=self._uid)
                 # with self._monitoring_lock:
                 # It does not iterate correctly.
@@ -159,23 +160,24 @@ class RPEnactor(Enactor):
                 # self._logger.info("Monitoring workflows %s" % monitoring_list)
                 to_remove = list()
                 for workflow_id in monitoring_list:
-                    rp_workflow = self._rp_tmgr.get_tasks(
-                        uids=f"workflow.{workflow_id}"
-                    )
-                    if rp_workflow.state in rp.DONE:
-                        with self._monitoring_lock:
-                            self._logger.debug(f"workflow.{workflow_id} Done")
-                            self._execution_status[workflow_id]["state"] = st.DONE
-                            self._execution_status[workflow_id][
-                                "end_time"
-                            ] = datetime.now()
-                            self._logger.debug(
-                                "Workflow %s finished: %s",
-                                workflow_id,
-                                self._execution_status[workflow_id]["end_time"],
-                            )
-                            to_remove.append(workflow_id)
-                        self._prof.prof("workflow_success", uid=self._uid)
+                    if f"workflow.{workflow_id}" in workflows_executing:
+                        rp_workflow = self._rp_tmgr.get_tasks(
+                            uids=f"workflow.{workflow_id}"
+                        )
+                        if rp_workflow.state in rp.DONE:
+                            with self._monitoring_lock:
+                                self._logger.debug(f"workflow.{workflow_id} Done")
+                                self._execution_status[workflow_id]["state"] = st.DONE
+                                self._execution_status[workflow_id][
+                                    "end_time"
+                                ] = datetime.now()
+                                self._logger.debug(
+                                    "Workflow %s finished: %s",
+                                    workflow_id,
+                                    self._execution_status[workflow_id]["end_time"],
+                                )
+                                to_remove.append(workflow_id)
+                            self._prof.prof("workflow_success", uid=self._uid)
                 if to_remove:
                     for cb in self._callbacks:
                         self._callbacks[cb](workflow_ids=to_remove, new_state=st.DONE)
