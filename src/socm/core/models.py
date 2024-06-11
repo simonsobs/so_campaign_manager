@@ -21,10 +21,11 @@ class Task(BaseModel):
 
 class Workflow(BaseModel):
     id: int
-    config: str
-    ordered_tasks: List[Task]
-    observations: List[str]
-    context_file: str
+    name: str
+    executable: str
+    config: Optional[str]=None
+    observations: Optional[List[str]]=[]
+    context_file: Optional[str]=None
 
     def get_num_cores_memory(self, resource: Resource) -> Tuple[int, int]:
         """
@@ -57,5 +58,5 @@ class Workflow(BaseModel):
 class Campaign(BaseModel):
     id: int
     workflows: List[Workflow]
-    capaign_policy: str
-    resource: str = "tiger"
+    campaign_policy: str
+    resource: str = "tiger2"

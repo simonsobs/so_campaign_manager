@@ -97,11 +97,11 @@ class RPEnactor(Enactor):
                     rp.TaskDescription()
                 )  # Use workflow description and resources to create the TaskDescription
                 exec_workflow.uid = f"workflow.{workflow.id}"
-                exec_workflow.pre_exec = [
-                    "module load openmpi/gcc/4.1.1/64" "module load anaconda3/2022.10",
-                    "conda activate /scratch/gpfs/SIMONSOBS/env/20240517/soconda_3.10",
-                ]
-                exec_workflow.executable = "toast_env"
+   
+                exec_workflow.executable = workflow.executable
+                exec_workflow.arguments = []
+                if workflow.config:
+                    exec_workflow.arguments += ["--config", workflow.config]
                 exec_workflow.ranks = len(ncpus)
                 exec_workflow.cores_per_rank = 1
 
