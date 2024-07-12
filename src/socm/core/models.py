@@ -21,10 +21,12 @@ class Task(BaseModel):
 
 class Workflow(BaseModel):
     id: int
-    config: str
-    ordered_tasks: List[Task]
-    observations: List[str]
-    context_file: str
+    name: str
+    executable: str
+    subcommand: Optional[str]=None
+    config: Optional[str]=None
+    observations: Optional[List[str]]=[]
+    context_file: Optional[str]=None
 
     def get_num_cores_memory(self, resource: Resource) -> Tuple[int, int]:
         """
@@ -42,7 +44,7 @@ class Workflow(BaseModel):
         # total_memory = 500 * self.observations_length
 
         # total_memory / resource.memory_per_node
-        return random.randint(1, 16), 2000
+        return random.randint(1, 16), 60000
 
     def get_expected_execution_time(self, resource: Resource) -> int:
         """
@@ -51,11 +53,11 @@ class Workflow(BaseModel):
         """
         import random
 
-        return random.random() * 1000
+        return 3600
 
 
 class Campaign(BaseModel):
     id: int
     workflows: List[Workflow]
-    capaign_policy: str
-    resource: str = "tiger"
+    campaign_policy: str
+    resource: str = "tiger2"
