@@ -23,10 +23,10 @@ class Workflow(BaseModel):
     id: int
     name: str
     executable: str
-    subcommand: Optional[str]=None
-    config: Optional[str]=None
-    observations: Optional[List[str]]=[]
-    context_file: Optional[str]=None
+    subcommand: Optional[str] = None
+    config: Optional[str] = None
+    observations: Optional[List[str]] = []
+    context_file: Optional[str] = None
 
     def get_num_cores_memory(self, resource: Resource) -> Tuple[int, int]:
         """

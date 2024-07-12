@@ -97,7 +97,7 @@ class RPEnactor(Enactor):
                     rp.TaskDescription()
                 )  # Use workflow description and resources to create the TaskDescription
                 exec_workflow.uid = f"workflow.{workflow.id}"
-   
+
                 exec_workflow.executable = workflow.executable
                 exec_workflow.arguments = []
                 if workflow.subcommand:
