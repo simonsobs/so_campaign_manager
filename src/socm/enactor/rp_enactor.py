@@ -100,6 +100,8 @@ class RPEnactor(Enactor):
    
                 exec_workflow.executable = workflow.executable
                 exec_workflow.arguments = []
+                if workflow.subcommand:
+                    exec_workflow.arguments += [workflow.subcommand]
                 if workflow.config:
                     exec_workflow.arguments += ["--config", workflow.config]
                 exec_workflow.ranks = len(ncpus)

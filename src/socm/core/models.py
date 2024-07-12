@@ -23,6 +23,7 @@ class Workflow(BaseModel):
     id: int
     name: str
     executable: str
+    subcommand: Optional[str]=None
     config: Optional[str]=None
     observations: Optional[List[str]]=[]
     context_file: Optional[str]=None
@@ -43,7 +44,7 @@ class Workflow(BaseModel):
         # total_memory = 500 * self.observations_length
 
         # total_memory / resource.memory_per_node
-        return random.randint(1, 16), 2000
+        return random.randint(1, 16), 60000
 
     def get_expected_execution_time(self, resource: Resource) -> int:
         """
@@ -52,7 +53,7 @@ class Workflow(BaseModel):
         """
         import random
 
-        return random.random() * 1000
+        return 3600
 
 
 class Campaign(BaseModel):
