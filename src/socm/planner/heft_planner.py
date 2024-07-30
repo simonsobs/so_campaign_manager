@@ -1,9 +1,7 @@
 import numpy as np
 import networkx as nx
 
-from line_profiler import profile
 from typing import List, Tuple, Dict
-from sortedcontainers import SortedDict
 from .base import Planner
 
 from ..core import Workflow, Campaign, Resource
@@ -95,7 +93,6 @@ class HeftPlanner(Planner):
 
         return graph
 
-    @profile
     def plan(
         self,
         campaign: List[Workflow] = None,

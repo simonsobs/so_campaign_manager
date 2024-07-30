@@ -54,7 +54,7 @@ class RPEnactor(Enactor):
             "runtime": walltime,  # pilot runtime (min)
             "exit_on_error": True,
             "queue": resource.default_queue,
-            "access_schema": "interactive",
+            "access_schema": "batch",
             "cores": cores,
         }
 
@@ -65,7 +65,7 @@ class RPEnactor(Enactor):
         pilot.wait(state=rp.PMGR_ACTIVE)
         self._logger.info("Pilot is ready")
 
-    def enact(self, workflows, resource_requirements):
+    def enact(self, workflows, core_requirements, memory_requirements):
         """
         Method enact receives a set workflows and resources. It is responsible to
         start the execution of the workflow and set a endpoint to the WMF that
@@ -77,7 +77,7 @@ class RPEnactor(Enactor):
 
         self._prof.prof("enacting_start", uid=self._uid)
         exec_workflows = []
-        for workflow, ncpus in zip(workflows, resource_requirements):
+        for workflow, ncpus, memory in zip(workflows, core_requirements, memory_requirements):
             # If the enactor has already received a workflow issue a warning and
             # proceed.
             if workflow.id in self._execution_status:
@@ -106,6 +106,7 @@ class RPEnactor(Enactor):
                     exec_workflow.arguments += ["--config", workflow.config]
                 exec_workflow.ranks = len(ncpus)
                 exec_workflow.cores_per_rank = 1
+                exec_workflow.mem_per_rank = memory / len(ncpus)
 
                 self._logger.info("Enacting workflow %s", workflow.id)
                 exec_workflows.append(exec_workflow)
