@@ -175,7 +175,8 @@ class Bookkeeper(object):
 
                 self._prof.prof("work_submit", uid=self._uid)
                 workflows = list()  # Workflows to enact
-                resources = list()  # The selected resources
+                cores = list()  # The selected cores
+                memory = list()  # The memory per workflow
 
                 for wf_id in self._plan_graph.nodes():
 
@@ -189,11 +190,12 @@ class Bookkeeper(object):
                         or predecessors_states == set([st.DONE])
                     ) and self._workflows_state[wf_id] == st.NEW:
                         workflows.append(self._plan[wf_id - 1][0])
-                        resources.append(self._plan[wf_id - 1][1])
+                        cores.append(self._plan[wf_id - 1][1])
+                        memory.append(self._plan[wf_id - 1][2])
 
                         self._logger.debug(
                             f"To submit workflows {[x.id for x in workflows]}"
-                            + f" to resources {resources}"
+                            + f" to resources {cores}"
                         )
 
                         for rc_id in self._plan[wf_id - 1][1]:
@@ -201,21 +203,21 @@ class Bookkeeper(object):
 
                 self._logger.debug(
                     f"Submitting workflows {[x.id for x in workflows]}"
-                    + f" to resources {resources}"
+                    + f" to resources {cores}"
                 )
                 # There is no need to call the enactor when no new things
                 # should happen.
                 # self._logger.debug('Adding items: %s, %s', workflows, resources)
-                if workflows and resources:
+                if workflows and cores and memory:
                     self._prof.prof("enactor_submit", uid=self._uid)
                     self._enactor.enact(
-                        workflows=workflows, resource_requirements=resources
+                        workflows=workflows, core_requirements=cores, memory_requirements=memory
                     )
                     self._prof.prof("enactor_submitted", uid=self._uid)
 
                     with self._monitor_lock:
                         self._workflows_to_monitor += workflows
-                        self._unavail_resources += resources
+                        self._unavail_resources += cores
                         self._logger.info(
                             f"Total number of workflows to monitor {len(workflows)}"
                         )
