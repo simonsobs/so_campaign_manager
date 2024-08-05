@@ -20,3 +20,6 @@ build-backend = "setuptools.build_meta"
     versionfile_build = "socm/_version.py"
     tag_prefix = "v"
     parentdir_prefix = "socm-"
+
+[tool.setuptools]
+include-package-data = true

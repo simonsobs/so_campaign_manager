@@ -1,8 +1,10 @@
 # Imports from general packages
+import os
 import threading as mt
 from copy import deepcopy
 from datetime import datetime
 
+os.environ["RADICAL_CONFIG_USER_DIR"] = os.path.join(os.path.dirname(__file__)+ "/../configs/")
 import radical.pilot as rp
 
 # Imports from dependent packages
@@ -23,7 +25,6 @@ class RPEnactor(Enactor):
     def __init__(self, sid):
 
         super(RPEnactor, self).__init__(sid=sid)
-
         # List with all the workflows that are executing and require to be
         # monitored. This list is atomic and requires a lock
         self._to_monitor = list()
@@ -50,7 +51,7 @@ class RPEnactor(Enactor):
         Sets up the enactor to execute workflows.
         """
         pd_init = {
-            "resource": resource.name,
+            "resource": f"so.{resource.name}",
             "runtime": walltime,  # pilot runtime (min)
             "exit_on_error": True,
             "queue": resource.default_queue,
