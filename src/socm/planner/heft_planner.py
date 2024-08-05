@@ -53,12 +53,22 @@ class HeftPlanner(Planner):
         # TODO: not all workflows can run in a resource
         self._est_tx = list()
         self._est_cpus = list()
+        self._est_memory = list()
         for _, resource_req in resource_requirements.items():
             self._est_tx.append(resource_req["req_walltime"])
             self._est_cpus.append(resource_req["req_cpus"])
 
+    def _get_free_memory(self, start_time: int):
+
+        free_memory = self._resources.nodes * self._resources.memory_per_node
+        for p in self._plan:
+            if p[-2] <= start_time and p[-1] > start_time:
+                free_memory -= p[-3]
+
+        return free_memory
+
     def _get_plan_graph(
-        self, plan: List[Tuple[Workflow, range, float, float]], resources: range
+        self, plan: List[Tuple[Workflow, range, float, float, float]], resources: range
     ) -> nx.DiGraph:
 
         self._logger.debug("Create resource dependency DAG")
@@ -67,16 +77,13 @@ class HeftPlanner(Planner):
         for i in range(len(resources)):
             deps[i] = None
 
-        for workflow, cores, _, _ in plan:
+        for workflow, cores, _, _, _ in plan:
             previous_tasks = set()
-            # print('Before', workflow.id, cores, start, previous_tasks, deps)
             for i in cores:
                 if deps[i] is not None:
-                    # print(workflow.id, i, deps[i], previous_tasks)
                     previous_tasks.add(deps[i])
                 deps[i] = workflow.id
 
-            # print('After', workflow.id, cores, start, previous_tasks, deps)
             if len(previous_tasks) == 0:
                 graph.add_node(workflow.id)
             else:
@@ -121,6 +128,7 @@ class HeftPlanner(Planner):
         for _, resource_req in tmp_nop.items():
             self._est_tx.append(resource_req["req_walltime"])
             self._est_cpus.append(resource_req["req_cpus"])
+            self._est_memory.append(resource_req["req_memory"])
 
         # Reset the plan in case of a recall
         self._plan = list()
@@ -141,6 +149,7 @@ class HeftPlanner(Planner):
 
         for sorted_idx in av_est_idx_sorted:
             wf_est_tx = self._est_tx[sorted_idx]
+            wf_mem_rq = self._est_memory[sorted_idx]
             wf_est_cpus = self._est_cpus[sorted_idx]
             min_end_time = float("inf")
             i = 0
@@ -148,23 +157,26 @@ class HeftPlanner(Planner):
                 # for i in range(0, len(tmp_res), wf_est_cpus):
                 tmp_str_time = resource_free[i : i + wf_est_cpus]
                 tmp_end_time = tmp_str_time + wf_est_tx
-                self._logger.debug(
-                    f"Core ID from {i} to {i + wf_est_cpus}. "
-                    + f"total resources {len(tmp_res)}",
-                )
-                self._logger.debug(
-                    f"Estimated Finish time {sorted_idx}: {tmp_end_time}"
-                )
-                if (tmp_end_time < min_end_time).all():
-                    min_end_time = tmp_end_time.max()
-                    tmp_min_idx = i
-                self._logger.debug(f"Minimum Finish Time {sorted_idx}: {min_end_time}")
+                free_memory = self._get_free_memory(tmp_str_time.max())
+                if free_memory >= wf_mem_rq:
+                    self._logger.debug(
+                        f"Estimated Finish time {sorted_idx}: {tmp_end_time}"
+                    )
+                    if (tmp_end_time < min_end_time).all():
+                        min_end_time = tmp_end_time.max()
+                        tmp_min_idx = i
+                    self._logger.debug(
+                        f"Minimum Finish Time {sorted_idx}: {min_end_time}"
+                    )
+                else:
+                    self._logger.debug(f"Not enough memory {free_memory}, {wf_mem_rq}")
                 i += wf_est_cpus
             start_times = resource_free[tmp_min_idx : tmp_min_idx + wf_est_cpus].max()
             self._plan.append(
                 (
                     tmp_cmp[sorted_idx],
                     tmp_res[tmp_min_idx : tmp_min_idx + wf_est_cpus],
+                    wf_mem_rq,
                     start_times,
                     start_times + wf_est_tx,
                 )
@@ -172,9 +184,8 @@ class HeftPlanner(Planner):
             resource_free[tmp_min_idx : tmp_min_idx + wf_est_cpus] = (
                 start_times + wf_est_tx
             )
-
         plan_graph = self._get_plan_graph(self._plan, tmp_res)
-        self._logger.info("Derived plan %s", self._plan)
+        # self._logger.info("Derived plan %s", self._plan)
         self._plan = sorted(
             [place for place in self._plan], key=lambda place: place[0].id
         )
