@@ -4,7 +4,6 @@ import threading as mt
 from copy import deepcopy
 from datetime import datetime
 
-os.environ["RADICAL_CONFIG_USER_DIR"] = os.path.join(os.path.dirname(__file__)+ "/../configs/")
 import radical.pilot as rp
 
 # Imports from dependent packages
@@ -29,6 +28,7 @@ class RPEnactor(Enactor):
         # monitored. This list is atomic and requires a lock
         self._to_monitor = list()
 
+        os.environ["RADICAL_CONFIG_USER_DIR"] = os.path.join(os.path.dirname(__file__)+ "/../configs/")
         self._prof.prof("enactor_setup", uid=self._uid)
         # Lock to provide atomicity in the monitoring data structure
         self._monitoring_lock = ru.RLock("cm.monitor_lock")
