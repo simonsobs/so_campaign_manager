@@ -1,8 +1,13 @@
+import json
+import sqlite3
 from typing import Callable, List, Optional, Tuple
 
+import yaml
 from pydantic import BaseModel
+from sotodlib.core.util import tag_substr
 
-# from sotodlid.core import Context
+from ..utils.const import PERFORMANCE_QUERY
+from ..utils.misc import dict_factory
 
 
 class Resource(BaseModel):
@@ -23,37 +28,81 @@ class Workflow(BaseModel):
     id: int
     name: str
     executable: str
-    subcommand: Optional[str] = None
-    config: Optional[str] = None
+    context_file: str
+    subcommand: str
+    config: str
     observations: Optional[List[str]] = []
-    context_file: Optional[str] = None
 
     def get_num_cores_memory(self, resource: Resource) -> Tuple[int, int]:
         """
         Based on the observation list, and task memory requirements return the
         total memory of this workflow
         """
-        import random
+        with open(self.context_file, "r") as file:
+            context = yaml.safe_load(file)
+        with open(self.config, "r") as file:
+            config = yaml.safe_load(file)
 
-        # context = Context(self.context_file)
+        context = tag_substr(dest=context, tags=context["tags"])
+        obs_db_con = sqlite3.connect(context["obsdb"])
+        obs_db_con.row_factory = dict_factory
+        obs_db_cur = obs_db_con.cursor()
+        obs_db_cur.execute(
+            "select n_samples from obs where obs_id=:obs_id",
+            {"obs_id": config["observation_id"]},
+        )
+        n_samples = obs_db_cur.fetchone()["n_samples"]
+        obs_db_con.close()
 
-        # for observation in self.observations:
-        #     obs = context.get_obs(observation)
-        #     self.observations_length += obs.obs_info.duration
+        performance_db_con = sqlite3.connect("something")
+        performance_db_con.row_factory = dict_factory
+        performance_db_cur = performance_db_con.cursor()
+        performance_db_cur.execute(
+            PERFORMANCE_QUERY,
+            {"workflow_name": self.executable, "subcommand": self.subcommand},
+        )
 
-        # total_memory = 500 * self.observations_length
+        performance = performance_db_cur.fetchone()
 
-        # total_memory / resource.memory_per_node
-        return random.randint(1, 16), 60000
+        perf_fun = json.loads(performance["memory_function"])
+        total_memory = perf_fun(n_samples, *performance["memory_params"])
+
+        return 1, total_memory
 
     def get_expected_execution_time(self, resource: Resource) -> int:
         """
         Calculate the expected execution time based on the the number of nodes,
         task list and observation size
         """
-        import random
+        with open(self.context_file, "r") as file:
+            context = yaml.safe_load(file)
+        with open(self.config, "r") as file:
+            config = yaml.safe_load(file)
 
-        return 3600
+        context = tag_substr(dest=context, tags=context["tags"])
+        obs_db_con = sqlite3.connect(context["obsdb"])
+        obs_db_con.row_factory = dict_factory
+        obs_db_cur = obs_db_con.cursor()
+        obs_db_cur.execute(
+            "select n_samples from obs where obs_id=:obs_id",
+            {"obs_id": config["observation_id"]},
+        )
+        n_samples = obs_db_cur.fetchone()["n_samples"]
+        obs_db_con.close()
+
+        performance_db_con = sqlite3.connect("something")
+        performance_db_con.row_factory = dict_factory
+        performance_db_cur = performance_db_con.cursor()
+        performance_db_cur.execute(
+            PERFORMANCE_QUERY,
+            {"workflow_name": self.executable, "subcommand": self.subcommand},
+        )
+
+        performance = performance_db_cur.fetchone()
+
+        perf_fun = json.loads(performance["time_function"])
+        expected_execution = perf_fun(n_samples, *performance["time_params"])
+        return expected_execution
 
 
 class Campaign(BaseModel):

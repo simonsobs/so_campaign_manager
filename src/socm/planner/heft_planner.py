@@ -1,10 +1,10 @@
-import numpy as np
+from typing import Dict, List, Tuple
+
 import networkx as nx
+import numpy as np
 
-from typing import List, Tuple, Dict
+from ..core import Campaign, Resource, Workflow
 from .base import Planner
-
-from ..core import Workflow, Campaign, Resource
 
 
 class HeftPlanner(Planner):

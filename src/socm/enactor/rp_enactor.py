@@ -4,9 +4,8 @@ import threading as mt
 from copy import deepcopy
 from datetime import datetime
 
-import radical.pilot as rp
-
 # Imports from dependent packages
+import radical.pilot as rp
 import radical.utils as ru
 
 from ..core import Resource
@@ -28,7 +27,9 @@ class RPEnactor(Enactor):
         # monitored. This list is atomic and requires a lock
         self._to_monitor = list()
 
-        os.environ["RADICAL_CONFIG_USER_DIR"] = os.path.join(os.path.dirname(__file__)+ "/../configs/")
+        os.environ["RADICAL_CONFIG_USER_DIR"] = os.path.join(
+            os.path.dirname(__file__) + "/../configs/"
+        )
         self._prof.prof("enactor_setup", uid=self._uid)
         # Lock to provide atomicity in the monitoring data structure
         self._monitoring_lock = ru.RLock("cm.monitor_lock")
@@ -78,7 +79,9 @@ class RPEnactor(Enactor):
 
         self._prof.prof("enacting_start", uid=self._uid)
         exec_workflows = []
-        for workflow, ncpus, memory in zip(workflows, core_requirements, memory_requirements):
+        for workflow, ncpus, memory in zip(
+            workflows, core_requirements, memory_requirements
+        ):
             # If the enactor has already received a workflow issue a warning and
             # proceed.
             if workflow.id in self._execution_status:
@@ -105,9 +108,9 @@ class RPEnactor(Enactor):
                     exec_workflow.arguments += [workflow.subcommand]
                 if workflow.config:
                     exec_workflow.arguments += ["--config", workflow.config]
-                exec_workflow.ranks = len(ncpus)
-                exec_workflow.cores_per_rank = 1
-                exec_workflow.mem_per_rank = memory / len(ncpus)
+                exec_workflow.ranks = len(ncpus[0])
+                exec_workflow.cores_per_rank = ncpus[1]
+                exec_workflow.mem_per_rank = memory / len(ncpus[1])
 
                 self._logger.info("Enacting workflow %s", workflow.id)
                 exec_workflows.append(exec_workflow)

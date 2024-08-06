@@ -1,1 +1,1 @@
-from .models import Campaign, Resource, Workflow, Task  # noqa: F401
+from .models import Campaign, Resource, Task, Workflow  # noqa: F401

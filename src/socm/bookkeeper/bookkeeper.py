@@ -189,8 +189,16 @@ class Bookkeeper(object):
                         predecessors_states == set()
                         or predecessors_states == set([st.DONE])
                     ) and self._workflows_state[wf_id] == st.NEW:
+                        node_slice = (
+                            self._resource.memory_per_node / self._plan[wf_id - 1][2]
+                        )
+                        threads_per_core = np.floor(
+                            self._resource.cores_per_node
+                            * node_slice
+                            / len(self._plan[wf_id - 1][1])
+                        )
                         workflows.append(self._plan[wf_id - 1][0])
-                        cores.append(self._plan[wf_id - 1][1])
+                        cores.append((self._plan[wf_id - 1][1], threads_per_core))
                         memory.append(self._plan[wf_id - 1][2])
 
                         self._logger.debug(
@@ -211,7 +219,9 @@ class Bookkeeper(object):
                 if workflows and cores and memory:
                     self._prof.prof("enactor_submit", uid=self._uid)
                     self._enactor.enact(
-                        workflows=workflows, core_requirements=cores, memory_requirements=memory
+                        workflows=workflows,
+                        core_requirements=cores,
+                        memory_requirements=memory,
                     )
                     self._prof.prof("enactor_submitted", uid=self._uid)
 
