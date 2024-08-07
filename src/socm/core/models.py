@@ -1,6 +1,5 @@
 import json
 import sqlite3
-import dill
 import math
 from typing import Callable, List, Optional, Tuple
 
@@ -57,7 +56,9 @@ class Workflow(BaseModel):
         n_samples = obs_db_cur.fetchone()["n_samples"]
         obs_db_con.close()
 
-        performance_db_con = sqlite3.connect("/scratch/gpfs/SIMONSOBS/so/performance_db.sqlite")
+        performance_db_con = sqlite3.connect(
+            "/scratch/gpfs/SIMONSOBS/so/performance_db.sqlite"
+        )
         performance_db_con.row_factory = dict_factory
         performance_db_cur = performance_db_con.cursor()
         performance_db_cur.execute(
@@ -92,7 +93,9 @@ class Workflow(BaseModel):
         n_samples = obs_db_cur.fetchone()["n_samples"]
         obs_db_con.close()
 
-        performance_db_con = sqlite3.connect("/scratch/gpfs/SIMONSOBS/so/performance_db.sqlite")
+        performance_db_con = sqlite3.connect(
+            "/scratch/gpfs/SIMONSOBS/so/performance_db.sqlite"
+        )
         performance_db_con.row_factory = dict_factory
         performance_db_cur = performance_db_con.cursor()
         performance_db_cur.execute(

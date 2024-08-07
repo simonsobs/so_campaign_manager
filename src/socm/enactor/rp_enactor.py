@@ -107,7 +107,10 @@ class RPEnactor(Enactor):
                 if workflow.subcommand:
                     exec_workflow.arguments += [workflow.subcommand]
                 if workflow.config:
-                    exec_workflow.arguments += ["--config", workflow.config]
+                    exec_workflow.arguments += [
+                        "--config",
+                        os.path.abspath(workflow.config),
+                    ]
                 exec_workflow.ranks = len(ncpus[0])
                 exec_workflow.cores_per_rank = ncpus[1]
                 exec_workflow.mem_per_rank = memory / len(ncpus[0])
