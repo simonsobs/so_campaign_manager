@@ -110,7 +110,7 @@ class RPEnactor(Enactor):
                     exec_workflow.arguments += ["--config", workflow.config]
                 exec_workflow.ranks = len(ncpus[0])
                 exec_workflow.cores_per_rank = ncpus[1]
-                exec_workflow.mem_per_rank = memory / len(ncpus[1])
+                exec_workflow.mem_per_rank = memory / len(ncpus[0])
 
                 self._logger.info("Enacting workflow %s", workflow.id)
                 exec_workflows.append(exec_workflow)
@@ -132,7 +132,7 @@ class RPEnactor(Enactor):
                 # Execute the task.
             except Exception as ex:
                 self._logger.error(f"Workflow {workflow} could not be executed")
-                self._logger.error(f"Exception raised {ex}")
+                self._logger.error(f"Exception raised {ex}", exc_info=True)
 
         self._rp_tmgr.submit_tasks(exec_workflows)
 

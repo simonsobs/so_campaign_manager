@@ -3,8 +3,7 @@ import threading as mt
 from copy import deepcopy
 from time import sleep
 from typing import Dict
-
-import numpy as np
+from math import ceil, floor
 import radical.utils as ru
 
 from ..core import Campaign, Resource
@@ -147,7 +146,7 @@ class Bookkeeper(object):
         # Update checkpoints and objective.
         self._update_checkpoints()
         self._objective = int(
-            np.ceil(min(self._checkpoints[-1] * 1.25, self._resource.maximum_walltime))
+            ceil(min(self._checkpoints[-1] * 1.25, self._resource.maximum_walltime))
         )
         self._logger.debug(
             f"Campaign makespan {self._checkpoints[-1]}, and objective {self._objective}"
@@ -190,13 +189,14 @@ class Bookkeeper(object):
                         or predecessors_states == set([st.DONE])
                     ) and self._workflows_state[wf_id] == st.NEW:
                         node_slice = (
-                            self._resource.memory_per_node / self._plan[wf_id - 1][2]
+                            self._plan[wf_id - 1][2] / self._resource.memory_per_node
                         )
-                        threads_per_core = np.floor(
+                        threads_per_core = floor(
                             self._resource.cores_per_node
                             * node_slice
                             / len(self._plan[wf_id - 1][1])
                         )
+                        # print(node_slice, threads_per_core, self._plan[wf_id - 1])
                         workflows.append(self._plan[wf_id - 1][0])
                         cores.append((self._plan[wf_id - 1][1], threads_per_core))
                         memory.append(self._plan[wf_id - 1][2])
@@ -213,6 +213,7 @@ class Bookkeeper(object):
                     f"Submitting workflows {[x.id for x in workflows]}"
                     + f" to resources {cores}"
                 )
+
                 # There is no need to call the enactor when no new things
                 # should happen.
                 # self._logger.debug('Adding items: %s, %s', workflows, resources)

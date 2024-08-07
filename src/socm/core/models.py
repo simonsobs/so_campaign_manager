@@ -1,11 +1,14 @@
 import json
 import sqlite3
+import dill
+import math
 from typing import Callable, List, Optional, Tuple
 
 import yaml
 from pydantic import BaseModel
 from sotodlib.core.util import tag_substr
 
+from ..utils import FITS_FUNCS
 from ..utils.const import PERFORMANCE_QUERY
 from ..utils.misc import dict_factory
 
@@ -54,7 +57,7 @@ class Workflow(BaseModel):
         n_samples = obs_db_cur.fetchone()["n_samples"]
         obs_db_con.close()
 
-        performance_db_con = sqlite3.connect("something")
+        performance_db_con = sqlite3.connect("/scratch/gpfs/SIMONSOBS/so/performance_db.sqlite")
         performance_db_con.row_factory = dict_factory
         performance_db_cur = performance_db_con.cursor()
         performance_db_cur.execute(
@@ -63,10 +66,9 @@ class Workflow(BaseModel):
         )
 
         performance = performance_db_cur.fetchone()
-
-        perf_fun = json.loads(performance["memory_function"])
-        total_memory = perf_fun(n_samples, *performance["memory_params"])
-
+        perf_fun = FITS_FUNCS[performance["memory_function"]]
+        params = json.loads(performance["memory_param"])
+        total_memory = math.ceil(perf_fun(n_samples, *params))
         return 1, total_memory
 
     def get_expected_execution_time(self, resource: Resource) -> int:
@@ -90,7 +92,7 @@ class Workflow(BaseModel):
         n_samples = obs_db_cur.fetchone()["n_samples"]
         obs_db_con.close()
 
-        performance_db_con = sqlite3.connect("something")
+        performance_db_con = sqlite3.connect("/scratch/gpfs/SIMONSOBS/so/performance_db.sqlite")
         performance_db_con.row_factory = dict_factory
         performance_db_cur = performance_db_con.cursor()
         performance_db_cur.execute(
@@ -100,8 +102,9 @@ class Workflow(BaseModel):
 
         performance = performance_db_cur.fetchone()
 
-        perf_fun = json.loads(performance["time_function"])
-        expected_execution = perf_fun(n_samples, *performance["time_params"])
+        perf_fun = FITS_FUNCS[performance["time_function"]]
+        params = json.loads(performance["time_param"])
+        expected_execution = math.ceil(perf_fun(n_samples, *params))
         return expected_execution
 
 
