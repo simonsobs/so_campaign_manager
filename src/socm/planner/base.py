@@ -1,7 +1,7 @@
 import os
-import networkx as nx
 from typing import Dict, List, Tuple
 
+import networkx as nx
 import radical.utils as ru
 
 from ..core import Campaign, Resource, Workflow
