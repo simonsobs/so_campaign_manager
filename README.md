@@ -20,11 +20,6 @@ Note: This document will fill up as requirements are coming in and we run things
 We use **[git-flow](http://nvie.com/posts/a-successful-git-branching-model/)** as branching model, with some simplifications.  We follow **[semantic version numbering](http://semver.org/)**.
 
 * release candidates and releases are tagged in the `main` branch.
-<!-- * a release is prepared by 
-  * tagging a release candidate on `devel` (e.g. `v1.23RC4`)
-  * testing that RC
-  * problems are fixed in `devel`, toward a new release candidate
-  * once the RC is found stable, devel is merged to master, the release is tagged on master (e.g. `v1.23`) and shipped to pypi. -->
 * urgent hotfix releases:
   * branch from master to `hotfix/problem_name`
   * fix the problem in that branch

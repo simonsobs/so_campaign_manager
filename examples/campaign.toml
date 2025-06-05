@@ -1,0 +1,21 @@
+[campaign]
+deadline="2d"
+
+[campaign.ml-mapmaking]
+context="context.yaml"
+area="somefile.fits"
+output_dir="output"
+maxiters=10
+query="timestamp_start > 2020-01-01T00:00:00Z && timestamp_end < 2020-12-31T23:59:59Z" # SQL-like query that sotodlib understands
+site="act"
+
+[campaign.lat-null-test]
+context="context.yaml"
+area="somefile.fits"
+output_dir="output"
+maxiters=10
+site="act"
+query="timestamp_start > 2020-01-01T00:00:00Z && timestamp_end < 2020-01-09T23:59:59.999Z" # SQL-like query that sotodlib understands
+[campaign.lat-null-test.mission]
+chunk_duration="1d" # This is based on the start timestamp of the query. Always in days
+nsplits=8 # Multiple of 2. We take the total duration, break it to cunk_durations and assign each chunk to a split randomly. Based on the null test have a defaul
