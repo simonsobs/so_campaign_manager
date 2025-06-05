@@ -1,6 +1,5 @@
-from socm.core import Workflow, Resource, Campaign
-
 from socm.bookkeeper import Bookkeeper
+from socm.core import Campaign, Resource, Workflow
 
 if __name__ == "__main__":
 
@@ -16,7 +15,7 @@ if __name__ == "__main__":
             name=f"test.{i}",
             executable="so-site-pipeline",
             subcommand="make-filterbin-map",
-            context_file="$SCRATCH/so/untracked/metadata/satp3/contexts/use_this_local.yaml",
+            context_file="$SCRATCH/so/tracked/metadata/satp3/contexts/use_this_local.yaml",
             config=f"config{i}.yaml",
         )
         ws.append(w)
@@ -29,17 +28,17 @@ if __name__ == "__main__":
 
     # A resource is where the campaign will run.
     r = Resource(
-        name="tiger2",
+        name="tiger3",
         nodes=1,
-        cores_per_node=40,
-        memory_per_node=180000,
+        cores_per_node=112,
+        memory_per_node=100000000,
         default_queue="tiger-test",
         maximum_walltime=3600000,
     )
 
     # This main class to execute the campaign to a resource.
     b = Bookkeeper(
-        campaign=c, resources={"tiger2": r}, policy="time", target_resource="tiger2"
+        campaign=c, resources={"tiger3": r}, policy="time", target_resource="tiger3"
     )
 
     b.run()

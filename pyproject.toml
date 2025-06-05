@@ -1,13 +1,23 @@
 [project]
-    dynamic=["version"]
-    name="so_campaing_manager"
-    description = "A campaign manager to execute SO mapmaking campaign"
-    readme = 'README.md'
-    requires-python = '>=3.9'
-    authors = [
-    {name = 'Giannis Paraskevakos', email = 'iparask@princeton.edu'},
-    ]
-    dependencies=["pydantic", "numpy", "radical.pilot", "black", "darker", "flake8", "networkx"]
+dynamic=["version"]
+name="so_campaing_manager"
+description = "A campaign manager to execute SO mapmaking campaign"
+readme = 'README.md'
+requires-python = '>=3.9'
+authors = [
+{name = 'Giannis Paraskevakos', email = 'iparask@princeton.edu'},
+]
+dependencies=["pydantic", "numpy", "radical.pilot", "networkx", "toml"]
+
+[project.optional-dependencies]
+dev = ["ruff", 
+       "darker",
+       "flake8",
+       "isort",
+       "pytest-cov>=2.6",
+       "coveralls>=1.5",
+       "pytest>=4.6"
+]
 
 [build-system]
 requires = ["setuptools", "versioneer[toml]"]

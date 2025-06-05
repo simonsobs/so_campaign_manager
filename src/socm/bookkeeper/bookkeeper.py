@@ -1,10 +1,13 @@
 import os
 import threading as mt
 from copy import deepcopy
+from math import ceil, floor
 from time import sleep
 from typing import Dict
-from math import ceil, floor
+
+import numpy as np
 import radical.utils as ru
+from slurmise import Slurmise
 
 from ..core import Campaign, Resource
 from ..enactor import RPEnactor
@@ -47,6 +50,7 @@ class Bookkeeper(object):
         self._objective = self._resource.maximum_walltime
         self._exec_state_lock = ru.RLock("workflows_state_lock")
         self._monitor_lock = ru.RLock("monitor_list_lock")
+        self._slurmise = Slurmise(toml_path="src/socm/config/slurmise.toml")
         # The time in the campaign's world. The first element is the actual time
         # of the campaign world. The second element is the
         # self._time = {"time": 0, "step": []}
@@ -68,13 +72,22 @@ class Bookkeeper(object):
         self._prof = ru.Profiler(name=self._uid, path=path)
 
         workflow_requirements = {}
+        total_cores = self._resource.nodes * self._resource.cores_per_node
+        total_memory = self._resource.nodes * self._resource.memory_per_node
         for workflow in self._campaign["campaign"].workflows:
-            req_cpus, req_memory = workflow.get_num_cores_memory(self._resource)
-            req_walltime = workflow.get_expected_execution_time(self._resource)
+            tmp_runtime = np.inf
+            cores = 1
+            while cores <= total_cores:
+                slurm_job, _ = self._slurmise.predict(cmd=workflow.get_command(), job_name=workflow.subcommand)
+                if tmp_runtime / slurm_job.predicted_runtime > 1.5 and slurm_job.predicted_memory < total_memory:
+                    tmp_runtime = slurm_job.predicted_runtime
+                    cores *= 2
+                else:
+                    break
             workflow_requirements[workflow.id] = {
-                "req_cpus": req_cpus,
-                "req_memory": req_memory,
-                "req_walltime": req_walltime,
+                "req_cpus": cores,
+                "req_memory": slurm_job.predicted_memory,
+                "req_walltime": slurm_job.predicted_runtime * 1.1,  # Adding 10% to the runtime
             }
 
         self._planner = HeftPlanner(
@@ -259,6 +272,11 @@ class Bookkeeper(object):
                     if self._workflows_state[workflows[i].id] in st.CFINAL:
                         resource = self._unavail_resources[i]
                         finished.append((workflows[i], resource))
+                        self._slurmise.record(
+                            cmd=workflows[i].get_command(),
+                            slurm_id=self._enactor.get_slurm_id(),
+                            step_id=workflows[i].id,
+                        )
                         self._logger.info(
                             "Workflow %s finished",
                             workflows[i].id,

@@ -55,7 +55,6 @@ class RPEnactor(Enactor):
             "resource": f"so.{resource.name}",
             "runtime": walltime,  # pilot runtime (min)
             "exit_on_error": True,
-            "queue": resource.default_queue,
             "access_schema": "batch",
             "cores": cores,
         }
@@ -106,15 +105,11 @@ class RPEnactor(Enactor):
                 exec_workflow.arguments = []
                 if workflow.subcommand:
                     exec_workflow.arguments += [workflow.subcommand]
-                if workflow.config:
-                    exec_workflow.arguments += [
-                        "--config",
-                        os.path.abspath(workflow.config),
-                    ]
+                command = workflow.get_command()
+                exec_workflow.arguments = command.split()
                 exec_workflow.ranks = len(ncpus[0])
                 exec_workflow.cores_per_rank = ncpus[1]
                 exec_workflow.mem_per_rank = memory / len(ncpus[0])
-
                 self._logger.info("Enacting workflow %s", workflow.id)
                 exec_workflows.append(exec_workflow)
                 # Lock the monitoring list and update it, as well as update

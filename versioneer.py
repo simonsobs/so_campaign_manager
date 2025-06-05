@@ -316,7 +316,8 @@ import re
 import subprocess
 import sys
 from pathlib import Path
-from typing import Any, Callable, Dict, List, NoReturn, Optional, Tuple, Union, cast
+from typing import (Any, Callable, Dict, List, NoReturn, Optional, Tuple,
+                    Union, cast)
 
 have_tomllib = True
 if sys.version_info >= (3, 11):
@@ -2073,9 +2074,11 @@ def get_cmdclass(cmdclass: Optional[Dict[str, Any]] = None):
 
     if "py2exe" in sys.modules:  # py2exe enabled?
         try:
-            from py2exe.setuptools_buildexe import py2exe as _py2exe  # type: ignore
+            from py2exe.setuptools_buildexe import \
+                py2exe as _py2exe  # type: ignore
         except ImportError:
-            from py2exe.distutils_buildexe import py2exe as _py2exe  # type: ignore
+            from py2exe.distutils_buildexe import \
+                py2exe as _py2exe  # type: ignore
 
         class cmd_py2exe(_py2exe):
             def run(self) -> None:
