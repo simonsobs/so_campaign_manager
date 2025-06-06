@@ -14,11 +14,16 @@ class Resource(BaseModel):
 class Workflow(BaseModel):
     name: str
     executable: str
-    context_file: str
+    context: str
     subcommand: str
+
+    model_config = {
+        "extra": "allow",
+    }
 
     def get_command(self, **kargs) -> str:
         raise NotImplementedError("This method should be implemented in subclasses")
+
 
 class Campaign(BaseModel):
     id: int
