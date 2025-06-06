@@ -9,7 +9,7 @@ class MLMapmakingWorkflow(Workflow):
     area: str
     output_dir: str
     query: str = "1"
-    name: str = "ml_mapmaking_workflow_test"
+    name: str = "ml_mapmaking_workflow"
     executable: str = "so-site-pipeline"
     subcommand: str = "make-ml-map"
 

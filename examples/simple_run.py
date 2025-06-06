@@ -1,5 +1,6 @@
 from socm.bookkeeper import Bookkeeper
-from socm.core import Campaign, Resource, Workflow
+from socm.core import Campaign, Resource
+from socm.workflows import MLMapmakingWorkflow
 
 if __name__ == "__main__":
 
@@ -10,6 +11,7 @@ if __name__ == "__main__":
     # subcommand: the subcommand of the executable
     ws = []
     for i in range(1, 3):
+        
         w = Workflow(
             id=i,
             name=f"test.{i}",

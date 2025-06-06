@@ -7,7 +7,12 @@ requires-python = '>=3.9'
 authors = [
 {name = 'Giannis Paraskevakos', email = 'iparask@princeton.edu'},
 ]
-dependencies=["pydantic", "numpy", "radical.pilot", "networkx", "toml"]
+dependencies=["pydantic", 
+              "numpy",
+              "radical.pilot",
+              "networkx",
+              "toml",
+              "click"]
 
 [project.optional-dependencies]
 dev = ["ruff", 
@@ -33,3 +38,6 @@ build-backend = "setuptools.build_meta"
 
 [tool.setuptools]
 include-package-data = true
+
+[project.scripts]
+socm = "socm.__main__:main"

@@ -1,14 +1,14 @@
 import toml
-from socm.workflows.null_tests import TimeNullTestWorkflow
-from socm.utils.time_utils import parse_timedelta
+from socm.workflows import MLMapmakingWorkflow
 test = toml.load("examples/campaign.toml")
-t = test["campaign"]["lat-null-test"]
-t["chunk_duration"] = t["mission"]["chunk_duration"]
-t["nsplits"] = t["mission"]["nsplits"]
-t["name"] = "mission_null_test"
-t["executable"] = "python"
-t["context_file"] = t["context"]
-t["subcommand"] = "make_ml_mapmaker"
-t["chunk_duration"] = '3d'
-a = TimeNullTestWorkflow(**t)
+t = test["campaign"]["ml-mapmaking"]
+t["name"] = "ml_mapmaking_workflow_test"
+t["executable"] = "so-site-pipeline"
+t["context"] = t["context"]
+t["subcommand"] = "make-ml-map"
+t["something_extra"] = "test_value"  # Example of adding an extra field
+a = MLMapmakingWorkflow(**t)
 print(a)
+print("\n\n\n\n")
+print(a.get_command(ranks=1))
+
