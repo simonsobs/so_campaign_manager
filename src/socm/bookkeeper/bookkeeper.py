@@ -4,10 +4,11 @@ from copy import deepcopy
 from math import ceil, floor
 from time import sleep
 from typing import Dict
+from importlib.resources import files
 
 import numpy as np
 import radical.utils as ru
-from slurmise import Slurmise
+from slurmise.api import Slurmise
 
 from ..core import Campaign, Resource
 from ..enactor import RPEnactor
@@ -50,21 +51,12 @@ class Bookkeeper(object):
         self._objective = self._resource.maximum_walltime
         self._exec_state_lock = ru.RLock("workflows_state_lock")
         self._monitor_lock = ru.RLock("monitor_list_lock")
-        self._slurmise = Slurmise(toml_path="src/socm/config/slurmise.toml")
+        self._slurmise = Slurmise(toml_path=files("socm.configs") / "slurmise.toml")
         # The time in the campaign's world. The first element is the actual time
         # of the campaign world. The second element is the
         # self._time = {"time": 0, "step": []}
 
-        self._workflows_to_monitor = list()
-        self._est_end_times = dict()
-        self._enactor = RPEnactor(sid=self._session_id)
-        self._enactor.register_state_cb(self.state_update_cb)
 
-        # Creating a thread to execute the monitoring and work methods.
-        # One flag for both threads may be enough  to monitor and check.
-        self._terminate_event = mt.Event()  # Thread event to terminate.
-        self._work_thread = None  # Private attribute that will hold the thread
-        self._monitoring_thread = None  # Private attribute that will hold the thread
 
         path = os.getcwd() + "/" + self._session_id
 
@@ -97,6 +89,20 @@ class Bookkeeper(object):
             sid=self._session_id,
             policy=policy,
         )
+
+        raise RuntimeError(
+            "The Bookkeeper is not ready yet. Please use the new Bookkeeper class."
+        )
+        self._workflows_to_monitor = list()
+        self._est_end_times = dict()
+        self._enactor = RPEnactor(sid=self._session_id)
+        self._enactor.register_state_cb(self.state_update_cb)
+
+        # Creating a thread to execute the monitoring and work methods.
+        # One flag for both threads may be enough  to monitor and check.
+        self._terminate_event = mt.Event()  # Thread event to terminate.
+        self._work_thread = None  # Private attribute that will hold the thread
+        self._monitoring_thread = None  # Private attribute that will hold the thread
 
     def _update_checkpoints(self):
         """

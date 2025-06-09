@@ -39,5 +39,9 @@ build-backend = "setuptools.build_meta"
 [tool.setuptools]
 include-package-data = true
 
+[tool.setuptools.package-data]
+# This installs the file with the package
+"socm" = ["configs/*.toml"]
+
 [project.scripts]
 socm = "socm.__main__:main"

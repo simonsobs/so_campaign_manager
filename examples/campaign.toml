@@ -2,11 +2,14 @@
 deadline="2d"
 
 [campaign.ml-mapmaking]
-context="context.yaml"
-area="somefile.fits"
+context="/scratch/gpfs/ACT/data/context-so-fixed/context.yaml"
+area="/scratch/gpfs/SIMONSOBS/so/science-readiness/footprint/v20250306/so_geometry_v20250306_lat_f090.fits"
 output_dir="output"
+bands="f090"
+comps="TQU"
 maxiters=10
-query="timestamp_start > 2020-01-01T00:00:00Z && timestamp_end < 2020-12-31T23:59:59Z" # SQL-like query that sotodlib understands
+query="test_query" # SQL-like query that sotodlib understands
+tiled=1
 site="act"
 
 [campaign.lat-null-test]
