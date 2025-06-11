@@ -1,7 +1,7 @@
-from typing import Optional, TYPE_CHECKING
+from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    import radical.utils as ru
+    pass
 
 from ..core.models import Workflow
 

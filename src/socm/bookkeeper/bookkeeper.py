@@ -1,10 +1,10 @@
 import os
 import threading as mt
 from copy import deepcopy
+from importlib.resources import files
 from math import ceil, floor
 from time import sleep
 from typing import Dict
-from importlib.resources import files
 
 import numpy as np
 import radical.utils as ru

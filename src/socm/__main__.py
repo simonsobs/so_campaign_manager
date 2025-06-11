@@ -1,11 +1,10 @@
-import toml
 from argparse import ArgumentParser
 
-import radical.utils as ru
+import toml
 
-from socm.workflows import registered_workflows
 from socm.bookkeeper import Bookkeeper
 from socm.core import Campaign, Resource
+from socm.workflows import registered_workflows
 
 
 def get_parser() -> ArgumentParser:
@@ -22,7 +21,6 @@ def get_parser() -> ArgumentParser:
 
 
 def main() -> None:
-    logger = ru.Logger("SOCM", level="debug")
     parser = get_parser()
     args = parser.parse_args()
     config = toml.load(args.toml)
