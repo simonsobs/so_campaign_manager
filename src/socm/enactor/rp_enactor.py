@@ -105,8 +105,8 @@ class RPEnactor(Enactor):
                 exec_workflow.arguments = []
                 if workflow.subcommand:
                     exec_workflow.arguments += [workflow.subcommand]
-                command = workflow.get_command()
-                exec_workflow.arguments = command.split()
+                arguments = workflow.get_arguments()
+                exec_workflow.arguments += arguments.split()
                 exec_workflow.ranks = len(ncpus[0])
                 exec_workflow.cores_per_rank = ncpus[1]
                 exec_workflow.mem_per_rank = memory / len(ncpus[0])
@@ -163,7 +163,7 @@ class RPEnactor(Enactor):
                         rp_workflow = self._rp_tmgr.get_tasks(
                             uids=f"workflow.{workflow_id}"
                         )
-                        if rp_workflow.state in rp.DONE:
+                        if rp_workflow.state in rp.FINAL:
                             with self._monitoring_lock:
                                 self._logger.debug(f"workflow.{workflow_id} Done")
                                 self._execution_status[workflow_id]["state"] = st.DONE
@@ -235,9 +235,9 @@ class RPEnactor(Enactor):
             self._prof.prof("monitor_terminated", uid=self._uid)
         self._logger.debug("Monitor thread terminated")
         # self._rp_tmgr.close()
-        # self._rp_pmgr.close(terminate=True)
+        self._rp_pmgr.close(terminate=True)
         self._rp_session.close(terminate=True)
-        self._logger.debug("Simulation thread terminated")
+        self._logger.debug("Enactor thread terminated")
 
     def register_state_cb(self, cb):
         """

@@ -56,8 +56,6 @@ class Bookkeeper(object):
         # of the campaign world. The second element is the
         # self._time = {"time": 0, "step": []}
 
-
-
         path = os.getcwd() + "/" + self._session_id
 
         self._logger = ru.Logger(name=self._uid, path=path, level="DEBUG")
@@ -70,18 +68,31 @@ class Bookkeeper(object):
             tmp_runtime = np.inf
             cores = 1
             while cores <= total_cores:
-                slurm_job, _ = self._slurmise.predict(cmd=workflow.get_command(), job_name=workflow.subcommand)
-                if tmp_runtime / slurm_job.predicted_runtime > 1.5 and slurm_job.predicted_memory < total_memory:
-                    tmp_runtime = slurm_job.predicted_runtime
+                slurm_job, _ = self._slurmise.predict(
+                    cmd=workflow.get_command(), job_name=workflow.subcommand
+                )
+                self._logger.debug(
+                    f"Slurm job prediction for {workflow.id}: {slurm_job}, "
+                    f"runtime: {slurm_job.runtime}, memory: {slurm_job.memory}"
+                )
+                if (
+                    tmp_runtime / slurm_job.runtime > 1.5
+                    and slurm_job.memory < total_memory
+                ):
+                    tmp_runtime = slurm_job.runtime
                     cores *= 2
                 else:
                     break
             workflow_requirements[workflow.id] = {
-                "req_cpus": cores,
-                "req_memory": slurm_job.predicted_memory,
-                "req_walltime": slurm_job.predicted_runtime * 1.1,  # Adding 10% to the runtime
+                "req_cpus": cores // 2,
+                "req_memory": slurm_job.memory,
+                "req_walltime": slurm_job.runtime * 1.1,  # Adding 10% to the runtime
             }
 
+        self._logger.debug(
+            f"Workflow requirements: {workflow_requirements}, "
+            f"total cores: {total_cores}, total memory: {total_memory}"
+        )
         self._planner = HeftPlanner(
             campaign=self._campaign["campaign"].workflows,
             resources=self._resource,
@@ -89,10 +100,10 @@ class Bookkeeper(object):
             sid=self._session_id,
             policy=policy,
         )
-
-        raise RuntimeError(
-            "The Bookkeeper is not ready yet. Please use the new Bookkeeper class."
-        )
+        # self._plan, self._plan_graph = self._planner.plan()
+        # raise RuntimeError(
+        #     "The Bookkeeper is not ready yet. Please use the new Bookkeeper class."
+        # )
         self._workflows_to_monitor = list()
         self._est_end_times = dict()
         self._enactor = RPEnactor(sid=self._session_id)
@@ -221,17 +232,17 @@ class Bookkeeper(object):
                         memory.append(self._plan[wf_id - 1][2])
 
                         self._logger.debug(
-                            f"To submit workflows {[x.id for x in workflows]}"
+                            f"To submit workflows {[x for x in workflows]}"
                             + f" to resources {cores}"
                         )
 
                         for rc_id in self._plan[wf_id - 1][1]:
                             self._est_end_times[rc_id] = self._plan[wf_id - 1][3]
-
-                self._logger.debug(
-                    f"Submitting workflows {[x.id for x in workflows]}"
-                    + f" to resources {cores}"
-                )
+                if workflows:
+                    self._logger.debug(
+                        f"Submitting workflows {[x.id for x in workflows]}"
+                        + f" to resources {cores}"
+                    )
 
                 # There is no need to call the enactor when no new things
                 # should happen.
@@ -278,11 +289,11 @@ class Bookkeeper(object):
                     if self._workflows_state[workflows[i].id] in st.CFINAL:
                         resource = self._unavail_resources[i]
                         finished.append((workflows[i], resource))
-                        self._slurmise.record(
-                            cmd=workflows[i].get_command(),
-                            slurm_id=self._enactor.get_slurm_id(),
-                            step_id=workflows[i].id,
-                        )
+                        # self._slurmise.record(
+                        #     cmd=workflows[i].get_command(),
+                        #     slurm_id=self._enactor.get_slurm_id(),
+                        #     step_id=workflows[i].id,
+                        # )
                         self._logger.info(
                             "Workflow %s finished",
                             workflows[i].id,
@@ -293,7 +304,11 @@ class Bookkeeper(object):
                         for workflow, resource in finished:
                             self._workflows_to_monitor.remove(workflow)
                             self._unavail_resources.remove(resource)
-                self._prof.prof("workflow_finished", uid=self._uid)
+                    self._prof.prof("workflow_finished", uid=self._uid)
+                else:
+                    sleep(1)  # Sleep for a while if nothing happened.
+
+        self._logger.debug("Monitor thread Stoped")
 
     def get_makespan(self):
         """

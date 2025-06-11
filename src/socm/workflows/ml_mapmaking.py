@@ -1,3 +1,7 @@
+from typing import Optional, TYPE_CHECKING
+
+if TYPE_CHECKING:
+    import radical.utils as ru
 
 from ..core.models import Workflow
 
@@ -6,23 +10,42 @@ class MLMapmakingWorkflow(Workflow):
     """
     A workflow for ML mapmaking.
     """
+
     area: str
     output_dir: str
     query: str = "1"
     name: str = "ml_mapmaking_workflow"
     executable: str = "so-site-pipeline"
     subcommand: str = "make-ml-map"
+    # loger: Optional["ru.Logger"] = None
 
-
-    def get_command(self, ranks:int=1) -> str:
+    def get_command(self, ranks: int = 1) -> str:
         """
         Get the command to run the ML mapmaking workflow.
         """
-        command = f"srun --cpu_bind=cores --export=ALL --ntasks-per-node={ranks} --cpus-per-task=8 {self.executable} {self.subcommand} {self.query} "
-        command += f"{self.area} {self.output_dir} "
-        test = dict(sorted(self.model_dump(exclude_unset=True).items()))
-        print(f"MLMapmakingWorkflow: {test}, type={type(test)}")
-        for k, v in test.items():
-            if k not in ["area", "output_dir", "executable", "query", "output_dir"]:
-                command += f"--{k}={v} "
+        command = f"srun --cpu_bind=cores --export=ALL --ntasks-per-node={ranks} --cpus-per-task=8 {self.executable} {self.subcommand} "
+        command += self.get_arguments()
+
         return command.strip()
+
+    def get_arguments(self) -> str:
+        """
+        Get the command to run the ML mapmaking workflow.
+        """
+        arguments = f"{self.query} {self.area} {self.output_dir} "
+        sorted_workflow = dict(sorted(self.model_dump(exclude_unset=True).items()))
+        # if self.loger is not None:
+        #     self.loger.debug(
+        #         f"MLMapmakingWorkflow: {sorted_workflow}, type={type(sorted_workflow)}"
+        #     )
+        for k, v in sorted_workflow.items():
+            if k not in [
+                "area",
+                "output_dir",
+                "executable",
+                "query",
+                "output_dir",
+                "id",
+            ]:
+                arguments += f"--{k}={v} "
+        return arguments.strip()
