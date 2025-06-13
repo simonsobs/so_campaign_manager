@@ -48,6 +48,7 @@ class Bookkeeper(object):
         self._plan_graph = None
         self._unavail_resources = []
         self._workflows_state = dict()
+        self._workflows_execids = dict()
         self._objective = self._resource.maximum_walltime
         self._exec_state_lock = ru.RLock("workflows_state_lock")
         self._monitor_lock = ru.RLock("monitor_list_lock")
@@ -108,6 +109,7 @@ class Bookkeeper(object):
         self._est_end_times = dict()
         self._enactor = RPEnactor(sid=self._session_id)
         self._enactor.register_state_cb(self.state_update_cb)
+        self._enactor.register_state_cb(self.workflowid_update_cb)
 
         # Creating a thread to execute the monitoring and work methods.
         # One flag for both threads may be enough  to monitor and check.
@@ -144,7 +146,7 @@ class Bookkeeper(object):
         else:
             return True
 
-    def state_update_cb(self, workflow_ids, new_state):
+    def state_update_cb(self, workflow_ids, new_state, **kargs):
         """
         This is a state update callback. This callback is passed to the enactor.
         """
@@ -152,6 +154,15 @@ class Bookkeeper(object):
         with self._exec_state_lock:
             for workflow_id in workflow_ids:
                 self._workflows_state[workflow_id] = new_state
+
+    def workflowid_update_cb(self, workflow_ids, step_id, **kargs):
+        """
+        This is a state update callback. This callback is passed to the enactor.
+        """
+        self._logger.debug("Workflow %s with slurmid %s", workflow_ids, step_id)
+        with self._exec_state_lock:
+            for workflow_id in workflow_ids:
+                self._workflows_execids[workflow_id] = step_id
 
     def work(self):
         """
@@ -289,11 +300,14 @@ class Bookkeeper(object):
                     if self._workflows_state[workflows[i].id] in st.CFINAL:
                         resource = self._unavail_resources[i]
                         finished.append((workflows[i], resource))
-                        # self._slurmise.record(
-                        #     cmd=workflows[i].get_command(),
-                        #     slurm_id=self._enactor.get_slurm_id(),
-                        #     step_id=workflows[i].id,
-                        # )
+                        slurm_id, step_id = self._workflows_execids[
+                            workflows[i].id
+                        ].split(".")
+                        self._slurmise.record(
+                            cmd=workflows[i].get_command(),
+                            slurm_id=slurm_id,
+                            step_name=step_id,
+                        )
                         self._logger.info(
                             "Workflow %s finished",
                             workflows[i].id,

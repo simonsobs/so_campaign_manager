@@ -108,8 +108,12 @@ class RPEnactor(Enactor):
                 arguments = workflow.get_arguments()
                 exec_workflow.arguments += arguments.split()
                 exec_workflow.ranks = len(ncpus[0])
-                exec_workflow.cores_per_rank = ncpus[1]
+                exec_workflow.cores_per_rank = 8
+                exec_workflow.threading_type = rp.OpenMP
                 exec_workflow.mem_per_rank = memory / len(ncpus[0])
+                exec_workflow.post_exec = "echo ${SLURM_JOB_ID}.${SLURM_STEP_ID}"
+                if workflow.environment:
+                    exec_workflow.environment = workflow.environment
                 self._logger.info("Enacting workflow %s", workflow.id)
                 exec_workflows.append(exec_workflow)
                 # Lock the monitoring list and update it, as well as update
@@ -123,6 +127,7 @@ class RPEnactor(Enactor):
                         "start_time": datetime.now(),
                         "end_time": None,
                     }
+
                 for cb in self._callbacks:
                     self._callbacks[cb](
                         workflow_ids=[workflow.id], new_state=st.EXECUTING
@@ -171,15 +176,20 @@ class RPEnactor(Enactor):
                                     "end_time"
                                 ] = datetime.now()
                                 self._logger.debug(
-                                    "Workflow %s finished: %s",
+                                    "Workflow %s finished: %s, step_id: %s",
                                     workflow_id,
                                     self._execution_status[workflow_id]["end_time"],
+                                    rp_workflow.stdout.split()[-1],
                                 )
                                 to_remove.append(workflow_id)
                             self._prof.prof("workflow_success", uid=self._uid)
                 if to_remove:
                     for cb in self._callbacks:
-                        self._callbacks[cb](workflow_ids=to_remove, new_state=st.DONE)
+                        self._callbacks[cb](
+                            workflow_ids=to_remove,
+                            new_state=st.DONE,
+                            step_id=rp_workflow.stdout.split()[-1],
+                        )
                     with self._monitoring_lock:
                         for wid in to_remove:
                             self._to_monitor.remove(wid)

@@ -1,7 +1,4 @@
-from typing import TYPE_CHECKING
-
-if TYPE_CHECKING:
-    pass
+from typing import Optional, Dict
 
 from ..core.models import Workflow
 
@@ -17,7 +14,7 @@ class MLMapmakingWorkflow(Workflow):
     name: str = "ml_mapmaking_workflow"
     executable: str = "so-site-pipeline"
     subcommand: str = "make-ml-map"
-    # loger: Optional["ru.Logger"] = None
+    environment: Optional[Dict[str, str]] = None
 
     def get_command(self, ranks: int = 1) -> str:
         """
@@ -46,6 +43,7 @@ class MLMapmakingWorkflow(Workflow):
                 "query",
                 "output_dir",
                 "id",
+                "environment",
             ]:
                 arguments += f"--{k}={v} "
         return arguments.strip()
