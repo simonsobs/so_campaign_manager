@@ -1,7 +1,7 @@
 [![PyPI - Version](https://img.shields.io/pypi/v/so_campaign_manager.svg)](https://pypi.org/project/so_campaign_manager)
 [![PyPI - Python Version](https://img.shields.io/pypi/pyversions/so_campaign_manager.svg)](https://pypi.org/project/so_campaign_manager)
 ![CI workflow](https://github.com/simonsobs/so_campaign_manager/actions/workflows/test.yaml/badge.svg)
-[![Coverage Status](https://coveralls.io/repos/github/simonsobs/so_mapmaking_campaign_manager/badge.svg?branch=main)](https://coveralls.io/github/simonsobs/so_mapmaking_campaign_manager?branch=main)
+[![Coverage Status](https://coveralls.io/repos/github/simonsobs/so_campaign_manager/badge.svg?branch=main)](https://coveralls.io/github/simonsobs/so_campaign_manager?branch=main)
 
 ## SO Campaign Manager
 
