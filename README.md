@@ -1,4 +1,9 @@
-## SO Auto Mapmaker
+[![PyPI - Version](https://img.shields.io/pypi/v/so_campaign_manager.svg)](https://pypi.org/project/so_campaign_manager)
+[![PyPI - Python Version](https://img.shields.io/pypi/pyversions/so_campaign_manager.svg)](https://pypi.org/project/so_campaign_manager)
+![CI workflow](https://github.com/simonsobs/so_campaign_manager/actions/workflows/test.yaml/badge.svg)
+[![Coverage Status](https://coveralls.io/repos/github/simonsobs/so_mapmaking_campaign_manager/badge.svg?branch=main)](https://coveralls.io/github/simonsobs/so_mapmaking_campaign_manager?branch=main)
+
+## SO Campaign Manager
 
 This repository holds the code of the software tools that will run the mapmaking campaign on Tiger 3.
 
@@ -17,31 +22,25 @@ Note: This document will fill up as requirements are coming in and we run things
 ## Development guide
 
 ### Branching model
-We use **[git-flow](http://nvie.com/posts/a-successful-git-branching-model/)** as branching model, with some simplifications.  We follow **[semantic version numbering](http://semver.org/)**.
 
-* release candidates and releases are tagged in the `main` branch.
-* urgent hotfix releases:
-  * branch from master to `hotfix/problem_name`
-  * fix the problem in that branch
-  * test that branch
-  * merge back to main and prepare a release
-* normal bug fixes:
-  * branch of `develop`, naming convention: `fix/issue_1234` (reference github issue)
+* the latest development is in the `main` branch.
+* bug fixes:
+  * branch of `main`, naming convention: `fix/issue_1234` (reference github issue). `hotfix/issue_1234` if it is a major issue that needs resolution as soon as possible.
   * fix in that branch, and test
-  * create pull request toward devel
+  * create pull request toward `main`
   * code review, then merge  
 * major development activities go into feature branches 
-  * branch `develop` into `feature/feature_name`
+  * branch `main` into `feature/feature_name`
   * work on that feature branch
-  * on completion, merge `develop` into the feature branch.
+  * on completion, merge `main` into the feature branch.
   * test the feature branch
-  * create a pull request for merging the feature branch into `develop` (that should be a fast-forward now)
-  * merging of feature branches into `develop` should be discussed with the group *before* they are performed, and only after code review 
+  * create a pull request for merging the feature branch into `main` (that should be a fast-forward now)
+  * merging of feature branches into `main` should be only after code review 
 * documentation changes are handled like fix or feature branches, depending on size and impact, similar to code changes
 
 #### Branch Naming
 
- * `develop`, `main`: *never* commit directly to those
+ * `main`: *never* commit directly
  * `feature/abc`: development of new features
  * `fix/abc_123`: referring to ticket 123
  * `hotfix/abc_123`: referring to ticket 123, to be released right after merge to master
