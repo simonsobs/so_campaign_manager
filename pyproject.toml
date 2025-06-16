@@ -48,7 +48,14 @@ include-package-data = true
 socm = "socm.__main__:main"
 
 [tool.coverage.run]
-source = ["src/*"]
+source_pkgs = ["socm", "tests"]
+branch = true
+parallel = true
+omit = ["src/socm/_version.py"]
+
+[tool.coverage.paths]
+socm = ["src/socm", "*/so_mapmaking_campaign_manager/src/socm"]
+tests = ["tests", "*/so_mapmaking_campaign_manager/tests"]
 
 [tool.coverage.report]
 exclude_lines = ["pragma: no cover"]

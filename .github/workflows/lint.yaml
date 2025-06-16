@@ -7,9 +7,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: psf/black@stable
-        continue-on-error: true
+      - uses: astral-sh/ruff-action@v3
         with:
-          options: "--check --verbose"
+          src: "./src"
       - uses: isort/isort-action@master
         continue-on-error: true

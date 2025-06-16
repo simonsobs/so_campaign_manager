@@ -1,5 +1,5 @@
-import pytest
 import toml
+
 from socm.workflows import MLMapmakingWorkflow
 
 
