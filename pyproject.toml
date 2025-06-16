@@ -1,27 +1,28 @@
 [project]
-dynamic=["version"]
-name="so_campaing_manager"
+dynamic = ["version"]
+name = "so_campaing_manager"
 description = "A campaign manager to execute SO mapmaking campaign"
 readme = 'README.md'
 requires-python = '>=3.9'
-authors = [
-{name = 'Giannis Paraskevakos', email = 'iparask@princeton.edu'},
+authors = [{ name = 'Giannis Paraskevakos', email = 'iparask@princeton.edu' }]
+dependencies = [
+    "pydantic",
+    "numpy",
+    "radical.pilot",
+    "networkx",
+    "toml",
+    "click",
 ]
-dependencies=["pydantic", 
-              "numpy",
-              "radical.pilot",
-              "networkx",
-              "toml",
-              "click"]
 
 [project.optional-dependencies]
-dev = ["ruff", 
-       "darker",
-       "flake8",
-       "isort",
-       "pytest-cov>=2.6",
-       "coveralls>=1.5",
-       "pytest>=4.6"
+dev = [
+    "ruff",
+    "darker",
+    "flake8",
+    "isort",
+    "pytest-cov>=2.6",
+    "coveralls>=1.5",
+    "pytest>=4.6",
 ]
 
 [build-system]
@@ -29,12 +30,12 @@ requires = ["setuptools", "versioneer[toml]"]
 build-backend = "setuptools.build_meta"
 
 [tool.versioneer]
-    VCS = "git"
-    style = "pep440"
-    versionfile_source = "src/socm/_version.py"
-    versionfile_build = "socm/_version.py"
-    tag_prefix = "v"
-    parentdir_prefix = "socm-"
+VCS = "git"
+style = "pep440"
+versionfile_source = "src/socm/_version.py"
+versionfile_build = "socm/_version.py"
+tag_prefix = "v"
+parentdir_prefix = "socm-"
 
 [tool.setuptools]
 include-package-data = true
@@ -45,3 +46,17 @@ include-package-data = true
 
 [project.scripts]
 socm = "socm.__main__:main"
+
+[tool.coverage.run]
+source = ["src/*"]
+
+[tool.coverage.report]
+exclude_lines = ["pragma: no cover"]
+exclude_also = ["if TYPE_CHECKING:"]
+
+[tool.isort]
+profile = "black"
+skip = ["docs", ".github", ".vscode", "container", "env", "env311", "build"]
+
+[tool.black]
+exclude = "docs|.github|.vscode|container|env|env311|build"
