@@ -318,7 +318,7 @@ class Bookkeeper(object):
                             workflows[i].id
                         ].split(".")
                         # TODO: Change this to a JobData object and use raw record.
-                        workflow_data = JobData(
+                        _ = JobData(
                             job_name=workflows[i].name,
                             slurm_id=slurm_id,
                             step_id=step_id,
