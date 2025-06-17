@@ -9,6 +9,7 @@ from typing import Dict
 import numpy as np
 import radical.utils as ru
 from slurmise.api import Slurmise
+from slurmise.job_data import JobData
 
 from ..core import Campaign, Resource
 from ..enactor import RPEnactor
@@ -62,7 +63,29 @@ class Bookkeeper(object):
         self._logger = ru.Logger(name=self._uid, path=path, level="DEBUG")
         self._prof = ru.Profiler(name=self._uid, path=path)
 
-        workflow_requirements = {}
+        self._planner = HeftPlanner(
+            sid=self._session_id,
+            policy=policy,
+        )
+        # self._plan, self._plan_graph = self._planner.plan()
+        # raise RuntimeError(
+        #     "The Bookkeeper is not ready yet. Please use the new Bookkeeper class."
+        # )
+        self._workflows_to_monitor = list()
+        self._est_end_times = dict()
+        self._enactor = RPEnactor(sid=self._session_id)
+        self._enactor.register_state_cb(self.state_update_cb)
+        self._enactor.register_state_cb(self.workflowid_update_cb)
+
+        # Creating a thread to execute the monitoring and work methods.
+        # One flag for both threads may be enough  to monitor and check.
+        self._terminate_event = mt.Event()  # Thread event to terminate.
+        self._work_thread = None  # Private attribute that will hold the thread
+        self._monitoring_thread = None  # Private attribute that will hold the thread
+
+    def _get_campaign_requirements(self) -> Dict[str, Dict[str, float | int]]:
+
+        workflow_requirements = dict()
         total_cores = self._resource.nodes * self._resource.cores_per_node
         total_memory = self._resource.nodes * self._resource.memory_per_node
         for workflow in self._campaign["campaign"].workflows:
@@ -84,38 +107,21 @@ class Bookkeeper(object):
                     cores *= 2
                 else:
                     break
-            workflow_requirements[workflow.id] = {
-                "req_cpus": cores // 2,
-                "req_memory": slurm_job.memory,
-                "req_walltime": slurm_job.runtime * 1.1,  # Adding 10% to the runtime
-            }
-
-        self._logger.debug(
-            f"Workflow requirements: {workflow_requirements}, "
-            f"total cores: {total_cores}, total memory: {total_memory}"
-        )
-        self._planner = HeftPlanner(
-            campaign=self._campaign["campaign"].workflows,
-            resources=self._resource,
-            resource_requirements=workflow_requirements,
-            sid=self._session_id,
-            policy=policy,
-        )
-        # self._plan, self._plan_graph = self._planner.plan()
-        # raise RuntimeError(
-        #     "The Bookkeeper is not ready yet. Please use the new Bookkeeper class."
-        # )
-        self._workflows_to_monitor = list()
-        self._est_end_times = dict()
-        self._enactor = RPEnactor(sid=self._session_id)
-        self._enactor.register_state_cb(self.state_update_cb)
-        self._enactor.register_state_cb(self.workflowid_update_cb)
-
-        # Creating a thread to execute the monitoring and work methods.
-        # One flag for both threads may be enough  to monitor and check.
-        self._terminate_event = mt.Event()  # Thread event to terminate.
-        self._work_thread = None  # Private attribute that will hold the thread
-        self._monitoring_thread = None  # Private attribute that will hold the thread
+            if cores > total_cores:
+                workflow_requirements[workflow.id] = {
+                    "req_cpus": workflow.resources["ranks"],
+                    "req_memory": workflow.resources["memory"],
+                    "req_walltime": workflow.resources["runtime"]
+                    * 1.1,  # Adding 10% to the runtime
+                }
+            else:
+                workflow_requirements[workflow.id] = {
+                    "req_cpus": cores // 2,
+                    "req_memory": slurm_job.memory,
+                    "req_walltime": slurm_job.runtime
+                    * 1.1,  # Adding 10% to the runtime
+                }
+        return workflow_requirements
 
     def _update_checkpoints(self):
         """
@@ -176,7 +182,15 @@ class Bookkeeper(object):
             self._logger.debug("Calculating campaign plan")
             with self._exec_state_lock:
                 self._campaign["state"] = st.PLANNING
-            self._plan, self._plan_graph = self._planner.plan()
+
+            workflow_requirements = self._get_campaign_requirements()
+
+            self._plan, self._plan_graph = self._planner.plan(
+                campaign=self._campaign["campaign"].workflows,
+                resources=self._resource,
+                resource_requirements=workflow_requirements,
+                start_time=0,
+            )
             # self._plan = sorted(
             #     [place for place in self._plan], key=lambda place: place[-1]
             # )
@@ -303,6 +317,17 @@ class Bookkeeper(object):
                         slurm_id, step_id = self._workflows_execids[
                             workflows[i].id
                         ].split(".")
+                        # TODO: Change this to a JobData object and use raw record.
+                        workflow_data = JobData(
+                            job_name=workflows[i].name,
+                            slurm_id=slurm_id,
+                            step_id=step_id,
+                            categorical={},
+                            numerical={},
+                            # memory: int | None = None  # in MBs
+                            # runtime: int | None = None  # in minutes
+                            cmd=workflows[i].get_command(),
+                        )
                         self._slurmise.record(
                             cmd=workflows[i].get_command(),
                             slurm_id=slurm_id,

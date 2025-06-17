@@ -32,6 +32,7 @@ def simple_toml(tmp_path):
     )
     return TomlReturn(p)
 
+
 @pytest.fixture
 def lite_toml(tmp_path):
     d = tmp_path
@@ -39,12 +40,14 @@ def lite_toml(tmp_path):
     p.write_text(
         """
         [campaign.ml-mapmaking]
-
         context = "context.yaml"
         area = "so_geometry_v20250306_lat_f090.fits"
         output_dir = "output"
         query = "obs_id='1575600533.1575611468.ar5_1'"
         site = "act"
+        [campaign.ml-mapmaking.resources]
+        ranks = 8
+        threads = 1
     """
     )
     return TomlReturn(p)

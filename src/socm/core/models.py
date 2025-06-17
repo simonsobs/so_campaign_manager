@@ -1,4 +1,4 @@
-from typing import List, Optional
+from typing import Dict, List, Optional
 
 from pydantic import BaseModel
 
@@ -18,6 +18,8 @@ class Workflow(BaseModel):
     context: str
     subcommand: str
     id: Optional[int] = None
+    environment: Optional[Dict[str, str]] = None
+    resources: Optional[Dict[str, int]] = None
 
     model_config = {
         "extra": "allow",

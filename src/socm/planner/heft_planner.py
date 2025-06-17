@@ -30,10 +30,10 @@ class HeftPlanner(Planner):
 
     def __init__(
         self,
-        campaign: Campaign,
-        resources: Resource,
-        resource_requirements: Dict[int, Dict[str, float]],
-        policy: str,
+        campaign: Campaign | None = None,
+        resources: Resource | None = None,
+        resource_requirements: Dict[int, Dict[str, float]] | None = None,
+        policy: str | None = None,
         sid: str = None,
     ):
 
@@ -95,9 +95,9 @@ class HeftPlanner(Planner):
 
     def plan(
         self,
-        campaign: List[Workflow] = None,
-        resources: range = None,
-        resource_requirements: Dict[int, Dict[str, float]] = None,
+        campaign: List[Workflow] | None = None,
+        resources: range | None = None,
+        resource_requirements: Dict[int, Dict[str, float]] | None = None,
         start_time: int = 0,
     ) -> Tuple[List[Tuple[Workflow, range, float, float]], nx.DiGraph]:
         """

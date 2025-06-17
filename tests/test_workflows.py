@@ -23,6 +23,7 @@ def test_mlworkflow(simple_toml):
     assert workflow.name == "ml_mapmaking_workflow"
     assert workflow.executable == "so-site-pipeline"
     assert workflow.subcommand == "make-ml-map"
+    assert workflow.resources is None  # Default value for resources is None
     assert workflow.id is None  # Default value for id is None
 
 
@@ -43,3 +44,6 @@ def test_get_command(lite_toml):
     command = workflow.get_command(ranks=2)
     expected = "srun --cpu_bind=cores --export=ALL --ntasks-per-node=2 --cpus-per-task=8 so-site-pipeline make-ml-map obs_id='1575600533.1575611468.ar5_1' so_geometry_v20250306_lat_f090.fits output --context=context.yaml --site=act"
     assert command == expected
+    assert workflow.resources["ranks"] == 8
+    assert workflow.resources["threads"] == 1
+    assert workflow.environment is None  # Default value for resources is None
