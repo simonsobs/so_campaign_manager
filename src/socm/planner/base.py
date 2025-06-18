@@ -23,11 +23,11 @@ class Planner(object):
 
     def __init__(
         self,
-        campaign: Campaign,
-        resources: Resource,
-        resource_requirements: Dict[int, Dict[str, float]],
-        policy: str,
-        sid: str = None,
+        campaign: Campaign | None = None,
+        resources: Resource | None = None,
+        resource_requirements: Dict[int, Dict[str, float]] | None = None,
+        policy: str | None = None,
+        sid: str | None = None,
     ):
         self._campaign = campaign
         self._resources = resources
@@ -40,9 +40,9 @@ class Planner(object):
 
     def plan(
         self,
-        campaign: List[Workflow] = None,
-        resources: range = None,
-        resource_requirements: Dict[int, Dict[str, float]] = None,
+        campaign: List[Workflow] | None = None,
+        resources: range | None = None,
+        resource_requirements: Dict[int, Dict[str, float]] | None = None,
         start_time: int = 0,
         **kargs,
     ) -> Tuple[List[Tuple[Workflow, range, float, float]], nx.DiGraph]:
@@ -54,9 +54,9 @@ class Planner(object):
 
     def replan(
         self,
-        campaign: List[Workflow] = None,
-        resources: range = None,
-        resource_requirements: Dict[int, Dict[str, float]] = None,
+        campaign: List[Workflow] | None = None,
+        resources: range | None = None,
+        resource_requirements: Dict[int, Dict[str, float]] | None = None,
         start_time: int = 0,
     ) -> Tuple[List[Tuple[Workflow, range, float, float]], nx.DiGraph]:
         """

@@ -1,4 +1,3 @@
-from typing import Dict, Optional
 
 from ..core.models import Workflow
 
@@ -14,7 +13,6 @@ class MLMapmakingWorkflow(Workflow):
     name: str = "ml_mapmaking_workflow"
     executable: str = "so-site-pipeline"
     subcommand: str = "make-ml-map"
-    environment: Optional[Dict[str, str]] = None
 
     def get_command(self, ranks: int = 1) -> str:
         """
@@ -31,10 +29,7 @@ class MLMapmakingWorkflow(Workflow):
         """
         arguments = f"{self.query} {self.area} {self.output_dir} "
         sorted_workflow = dict(sorted(self.model_dump(exclude_unset=True).items()))
-        # if self.loger is not None:
-        #     self.loger.debug(
-        #         f"MLMapmakingWorkflow: {sorted_workflow}, type={type(sorted_workflow)}"
-        #     )
+
         for k, v in sorted_workflow.items():
             if k not in [
                 "area",
@@ -44,6 +39,7 @@ class MLMapmakingWorkflow(Workflow):
                 "output_dir",
                 "id",
                 "environment",
+                "resources",
             ]:
                 arguments += f"--{k}={v} "
         return arguments.strip()
