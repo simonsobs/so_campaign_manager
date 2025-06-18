@@ -35,5 +35,5 @@ class Workflow(BaseModel):
 class Campaign(BaseModel):
     id: int
     workflows: List[Workflow]
-    campaign_policy: str
+    deadline: str
     resource: str = "tiger3"
