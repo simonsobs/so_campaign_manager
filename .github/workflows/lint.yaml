@@ -1,6 +1,9 @@
 name: Formatting
+permissions:
+  contents: read
+  pull-requests: write
 
-on: [push, pull_request, release]
+on: [push, pull_request]
 
 jobs:
   lint:
