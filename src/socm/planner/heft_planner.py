@@ -54,9 +54,6 @@ class HeftPlanner(Planner):
         self._est_tx = list()
         self._est_cpus = list()
         self._est_memory = list()
-        for _, resource_req in resource_requirements.items():
-            self._est_tx.append(resource_req["req_walltime"])
-            self._est_cpus.append(resource_req["req_cpus"])
 
     def _get_free_memory(self, start_time: int):
 

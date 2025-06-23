@@ -10,6 +10,7 @@ import numpy as np
 import radical.utils as ru
 from slurmise.api import Slurmise
 from slurmise.job_data import JobData
+from slurmise.slurm import parse_slurm_job_metadata
 
 from ..core import Campaign, Resource
 from ..enactor import RPEnactor
@@ -66,6 +67,7 @@ class Bookkeeper(object):
         self._planner = HeftPlanner(
             sid=self._session_id,
             policy=policy,
+            resources=self._resource,
         )
         # self._plan, self._plan_graph = self._planner.plan()
         # raise RuntimeError(
@@ -161,13 +163,13 @@ class Bookkeeper(object):
             for workflow_id in workflow_ids:
                 self._workflows_state[workflow_id] = new_state
 
-    def workflowid_update_cb(self, workflow_ids, step_id, **kargs):
+    def workflowid_update_cb(self, workflow_ids, step_ids, **kargs):
         """
         This is a state update callback. This callback is passed to the enactor.
         """
-        self._logger.debug("Workflow %s with slurmid %s", workflow_ids, step_id)
+        self._logger.debug("Workflow %s with slurmid %s", workflow_ids, step_ids)
         with self._exec_state_lock:
-            for workflow_id in workflow_ids:
+            for workflow_id, step_id in zip(workflow_ids, step_ids):
                 self._workflows_execids[workflow_id] = step_id
 
     def work(self):
@@ -187,7 +189,6 @@ class Bookkeeper(object):
 
             self._plan, self._plan_graph = self._planner.plan(
                 campaign=self._campaign["campaign"].workflows,
-                resources=self._resource,
                 resource_requirements=workflow_requirements,
                 start_time=0,
             )
@@ -317,22 +318,20 @@ class Bookkeeper(object):
                         slurm_id, step_id = self._workflows_execids[
                             workflows[i].id
                         ].split(".")
-                        # TODO: Change this to a JobData object and use raw record.
-                        _ = JobData(
-                            job_name=workflows[i].name,
-                            slurm_id=slurm_id,
-                            step_id=step_id,
-                            categorical={},
-                            numerical={},
-                            # memory: int | None = None  # in MBs
-                            # runtime: int | None = None  # in minutes
-                            cmd=workflows[i].get_command(),
-                        )
-                        self._slurmise.record(
-                            cmd=workflows[i].get_command(),
+                        workflow_metadata = parse_slurm_job_metadata(
                             slurm_id=slurm_id,
                             step_name=step_id,
                         )
+                        workflow_jobdata = JobData(
+                            job_name=workflows[i].name,
+                            slurm_id=f"{slurm_id}.{slurm_id}",
+                            categorical={},
+                            numerical={},
+                            memory=workflow_metadata["max_rss"],
+                            runtime=workflow_metadata["elapsed_seconds"] / 60,
+                            cmd=workflows[i].get_command(),
+                        )
+                        self._slurmise.raw_record(job_data=workflow_jobdata)
                         self._logger.info(
                             "Workflow %s finished",
                             workflows[i].id,

@@ -39,6 +39,7 @@ def main() -> None:
         id=1,
         workflows=workflows,
         campaign_policy="time",
+        deadline=config["campaign"]["deadline"],
     )
 
     # A resource is where the campaign will run.

@@ -130,7 +130,9 @@ class RPEnactor(Enactor):
 
                 for cb in self._callbacks:
                     self._callbacks[cb](
-                        workflow_ids=[workflow.id], new_state=st.EXECUTING
+                        workflow_ids=[workflow.id],
+                        new_state=st.EXECUTING,
+                        step_ids=[None],
                     )
                 # Execute the task.
             except Exception as ex:
@@ -162,7 +164,9 @@ class RPEnactor(Enactor):
                 # It does not iterate correctly.
                 monitoring_list = deepcopy(self._to_monitor)
                 # self._logger.info("Monitoring workflows %s" % monitoring_list)
-                to_remove = list()
+                to_remove_wfs = list()
+                to_remove_sids = list()
+
                 for workflow_id in monitoring_list:
                     if f"workflow.{workflow_id}" in workflows_executing:
                         rp_workflow = self._rp_tmgr.get_tasks(
@@ -181,17 +185,18 @@ class RPEnactor(Enactor):
                                     self._execution_status[workflow_id]["end_time"],
                                     rp_workflow.stdout.split()[-1],
                                 )
-                                to_remove.append(workflow_id)
+                                to_remove_wfs.append(workflow_id)
+                                to_remove_sids.append(rp_workflow.stdout.split()[-1])
                             self._prof.prof("workflow_success", uid=self._uid)
-                if to_remove:
+                if to_remove_wfs:
                     for cb in self._callbacks:
                         self._callbacks[cb](
-                            workflow_ids=to_remove,
+                            workflow_ids=to_remove_wfs,
                             new_state=st.DONE,
-                            step_id=rp_workflow.stdout.split()[-1],
+                            step_ids=to_remove_sids,
                         )
                     with self._monitoring_lock:
-                        for wid in to_remove:
+                        for wid in to_remove_wfs:
                             self._to_monitor.remove(wid)
                 self._prof.prof("workflow_monitor_end", uid=self._uid)
 
