@@ -94,7 +94,7 @@ class Bookkeeper(object):
             tmp_runtime = np.inf
             cores = 1
             while cores <= total_cores:
-                slurm_job, _ = self._slurmise.predict(
+                slurm_job, warns = self._slurmise.predict(
                     cmd=workflow.get_command(), job_name=workflow.subcommand
                 )
                 self._logger.debug(
@@ -109,14 +109,19 @@ class Bookkeeper(object):
                     cores *= 2
                 else:
                     break
-            if cores > total_cores:
+
+            if cores > total_cores or len(warns) > 0:
                 workflow_requirements[workflow.id] = {
-                    "req_cpus": workflow.resources["ranks"],
+                    "req_cpus": workflow.resources["ranks"]
+                    * workflow.resources["threads"],
                     "req_memory": workflow.resources["memory"],
                     "req_walltime": workflow.resources["runtime"]
                     * 1.1,  # Adding 10% to the runtime
                 }
             else:
+                workflow.resources["ranks"] = cores // 2
+                workflow.resources["threads"] = (1,)
+                workflow.resources["memory"] = slurm_job.memory
                 workflow_requirements[workflow.id] = {
                     "req_cpus": cores // 2,
                     "req_memory": slurm_job.memory,
@@ -324,12 +329,21 @@ class Bookkeeper(object):
                         )
                         workflow_jobdata = JobData(
                             job_name=workflows[i].name,
-                            slurm_id=f"{slurm_id}.{slurm_id}",
+                            slurm_id=f"{slurm_id}.{step_id}",
                             categorical={},
-                            numerical={},
+                            numerical={
+                                "ranks": workflows[i].resources["ranks"],
+                                "threads": workflows[i].resources["threads"],
+                            },
                             memory=workflow_metadata["max_rss"],
                             runtime=workflow_metadata["elapsed_seconds"] / 60,
                             cmd=workflows[i].get_command(),
+                        )
+                        self._logger.debug(
+                            "Workflow %s finished with metadata: %s and jobdata: %s",
+                            workflows[i].id,
+                            workflow_metadata,
+                            workflow_jobdata,
                         )
                         self._slurmise.raw_record(job_data=workflow_jobdata)
                         self._logger.info(
