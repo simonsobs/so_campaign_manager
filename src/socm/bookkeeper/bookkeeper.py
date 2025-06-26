@@ -295,15 +295,19 @@ class Bookkeeper(object):
                             slurm_id=slurm_id,
                             step_name=step_id,
                         )
+                        numerical_fields = {
+                            "ranks": workflows[i].resources["ranks"],
+                            "threads": workflows[i].resources["threads"],
+                        }
+
+                        for field in workflows[i].get_numeric_fields():
+                            numerical_fields[field] = getattr(workflows[i], field)
+
                         workflow_jobdata = JobData(
                             job_name=workflows[i].name,
                             slurm_id=f"{slurm_id}.{step_id}",
                             categorical={},
-                            numerical={
-                                "ranks": workflows[i].resources["ranks"],
-                                "threads": workflows[i].resources["threads"],
-                                "datasize": workflows[i].datasize,
-                            },
+                            numerical=numerical_fields,
                             memory=workflow_metadata["max_rss"],
                             runtime=workflow_metadata["elapsed_seconds"] / 60,
                             cmd=workflows[i].get_command(),
