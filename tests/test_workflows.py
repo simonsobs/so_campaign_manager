@@ -1,12 +1,12 @@
-import toml
+import hypothesis
+from hypothesis import given
+from hypothesis import strategies as st
 
 from socm.workflows import MLMapmakingWorkflow
 
 
-def test_mlworkflow(simple_toml):
-
-    config = toml.load(simple_toml.toml)
-    workflow = MLMapmakingWorkflow(**config["campaign"]["ml-mapmaking"])
+def test_mlworkflow(mock_context, simple_config):
+    workflow = MLMapmakingWorkflow(**simple_config["campaign"]["ml-mapmaking"])
     assert workflow.context == "context.yaml"
     assert workflow.area == "so_geometry_v20250306_lat_f090.fits"
     assert workflow.output_dir == "output"
@@ -26,9 +26,8 @@ def test_mlworkflow(simple_toml):
     assert workflow.id is None  # Default value for id is None
 
 
-def test_get_arguments(simple_toml):
-    config = toml.load(simple_toml.toml)
-    workflow = MLMapmakingWorkflow(**config["campaign"]["ml-mapmaking"])
+def test_get_arguments(mock_context, simple_config):
+    workflow = MLMapmakingWorkflow(**simple_config["campaign"]["ml-mapmaking"])
     arguments = workflow.get_arguments()
     assert (
         arguments
@@ -36,10 +35,37 @@ def test_get_arguments(simple_toml):
     )
 
 
-def test_get_command(lite_toml):
-
-    config = toml.load(lite_toml.toml)
-    workflow = MLMapmakingWorkflow(**config["campaign"]["ml-mapmaking"])
+def test_get_command(mock_context, lite_config):
+    workflow = MLMapmakingWorkflow(**lite_config["campaign"]["ml-mapmaking"])
     command = workflow.get_command(ranks=2)
     expected = "srun --cpu_bind=cores --export=ALL --ntasks-per-node=2 --cpus-per-task=8 so-site-pipeline make-ml-map obs_id='1575600533.1575611468.ar5_1' so_geometry_v20250306_lat_f090.fits output --context=context.yaml --site=act"
     assert command == expected
+
+
+@given(
+    maxiter=st.one_of(st.integers(), st.lists(st.integers())),
+    downsample=st.one_of(st.integers(), st.lists(st.integers())),
+    tiled=st.integers(),
+    datasize=st.integers(),
+)
+@hypothesis.settings(suppress_health_check=[hypothesis.HealthCheck.function_scoped_fixture])
+def test_get_numeric_fields(mock_context, maxiter, downsample, tiled, datasize):
+    """
+    Test the get_numeric_fields method to ensure it correctly identifies numeric fields.
+    """
+
+    config = {
+        "context": "context.yaml",
+        "area": "area.fits",
+        "output_dir": "output",
+        "maxiter": maxiter,
+        "downsample": downsample,
+        "tiled": tiled,
+        "datasize": datasize,
+    }
+
+    workflow = MLMapmakingWorkflow(**config)
+    numeric_fields = workflow.get_numeric_fields()
+    assert "maxiter" in numeric_fields
+    assert "downsample" in numeric_fields
+    assert "tiled" in numeric_fields

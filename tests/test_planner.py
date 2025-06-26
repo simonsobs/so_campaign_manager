@@ -19,7 +19,7 @@ def test_plan(mocked_init):
         for i in range(10)
     ]
     # Map workflow names to objects for easy lookup
-    wf_map = {wf.name: wf for wf in workflows}
+    {wf.name: wf for wf in workflows}
 
     actual_plan = [(Workflow(name='W1', executable='exe', context='ctx', subcommand='sub', id=1, environment=None, resources=None), range(64, 128), 2000, 0, 45), 
                    (Workflow(name='W2', executable='exe', context='ctx', subcommand='sub', id=2, environment=None, resources=None), range(128, 144), 15000, 0, 25), 

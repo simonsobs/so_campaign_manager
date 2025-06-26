@@ -21,15 +21,12 @@ class RPEnactor(Enactor):
     """
 
     def __init__(self, sid):
-
         super(RPEnactor, self).__init__(sid=sid)
         # List with all the workflows that are executing and require to be
         # monitored. This list is atomic and requires a lock
         self._to_monitor = list()
 
-        os.environ["RADICAL_CONFIG_USER_DIR"] = os.path.join(
-            os.path.dirname(__file__) + "/../configs/"
-        )
+        os.environ["RADICAL_CONFIG_USER_DIR"] = os.path.join(os.path.dirname(__file__) + "/../configs/")
         self._prof.prof("enactor_setup", uid=self._uid)
         # Lock to provide atomicity in the monitoring data structure
         self._monitoring_lock = ru.RLock("cm.monitor_lock")
@@ -78,9 +75,7 @@ class RPEnactor(Enactor):
 
         self._prof.prof("enacting_start", uid=self._uid)
         exec_workflows = []
-        for workflow, ncpus, memory in zip(
-            workflows, core_requirements, memory_requirements
-        ):
+        for workflow, ncpus, memory in zip(workflows, core_requirements, memory_requirements):
             # If the enactor has already received a workflow issue a warning and
             # proceed.
             if workflow.id in self._execution_status:
@@ -107,10 +102,10 @@ class RPEnactor(Enactor):
                     exec_workflow.arguments += [workflow.subcommand]
                 arguments = workflow.get_arguments()
                 exec_workflow.arguments += arguments.split()
-                exec_workflow.ranks = len(ncpus[0])
-                exec_workflow.cores_per_rank = 8
+                exec_workflow.ranks = workflow.resources["ranks"]
+                exec_workflow.cores_per_rank = workflow.resources["threads"]
                 exec_workflow.threading_type = rp.OpenMP
-                exec_workflow.mem_per_rank = memory / len(ncpus[0])
+                exec_workflow.mem_per_rank = memory / workflow.resources["ranks"]
                 exec_workflow.post_exec = "echo ${SLURM_JOB_ID}.${SLURM_STEP_ID}"
                 if workflow.environment:
                     exec_workflow.environment = workflow.environment
@@ -145,9 +140,7 @@ class RPEnactor(Enactor):
         # If there is no monitoring tasks, start one.
         if self._monitoring_thread is None:
             self._logger.info("Starting monitor thread")
-            self._monitoring_thread = mt.Thread(
-                target=self._monitor, name="monitor-thread"
-            )
+            self._monitoring_thread = mt.Thread(target=self._monitor, name="monitor-thread")
             self._monitoring_thread.start()
 
     def _monitor(self):
@@ -169,16 +162,12 @@ class RPEnactor(Enactor):
 
                 for workflow_id in monitoring_list:
                     if f"workflow.{workflow_id}" in workflows_executing:
-                        rp_workflow = self._rp_tmgr.get_tasks(
-                            uids=f"workflow.{workflow_id}"
-                        )
+                        rp_workflow = self._rp_tmgr.get_tasks(uids=f"workflow.{workflow_id}")
                         if rp_workflow.state in rp.FINAL:
                             with self._monitoring_lock:
                                 self._logger.debug(f"workflow.{workflow_id} Done")
                                 self._execution_status[workflow_id]["state"] = st.DONE
-                                self._execution_status[workflow_id][
-                                    "end_time"
-                                ] = datetime.now()
+                                self._execution_status[workflow_id]["end_time"] = datetime.now()
                                 self._logger.debug(
                                     "Workflow %s finished: %s, step_id: %s",
                                     workflow_id,
