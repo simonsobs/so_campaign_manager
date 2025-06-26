@@ -5,7 +5,15 @@ description = "A campaign manager to execute SO mapmaking campaign"
 readme = 'README.md'
 requires-python = '>=3.9'
 authors = [{ name = 'Giannis Paraskevakos', email = 'iparask@princeton.edu' }]
-dependencies = ["pydantic>=2.0", "numpy", "networkx", "toml", "click"]
+dependencies = [
+    "pydantic>=2.0",
+    "numpy",
+    "radical.pilot",
+    "networkx",
+    "toml",
+    "click",
+    "sotodlib",
+]
 
 [project.optional-dependencies]
 dev = [
@@ -18,7 +26,6 @@ dev = [
     "pytest>=4.6",
     "hypothesis",
 ]
-prod = ["sotodlib", "radical.pilot"]
 
 [build-system]
 requires = ["setuptools", "versioneer[toml]"]
