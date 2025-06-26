@@ -111,7 +111,7 @@ class Bookkeeper(object):
                 }
             else:
                 workflow.resources["ranks"] = cores // 2
-                workflow.resources["threads"] = (1,)
+                workflow.resources["threads"] = 1
                 workflow.resources["memory"] = slurm_job.memory
                 workflow_requirements[workflow.id] = {
                     "req_cpus": cores // 2,
