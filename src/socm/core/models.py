@@ -1,6 +1,6 @@
-from typing import Dict, List, Optional, get_origin, get_args, Union
-from numbers import Number
 from collections.abc import Iterable
+from numbers import Number
+from typing import Dict, List, Optional, Union, get_args, get_origin
 
 from pydantic import BaseModel
 

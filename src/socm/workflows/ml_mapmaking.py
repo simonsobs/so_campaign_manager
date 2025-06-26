@@ -1,4 +1,5 @@
-from typing import Any, List, Union, Optional
+from typing import Any, List, Optional, Union
+
 from sotodlib.core import Context
 
 from ..core.models import Workflow

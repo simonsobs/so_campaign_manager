@@ -11,7 +11,6 @@ import radical.utils as ru
 from slurmise.api import Slurmise
 from slurmise.job_data import JobData
 from slurmise.slurm import parse_slurm_job_metadata
-from sotodlib.core import Context
 
 from ..core import Campaign, Resource
 from ..enactor import RPEnactor
