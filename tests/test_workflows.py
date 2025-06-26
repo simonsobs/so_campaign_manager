@@ -49,7 +49,7 @@ def test_get_command(mock_context, lite_config):
     datasize=st.integers(),
 )
 @hypothesis.settings(suppress_health_check=[hypothesis.HealthCheck.function_scoped_fixture])
-def test_get_numeric_fields(mock_context, maxiter, downsample, tiled, datasize):
+def test_get_fields(mock_context, maxiter, downsample, tiled, datasize):
     """
     Test the get_numeric_fields method to ensure it correctly identifies numeric fields.
     """
@@ -64,8 +64,25 @@ def test_get_numeric_fields(mock_context, maxiter, downsample, tiled, datasize):
         "datasize": datasize,
     }
 
+    # breakpoint()
     workflow = MLMapmakingWorkflow(**config)
     numeric_fields = workflow.get_numeric_fields()
     assert "maxiter" in numeric_fields
     assert "downsample" in numeric_fields
     assert "tiled" in numeric_fields
+
+    workflow = MLMapmakingWorkflow(**config)
+    numeric_fields = workflow.get_numeric_fields(avoid_attributes=["tiled"])
+    assert "tiled" not in numeric_fields
+
+    categorical_fields = workflow.get_categorical_fields(avoid_attributes=["executable", "name", "context"])
+    assert "subcommand" in categorical_fields
+    assert "area" in categorical_fields
+    assert "output_dir" in categorical_fields
+    assert "query" in categorical_fields
+    assert "comps" in categorical_fields
+    assert "nmat" in categorical_fields
+    assert "site" in categorical_fields
+    assert "executable" not in categorical_fields
+    assert "name" not in categorical_fields
+    assert "context" not in categorical_fields

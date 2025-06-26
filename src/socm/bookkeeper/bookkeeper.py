@@ -301,6 +301,7 @@ class Bookkeeper(object):
                         }
                         for field in workflows[i].get_numeric_fields(avoid_attributes=["id"]):
                             numerical_fields[field] = getattr(workflows[i], field)
+                        
                         workflow_jobdata = JobData(
                             job_name=workflows[i].name,
                             slurm_id=f"{slurm_id}.{step_id}",

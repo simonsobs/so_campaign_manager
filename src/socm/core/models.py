@@ -78,7 +78,7 @@ class Workflow(BaseModel):
 
         # Also check actual instance values for numeric fields not captured by annotations
         for field_name, value in self.__dict__.items():
-            if field_name not in numeric_fields:
+            if field_name not in numeric_fields and field_name not in avoid_attributes:
                 if isinstance(value, Number):
                     numeric_fields.append(field_name)
                 elif isinstance(value, Iterable) and not isinstance(value, (str, bytes, dict)):
@@ -90,6 +90,64 @@ class Workflow(BaseModel):
                         pass
 
         return numeric_fields
+
+    def get_categorical_fields(self, avoid_attributes: List[str] = list()) -> List[str]:
+        """
+        Returns a list of field names that are either numeric types
+        or iterable collections of numeric types.
+
+        Uses Pydantic v2 model_fields for type introspection.
+
+        Returns:
+            List[str]: Field names with numeric values
+        """
+        categorical_fields = []
+
+        # Get field information from Pydantic v2 model_fields
+        for field_name, field_info in self.__class__.model_fields.items():
+            # Get the annotation type
+            if field_name in avoid_attributes or getattr(self, field_name) is None:
+                continue
+            field_type = field_info.annotation
+
+            # Check for direct numeric types
+            if isinstance(field_type, type) and issubclass(field_type, str):
+                categorical_fields.append(field_name)
+                continue
+
+            # Check for complex types (Optional, List, etc)
+            origin = get_origin(field_type)
+            if origin is not None:
+                args = get_args(field_type)
+
+                # Check for Optional numeric types
+                if origin is Union:
+                    for arg in args:
+                        if isinstance(arg, type) and issubclass(arg, str):
+                            categorical_fields.append(field_name)
+                            break
+                # Check for iterables of numbers
+                elif issubclass(origin, Iterable):
+                    # Check if it's a parameterized generic like List[int]
+                    if args and len(args) > 0:
+                        element_type = args[0]
+                        if isinstance(element_type, type) and issubclass(element_type, str):
+                            categorical_fields.append(field_name)
+
+        # Also check actual instance values for numeric fields not captured by annotations
+        for field_name, value in self.__dict__.items():
+            if field_name not in categorical_fields and field_name not in avoid_attributes:
+                if isinstance(value, str):
+                    categorical_fields.append(field_name)
+                elif isinstance(value, Iterable) and not isinstance(value, (Number, bytes, dict)):
+                    # Check if all elements are numbers
+                    try:
+                        if all(isinstance(item, str) for item in value):
+                            categorical_fields.append(field_name)
+                    except (TypeError, ValueError):
+                        pass
+
+        return categorical_fields
 
 
 class Campaign(BaseModel):
