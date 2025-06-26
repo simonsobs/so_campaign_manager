@@ -6,12 +6,13 @@ readme = 'README.md'
 requires-python = '>=3.9'
 authors = [{ name = 'Giannis Paraskevakos', email = 'iparask@princeton.edu' }]
 dependencies = [
-    "pydantic",
+    "pydantic>=2.0",
     "numpy",
     "radical.pilot",
     "networkx",
     "toml",
     "click",
+    "sotodlib",
 ]
 
 [project.optional-dependencies]
@@ -23,6 +24,7 @@ dev = [
     "pytest-cov>=2.6",
     "coveralls>=1.5",
     "pytest>=4.6",
+    "hypothesis",
 ]
 
 [build-system]
@@ -65,5 +67,6 @@ exclude_also = ["if TYPE_CHECKING:"]
 profile = "black"
 skip = ["docs", ".github", ".vscode", "container", "env", "env311", "build"]
 
-[tool.black]
-exclude = "docs|.github|.vscode|container|env|env311|build"
+[tool.ruff]
+line-length = 120
+exclude = ["docs", ".github", ".vscode", "container", "env", "env311", "build"]
