@@ -3,7 +3,7 @@ dynamic = ["version"]
 name = "so_campaing_manager"
 description = "A campaign manager to execute SO mapmaking campaign"
 readme = 'README.md'
-requires-python = '>=3.9'
+requires-python = '>=3.11'
 authors = [{ name = 'Giannis Paraskevakos', email = 'iparask@princeton.edu' }]
 dependencies = [
     "pydantic>=2.0",
@@ -13,6 +13,7 @@ dependencies = [
     "toml",
     "click",
     "sotodlib",
+    "slurmise",
 ]
 
 [project.optional-dependencies]

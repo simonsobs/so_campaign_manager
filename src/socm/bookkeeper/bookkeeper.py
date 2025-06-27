@@ -3,6 +3,7 @@ import threading as mt
 from copy import deepcopy
 from importlib.resources import files
 from math import ceil, floor
+from pathlib import Path
 from time import sleep
 from typing import Dict
 
@@ -10,9 +11,10 @@ import numpy as np
 import radical.utils as ru
 from slurmise.api import Slurmise
 from slurmise.job_data import JobData
+from slurmise.job_parse.file_parsers import FileMD5
 from slurmise.slurm import parse_slurm_job_metadata
 
-from ..core import Campaign, Resource
+from ..core import Campaign, Resource, Workflow
 from ..enactor import RPEnactor
 from ..planner import HeftPlanner
 from ..utils import states as st
@@ -54,7 +56,7 @@ class Bookkeeper(object):
         self._slurmise = Slurmise(toml_path=files("socm.configs") / "slurmise.toml")
         # The time in the campaign's world. The first element is the actual time
         # of the campaign world. The second element is the
-        # self._time = {"time": 0, "step": []}
+        # self._time = {"time": 0, "step": []}io
 
         path = os.getcwd() + "/" + self._session_id
 
@@ -147,6 +149,50 @@ class Bookkeeper(object):
             return False
         else:
             return True
+
+    def _record(self, workflow: Workflow) -> None:
+        """
+        Record the workkflow execution data to the performance prediction system
+        """
+        slurm_id, step_id = self._workflows_execids[workflow.id].split(".")
+        workflow_metadata = parse_slurm_job_metadata(
+            slurm_id=slurm_id,
+            step_name=step_id,
+        )
+
+        numerical_fields = {
+            "ranks": workflow.resources["ranks"],
+            "threads": workflow.resources["threads"],
+        }
+        for field in workflow.get_numeric_fields(avoid_attributes=["id"]):
+            numerical_fields[field] = getattr(workflow, field)
+
+        categorical_fields = {}
+        for field in workflow.get_categorical_fields(
+            avoid_attributes=["executable", "name", "context", "output_dir", "query"]
+        ):
+            val = getattr(workflow, field)
+            field_val = (
+                FileMD5().parse_file(Path(val.split("file://")[-1]).absolute()) if val.startswith("file://") else val
+            )
+            categorical_fields[field] = field_val
+
+        workflow_jobdata = JobData(
+            job_name=workflow.name,
+            slurm_id=f"{slurm_id}.{step_id}",
+            categorical=categorical_fields,
+            numerical=numerical_fields,
+            memory=workflow_metadata["max_rss"],
+            runtime=workflow_metadata["elapsed_seconds"] / 60,
+            cmd=workflow.get_command(),
+        )
+        self._logger.debug(
+            "Workflow %s finished with metadata: %s and jobdata: %s",
+            workflow.id,
+            workflow_metadata,
+            workflow_jobdata,
+        )
+        self._slurmise.raw_record(job_data=workflow_jobdata)
 
     def state_update_cb(self, workflow_ids, new_state, **kargs):
         """
@@ -290,33 +336,7 @@ class Bookkeeper(object):
                     if self._workflows_state[workflows[i].id] in st.CFINAL:
                         resource = self._unavail_resources[i]
                         finished.append((workflows[i], resource))
-                        slurm_id, step_id = self._workflows_execids[workflows[i].id].split(".")
-                        workflow_metadata = parse_slurm_job_metadata(
-                            slurm_id=slurm_id,
-                            step_name=step_id,
-                        )
-                        numerical_fields = {
-                            "ranks": workflows[i].resources["ranks"],
-                            "threads": workflows[i].resources["threads"],
-                        }
-                        for field in workflows[i].get_numeric_fields(avoid_attributes=["id"]):
-                            numerical_fields[field] = getattr(workflows[i], field)
-                        workflow_jobdata = JobData(
-                            job_name=workflows[i].name,
-                            slurm_id=f"{slurm_id}.{step_id}",
-                            categorical={},
-                            numerical=numerical_fields,
-                            memory=workflow_metadata["max_rss"],
-                            runtime=workflow_metadata["elapsed_seconds"] / 60,
-                            cmd=workflows[i].get_command(),
-                        )
-                        self._logger.debug(
-                            "Workflow %s finished with metadata: %s and jobdata: %s",
-                            workflows[i].id,
-                            workflow_metadata,
-                            workflow_jobdata,
-                        )
-                        self._slurmise.raw_record(job_data=workflow_jobdata)
+                        self._record(workflows[i])
                         self._logger.info(
                             "Workflow %s finished",
                             workflows[i].id,

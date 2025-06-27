@@ -1,3 +1,5 @@
+from pathlib import Path
+
 import hypothesis
 from hypothesis import given
 from hypothesis import strategies as st
@@ -31,14 +33,14 @@ def test_get_arguments(mock_context, simple_config):
     arguments = workflow.get_arguments()
     assert (
         arguments
-        == "obs_id='1575600533.1575611468.ar5_1' so_geometry_v20250306_lat_f090.fits output --bands=f090 --comps=TQU --context=context.yaml --maxiter=10 --site=act --tiled=1 --wafer=ws0"
+        == f"obs_id='1575600533.1575611468.ar5_1' {Path('so_geometry_v20250306_lat_f090.fits').absolute()} output --bands=f090 --comps=TQU --context=context.yaml --maxiter=10 --site=act --tiled=1 --wafer=ws0"
     )
 
 
 def test_get_command(mock_context, lite_config):
     workflow = MLMapmakingWorkflow(**lite_config["campaign"]["ml-mapmaking"])
     command = workflow.get_command(ranks=2)
-    expected = "srun --cpu_bind=cores --export=ALL --ntasks-per-node=2 --cpus-per-task=8 so-site-pipeline make-ml-map obs_id='1575600533.1575611468.ar5_1' so_geometry_v20250306_lat_f090.fits output --context=context.yaml --site=act"
+    expected = f"srun --cpu_bind=cores --export=ALL --ntasks-per-node=2 --cpus-per-task=8 so-site-pipeline make-ml-map obs_id='1575600533.1575611468.ar5_1' {Path('so_geometry_v20250306_lat_f090.fits').absolute()} output --context=context.yaml --site=act"
     assert command == expected
 
 
@@ -49,7 +51,7 @@ def test_get_command(mock_context, lite_config):
     datasize=st.integers(),
 )
 @hypothesis.settings(suppress_health_check=[hypothesis.HealthCheck.function_scoped_fixture])
-def test_get_numeric_fields(mock_context, maxiter, downsample, tiled, datasize):
+def test_get_fields(mock_context, maxiter, downsample, tiled, datasize):
     """
     Test the get_numeric_fields method to ensure it correctly identifies numeric fields.
     """
@@ -64,8 +66,25 @@ def test_get_numeric_fields(mock_context, maxiter, downsample, tiled, datasize):
         "datasize": datasize,
     }
 
+    # breakpoint()
     workflow = MLMapmakingWorkflow(**config)
     numeric_fields = workflow.get_numeric_fields()
     assert "maxiter" in numeric_fields
     assert "downsample" in numeric_fields
     assert "tiled" in numeric_fields
+
+    workflow = MLMapmakingWorkflow(**config)
+    numeric_fields = workflow.get_numeric_fields(avoid_attributes=["tiled"])
+    assert "tiled" not in numeric_fields
+
+    categorical_fields = workflow.get_categorical_fields(avoid_attributes=["executable", "name", "context"])
+    assert "subcommand" in categorical_fields
+    assert "area" in categorical_fields
+    assert "output_dir" in categorical_fields
+    assert "query" in categorical_fields
+    assert "comps" in categorical_fields
+    assert "nmat" in categorical_fields
+    assert "site" in categorical_fields
+    assert "executable" not in categorical_fields
+    assert "name" not in categorical_fields
+    assert "context" not in categorical_fields
