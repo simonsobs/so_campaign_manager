@@ -1,3 +1,4 @@
+from pathlib import Path
 from typing import Any, List, Optional, Union
 
 from sotodlib.core import Context
@@ -31,7 +32,8 @@ class MLMapmakingWorkflow(Workflow):
         """
         Post-initialization to set the context for the workflow.
         """
-        ctx = Context(self.context)
+        ctx_file = Path(self.context.split("file://")[-1]).absolute()
+        ctx = Context(ctx_file)
         obs_ids = ctx.obsdb.query(self.query)["obs_id"]
         for obs_id in obs_ids:
             obs_meta = ctx.get_meta(obs_id)
@@ -50,10 +52,13 @@ class MLMapmakingWorkflow(Workflow):
         """
         Get the command to run the ML mapmaking workflow.
         """
-        arguments = f"{self.query} {self.area} {self.output_dir} "
+        area = Path(self.area.split("file://")[-1])
+        arguments = f"{self.query} {area.absolute()} {self.output_dir} "
         sorted_workflow = dict(sorted(self.model_dump(exclude_unset=True).items()))
 
         for k, v in sorted_workflow.items():
+            if isinstance(v, str) and v.startswith("file://"):
+                v = Path(v.split("file://")[-1]).absolute()
             if k not in [
                 "area",
                 "output_dir",

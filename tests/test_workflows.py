@@ -1,3 +1,5 @@
+from pathlib import Path
+
 import hypothesis
 from hypothesis import given
 from hypothesis import strategies as st
@@ -31,14 +33,14 @@ def test_get_arguments(mock_context, simple_config):
     arguments = workflow.get_arguments()
     assert (
         arguments
-        == "obs_id='1575600533.1575611468.ar5_1' so_geometry_v20250306_lat_f090.fits output --bands=f090 --comps=TQU --context=context.yaml --maxiter=10 --site=act --tiled=1 --wafer=ws0"
+        == f"obs_id='1575600533.1575611468.ar5_1' {Path('so_geometry_v20250306_lat_f090.fits').absolute()} output --bands=f090 --comps=TQU --context=context.yaml --maxiter=10 --site=act --tiled=1 --wafer=ws0"
     )
 
 
 def test_get_command(mock_context, lite_config):
     workflow = MLMapmakingWorkflow(**lite_config["campaign"]["ml-mapmaking"])
     command = workflow.get_command(ranks=2)
-    expected = "srun --cpu_bind=cores --export=ALL --ntasks-per-node=2 --cpus-per-task=8 so-site-pipeline make-ml-map obs_id='1575600533.1575611468.ar5_1' so_geometry_v20250306_lat_f090.fits output --context=context.yaml --site=act"
+    expected = f"srun --cpu_bind=cores --export=ALL --ntasks-per-node=2 --cpus-per-task=8 so-site-pipeline make-ml-map obs_id='1575600533.1575611468.ar5_1' {Path('so_geometry_v20250306_lat_f090.fits').absolute()} output --context=context.yaml --site=act"
     assert command == expected
 
 

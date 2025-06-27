@@ -4,6 +4,67 @@ import pytest
 
 
 @pytest.fixture
+def mock_slurmise():
+    """Create a fixture that returns a mock Context class."""
+    with mock.patch("socm.bookkeeper.bookkeeper.Slurmise") as mocked:
+        # Create the mock context behavior
+        class MockContextImpl:
+            def __init__(self, toml_path):
+                self._toml_path = toml_path
+
+            def raw_record(self, job_data):
+                assert dict(job_data) == {
+                    "job_name": "ml_mapmaking_workflow",
+                    "slurm_id": "1181754.5",
+                    "categorical": {
+                        "subcommand": "make-ml-map",
+                        "area": "efca7302276bceac49b8326a7b88f008",
+                        "comps": "TQU",
+                        "bands": "f090",
+                        "nmat": "corr",
+                        "site": "act",
+                    },
+                    "numerical": {
+                        "ranks": 1,
+                        "threads": 32,
+                        "datasize": 259864,
+                        "downsample": 1,
+                        "maxiter": 10,
+                        "tiled": 1,
+                    },
+                    "memory": 41669,
+                    "runtime": 2.05,
+                    "cmd": "srun --cpu_bind=cores --export=ALL --ntasks-per-node=1 --cpus-per-task=8 so-site-pipeline make-ml-map obs_id='1575600533.1575611468.ar5_1' /scratch/gpfs/SIMONSOBS/so/science-readiness/footprint/v20250306/so_geometry_v20250306_lat_f090.fits /scratch/gpfs/SIMONSOBS/users/ip8725/git/so_mapmaking_campaign_manager/output --bands=f090 --comps=TQU --context=/scratch/gpfs/ACT/data/context-so-fixed/context.yaml --maxiter=10 --site=act --tiled=1 --wafer=ws0",
+                }
+
+        # Set the side effect to use our implementation
+        mocked.side_effect = MockContextImpl
+        yield mocked
+
+
+@pytest.fixture
+def mock_parse_slurm_job_metadata():
+    """Create a fixture that returns a mock Context class."""
+    with mock.patch("socm.bookkeeper.bookkeeper.parse_slurm_job_metadata") as mocked:
+        # Create the mock context behavior
+        # Set the side effect to use our implementation
+        mocked.return_value = {
+            "slurm_id": 1181754,
+            "step_id": "5",
+            "job_name": "interactive",
+            "state": "RUNNING",
+            "partition": "cpu",
+            "elapsed_seconds": 123,
+            "CPUs": 112,
+            "memory_per_cpu": {"set": True, "infinite": False, "number": 8000},
+            "memory_per_node": {"set": False, "infinite": False, "number": 0},
+            "max_rss": 41669,
+        }
+
+        yield mocked
+
+
+@pytest.fixture
 def mock_context():
     """Create a fixture that returns a mock Context class."""
     with mock.patch("socm.workflows.ml_mapmaking.Context") as mocked:
