@@ -1,6 +1,24 @@
+from pathlib import Path
 from unittest import mock
 
 import pytest
+
+
+@pytest.fixture
+def mock_filemd5():
+    """Create a fixture that returns a mock Context class."""
+    with mock.patch("socm.bookkeeper.bookkeeper.FileMD5") as mocked:
+        # Create the mock context behavior
+        class MockContextImpl:
+            def __init__(self):
+                pass
+
+            def parse_file(self, path: Path, gzip_file: bool = False):
+                return "efca7302276bceac49b8326a7b88f008"
+
+        # Set the side effect to use our implementation
+        mocked.side_effect = MockContextImpl
+        yield mocked
 
 
 @pytest.fixture

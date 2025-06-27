@@ -6,7 +6,7 @@ from socm.workflows import MLMapmakingWorkflow
 
 @mock.patch.object(Bookkeeper, "__init__", return_value=None)
 @mock.patch("radical.utils.Logger")
-def test_record(mocked_logger, mocked_init, mock_slurmise, mock_parse_slurm_job_metadata, mock_context):
+def test_record(mocked_logger, mocked_init, mock_slurmise, mock_parse_slurm_job_metadata, mock_context, mock_filemd5):
     """
     Test the record method of the Bookkeeper class.
     """
