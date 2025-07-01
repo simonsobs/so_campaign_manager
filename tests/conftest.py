@@ -144,7 +144,17 @@ def lite_config():
                     "ranks": 8,
                     "threads": 1,
                 },
-            }
+            },
+            "sat-sims": {
+                "context": "context.yaml",
+                "schedule": "schedule0002.txt",
+                "output_dir": "output",
+                "filterbin_name": "filterbin_01_schedule0002",
+                "resources": {
+                    "ranks": 8,
+                    "threads": 1,
+                },
+            },
         }
     }
 

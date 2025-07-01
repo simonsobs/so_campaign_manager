@@ -18,7 +18,7 @@ class Workflow(BaseModel):
     name: str
     executable: str
     context: str
-    subcommand: str
+    subcommand: str = ""
     id: Optional[int] = None
     environment: Optional[Dict[str, str]] = None
     resources: Optional[Dict[str, int]] = None

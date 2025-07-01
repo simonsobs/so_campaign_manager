@@ -29,9 +29,7 @@ def main() -> None:
     for workflow_type in workflow_types:
         if workflow_type in registered_workflows:
             # TODO: this can be a list of workflows, not just one.
-            workflow = registered_workflows[workflow_type](
-                **config["campaign"][workflow_type]
-            )
+            workflow = registered_workflows[workflow_type](**config["campaign"][workflow_type])
             workflow.id = len(workflows) + 1  # Assign a unique ID to each workflow
             workflows.append(workflow)
 
