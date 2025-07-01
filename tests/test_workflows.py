@@ -45,7 +45,7 @@ def test_get_command(mock_context, lite_config):
 
     workflow = SATSimWorkflow(**lite_config["campaign"]["sat-sims"])
     command = workflow.get_command()
-    expected = "srun --cpu_bind=cores --export=ALL --ntasks-per-node=8 --cpus-per-task=1 toast_so_sim  --job_group_size=8 --out output --context=context.yaml --filterbin.name=filterbin_01_schedule0002 --schedule=schedule0002.txt"
+    expected = "srun --cpu_bind=cores --export=ALL --ntasks-per-node=8 --cpus-per-task=1 toast_so_sim  --job_group_size=8 --out output --bands=SAT_f090 --context=context.yaml --filterbin.name=filterbin_01_schedule0002 --pixels_healpix_radec.nside=512 --processing_mask.file=None --sample_rate=37 --scan_map.disable --schedule=schedule0002.txt --sim_atmosphere.disable --sim_hwpss.disable --sim_hwpss.atmo_data=None --sim_noise.disable --sim_sss.disable --subcommand= --wafer_slots=w25"
     assert command == expected
 
 

@@ -8,11 +8,11 @@ from ..core.models import Workflow
 
 class SATSimWorkflow(Workflow):
     """
-    A workflow for ML mapmaking.
+    A workflow for simulating SAT observations.
     """
 
     output_dir: str
-    name: str = "sat_msss"
+    name: str = "sat_sims"
     executable: str = "toast_so_sim"
     schedule: Optional[str] = None
     bands: Optional[str] = "SAT_f090"
@@ -51,13 +51,13 @@ class SATSimWorkflow(Workflow):
         Get the command to run the ML mapmaking workflow.
         """
         arguments = f"--out {self.output_dir} "
-        sorted_workflow = dict(sorted(self.model_dump(exclude_unset=True).items()))
+        sorted_workflow = dict(sorted(self.model_dump().items()))
 
         for k, v in sorted_workflow.items():
             if isinstance(v, str) and v.startswith("file://"):
                 v = Path(v.split("file://")[-1]).absolute()
             if k not in [
-                "anme",
+                "name",
                 "output_dir",
                 "executable",
                 "id",
