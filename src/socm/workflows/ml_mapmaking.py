@@ -39,11 +39,11 @@ class MLMapmakingWorkflow(Workflow):
             obs_meta = ctx.get_meta(obs_id)
             self.datasize += obs_meta.samps.count
 
-    def get_command(self, ranks: int = 1) -> str:
+    def get_command(self) -> str:
         """
         Get the command to run the ML mapmaking workflow.
         """
-        command = f"srun --cpu_bind=cores --export=ALL --ntasks-per-node={ranks} --cpus-per-task=8 {self.executable} {self.subcommand} "
+        command = f"srun --cpu_bind=cores --export=ALL --ntasks-per-node={self.resources['ranks']} --cpus-per-task={self.resources['threads']} {self.executable} {self.subcommand} "
         command += self.get_arguments()
 
         return command.strip()

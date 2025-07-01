@@ -4,7 +4,7 @@ import hypothesis
 from hypothesis import given
 from hypothesis import strategies as st
 
-from socm.workflows import MLMapmakingWorkflow
+from socm.workflows import MLMapmakingWorkflow, SATSimWorkflow
 
 
 def test_mlworkflow(mock_context, simple_config):
@@ -39,8 +39,13 @@ def test_get_arguments(mock_context, simple_config):
 
 def test_get_command(mock_context, lite_config):
     workflow = MLMapmakingWorkflow(**lite_config["campaign"]["ml-mapmaking"])
-    command = workflow.get_command(ranks=2)
-    expected = f"srun --cpu_bind=cores --export=ALL --ntasks-per-node=2 --cpus-per-task=8 so-site-pipeline make-ml-map obs_id='1575600533.1575611468.ar5_1' {Path('so_geometry_v20250306_lat_f090.fits').absolute()} output --context=context.yaml --site=act"
+    command = workflow.get_command()
+    expected = f"srun --cpu_bind=cores --export=ALL --ntasks-per-node=8 --cpus-per-task=1 so-site-pipeline make-ml-map obs_id='1575600533.1575611468.ar5_1' {Path('so_geometry_v20250306_lat_f090.fits').absolute()} output --context=context.yaml --site=act"
+    assert command == expected
+
+    workflow = SATSimWorkflow(**lite_config["campaign"]["sat-sims"])
+    command = workflow.get_command()
+    expected = "srun --cpu_bind=cores --export=ALL --ntasks-per-node=8 --cpus-per-task=1 toast_so_sim  --job_group_size=8 --out output --bands=SAT_f090 --context=context.yaml --filterbin.name=filterbin_01_schedule0002 --pixels_healpix_radec.nside=512 --processing_mask.file=None --sample_rate=37 --scan_map.disable --schedule=schedule0002.txt --sim_atmosphere.disable --sim_hwpss.disable --sim_hwpss.atmo_data=None --sim_noise.disable --sim_sss.disable --subcommand= --wafer_slots=w25"
     assert command == expected
 
 
