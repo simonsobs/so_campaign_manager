@@ -1,10 +1,10 @@
 from datetime import timedelta
 import numpy as np
-from typing import List, Optional
+from typing import Dict, List, Optional, Union
 
 from sotodlib.core import Context
 
-from socm.workflows.lat_null_tests import NullTestWorkflow
+from socm.workflows.ml_null_tests import NullTestWorkflow
 
 
 class TimeNullTestWorkflow(NullTestWorkflow):
@@ -12,11 +12,13 @@ class TimeNullTestWorkflow(NullTestWorkflow):
     A workflow for time null tests.
     """
 
+    band: str = "f090"
     chunk_nobs: Optional[int] = None
     chunk_duration: Optional[timedelta] = None
     nsplits: int = 8
+    name: str = "time_null_test_workflow"
 
-    def _get_splits(self, ctx: Context, obs_ids: List[str]) -> List[List[str]]:
+    def _get_splits(self, ctx: Context, obs_info: Dict[str, Dict[str, Union[float, str]]]) -> List[List[str]]:
         """
         Distribute the observations across splits based on the context and observation IDs.
         """
@@ -28,11 +30,34 @@ class TimeNullTestWorkflow(NullTestWorkflow):
             # Decide the chunk size based on the duration. Each chunk needs to have the
             # observataions that their start times are just less than chunk_duration.
             raise NotImplementedError("Splitting by duration is not implemented yet. Please set chunk_nobs.")
-
+        sorted_ids = sorted(obs_info, key=lambda k: obs_info[k]["start_time"])
         # Group in chunks of 10 observations.
-        obs_lists = np.array_split(obs_ids, self.chunk_nobs)
-        splits = [""] * self.nsplits
+        obs_lists = np.array_split(sorted_ids, self.chunk_nobs)
+        splits = [[] for _ in range(self.nsplits)]
         for i, obs_list in enumerate(obs_lists):
-            splits[i % self.nsplits] += ",".join(obs_list) + " "
+            splits[i % self.nsplits] += obs_list.tolist()
 
         return splits
+
+    @classmethod
+    def get_workflows(cls, desc=None) -> List[NullTestWorkflow]:
+        """
+        Create a list of NullTestWorkflows instances from the provided descriptions.
+        """
+
+        time_workflow = cls(**desc)
+
+        workflows = []
+        for split in time_workflow._splits:
+            desc = time_workflow.model_dump(exclude_unset=True)
+            desc["query"] = "obs_id IN ("
+            for oid in split:
+                desc["query"] += f"'{oid}',"
+            desc["query"] = desc["query"].rstrip(",")
+            desc["query"] += ")"
+            desc["chunk_nobs"] = 1
+            desc["output_dir"] = f"{time_workflow.output_dir}/mission_split_{len(workflows) + 1}"
+            workflow = NullTestWorkflow(**desc)
+            workflows.append(workflow)
+
+        return workflows

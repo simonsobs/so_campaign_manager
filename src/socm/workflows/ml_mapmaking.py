@@ -3,7 +3,7 @@ from typing import Any, List, Optional, Union
 
 from sotodlib.core import Context
 
-from ..core.models import Workflow
+from socm.core import Workflow
 
 
 class MLMapmakingWorkflow(Workflow):
@@ -34,10 +34,9 @@ class MLMapmakingWorkflow(Workflow):
         """
         ctx_file = Path(self.context.split("file://")[-1]).absolute()
         ctx = Context(ctx_file)
-        obs_ids = ctx.obsdb.query(self.query)["obs_id"]
+        obs_ids = ctx.obsdb.query(self.query)
         for obs_id in obs_ids:
-            obs_meta = ctx.get_meta(obs_id)
-            self.datasize += obs_meta.samps.count
+            self.datasize += obs_id["n_samples"]
 
     def get_command(self) -> str:
         """
@@ -72,3 +71,18 @@ class MLMapmakingWorkflow(Workflow):
             ]:
                 arguments += f"--{k}={v} "
         return arguments.strip()
+
+    @classmethod
+    def get_workflows(cls, descriptions: Union[List[dict], dict]) -> List["MLMapmakingWorkflow"]:
+        """
+        Create a list of MLMapmakingWorkflow instances from the provided descriptions.
+        """
+        if isinstance(descriptions, dict):
+            descriptions = [descriptions]
+
+        workflows = []
+        for desc in descriptions:
+            workflow = cls(**desc)
+            workflows.append(workflow)
+
+        return workflows

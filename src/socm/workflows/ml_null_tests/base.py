@@ -1,7 +1,9 @@
 from pathlib import Path
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional, Union
+from datetime import timedelta
 
 from sotodlib.core import Context
+from sotodlib.core.metadata.loader import LoaderError
 from socm.workflows import MLMapmakingWorkflow
 
 
@@ -25,22 +27,49 @@ class NullTestWorkflow(MLMapmakingWorkflow):
         """
         ctx_file = Path(self.context.split("file://")[-1]).absolute()
         ctx = Context(ctx_file)
-        obs_ids = ctx.obsdb.query(self.query)["obs_id"]
+        obs_ids = ctx.obsdb.query(self.query)
+
         obs_info = dict()
         for obs_id in obs_ids:
-            obs_meta = ctx.get_meta(obs_id)
-            self.datasize += obs_meta.samps.count
-            obs_info[obs_id] = {
-                "start_time": obs_meta.obs_info.timestamp.start,
-                "wafer_list": obs_meta.obs_info.wafer_slots_list.split(","),
+            self.datasize += obs_id["n_samples"]
+            obs_info[obs_id["obs_id"]] = {
+                "start_time": obs_id["timestamp"],
+                "wafer_list": obs_id["wafer_slots_list"].split(","),
             }
         # Ensure obs_ids are sorted by their timestamp
         # Order the obs_ids based on their timestamp it is in the obs_meta.obs_info.timestamp
 
         self._splits = self._get_splits(ctx, obs_info)
 
-    def _get_splits(self, ctx: Context, obs_info: Dict[str, str]) -> List[List[str]]:
+    def _get_splits(self, ctx: Context, obs_info: Dict[str, Dict[str, Union[float, str]]]) -> List[List[str]]:
         """
         Distribute the observations across splits based on the context and observation IDs.
         """
-        raise NotImplementedError("This method should be implemented in subclasses to define how splits are created.")
+        if self.__class__.__name__ != "NullTestWorkflow":
+            raise NotImplementedError("This method should be implemented in subclasses.")
+        else:
+            pass
+
+    @classmethod
+    def get_workflows(cls, desc: Dict[str, Any]) -> List["NullTestWorkflow"]:
+        """
+        Create a list of NullTestWorkflows instances from the provided descriptions.
+        """
+        workflows = []
+        try:
+            for split in desc["_splits"]:
+                desc_copy = desc.copy()
+                desc_copy["query"] = "obs_id IN ("
+                for oid in split:
+                    desc_copy["query"] += f"'{oid}',"
+                desc_copy["query"] = desc_copy["query"].rstrip(",")
+                desc_copy["query"] += ")"
+                desc_copy["chunk_nobs"] = 1
+                desc_copy["output_dir"] = f"{desc['output_dir']}/mission_split_{len(workflows) + 1}"
+                workflow = cls(**desc_copy)
+                workflows.append(workflow)
+        except LoaderError as e:
+            print(f"Error loading context: {e}")
+            raise
+
+        return workflows

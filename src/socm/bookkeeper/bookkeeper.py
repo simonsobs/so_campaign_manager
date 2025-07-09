@@ -93,16 +93,20 @@ class Bookkeeper(object):
             cores = 1
             while cores <= total_cores:
                 self._logger.debug(f"Workflow command: {workflow.get_command()} and subcommand: {workflow.subcommand}")
-                slurm_job, warns = self._slurmise.predict(cmd=workflow.get_command(), job_name=workflow.subcommand)
-                self._logger.debug(
-                    f"Slurm job prediction for {workflow.id}: {slurm_job}, "
-                    f"runtime: {slurm_job.runtime}, memory: {slurm_job.memory}"
-                )
-                if tmp_runtime / slurm_job.runtime > 1.5 and slurm_job.memory < total_memory:
-                    tmp_runtime = slurm_job.runtime
-                    cores *= 2
-                else:
-                    break
+                slurm_job, warns = (
+                    None,
+                    [1, 2],
+                )  # self._slurmise.predict(cmd=workflow.get_command(), job_name=workflow.subcommand)
+                # self._logger.debug(
+                #     f"Slurm job prediction for {workflow.id}: {slurm_job}, "
+                #     f"runtime: {slurm_job.runtime}, memory: {slurm_job.memory}"
+                # )
+                cores *= 2
+                # if tmp_runtime / slurm_job.runtime > 1.5 and slurm_job.memory < total_memory:
+                # tmp_runtime = slurm_job.runtime
+                # cores *= 2
+                # else:
+                # break
 
             if cores > total_cores or len(warns) > 0:
                 workflow_requirements[workflow.id] = {
@@ -298,11 +302,7 @@ class Bookkeeper(object):
                 # self._logger.debug('Adding items: %s, %s', workflows, resources)
                 if workflows and cores and memory:
                     self._prof.prof("enactor_submit", uid=self._uid)
-                    self._enactor.enact(
-                        workflows=workflows,
-                        core_requirements=cores,
-                        memory_requirements=memory,
-                    )
+                    self._enactor.enact(workflows=workflows)
                     self._prof.prof("enactor_submitted", uid=self._uid)
 
                     with self._monitor_lock:

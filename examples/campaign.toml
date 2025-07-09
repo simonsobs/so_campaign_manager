@@ -1,24 +1,56 @@
 [campaign]
-deadline="2d"
+deadline = "2d"
 
 [campaign.ml-mapmaking]
-context="/scratch/gpfs/ACT/data/context-so-fixed/context.yaml"
-area="/scratch/gpfs/SIMONSOBS/so/science-readiness/footprint/v20250306/so_geometry_v20250306_lat_f090.fits"
-output_dir="output"
-bands="f090"
-comps="TQU"
-maxiters=10
-query="test_query" # SQL-like query that sotodlib understands
-tiled=1
-site="act"
+context = "file:///scratch/gpfs/ACT/data/context-so-fixed/context.yaml"
+area = "file:///scratch/gpfs/SIMONSOBS/so/science-readiness/footprint/v20250306/so_geometry_v20250306_lat_f090.fits"
+output_dir = "/scratch/gpfs/SIMONSOBS/users/ip8725/git/so_mapmaking_campaign_manager/output"
+bands = "f090"
+wafer = "ws0"
+comps = "TQU"
+maxiter = 10
+query = "obs_id='1575600533.1575611468.ar5_1'"
+tiled = 1
+site = "act"
+[campaign.ml-mapmaking.resources]
+ranks = 1
+threads = 32
+memory = "80000"  # in MBs
+runtime = "80000" # in seconds
+[campaign.ml-mapmaking.environment]
+MOBY2_TOD_STAGING_PATH = "/tmp/"
+DOT_MOBY2 = "/scratch/gpfs/SIMONSOBS/users/ip8725/act_test/act_dot_moby2"
+SOTODLIB_SITECONFIG = "/scratch/gpfs/SIMONSOBS/users/ip8725/act_test/site.yaml"
 
-[campaign.lat-null-test]
-context="context.yaml"
-area="somefile.fits"
-output_dir="output"
-maxiters=10
-site="act"
-query="timestamp_start > 2020-01-01T00:00:00Z && timestamp_end < 2020-01-09T23:59:59.999Z" # SQL-like query that sotodlib understands
-[campaign.lat-null-test.mission]
-chunk_duration="1d" # This is based on the start timestamp of the query. Always in days
+[campaign.ml-null-tests]
+context = "file:///scratch/gpfs/ACT/data/context-so-fixed/context.yaml"
+area = "file:///scratch/gpfs/SIMONSOBS/so/science-readiness/footprint/v20250306/so_geometry_v20250306_lat_f090.fits"
+output_dir = "/scratch/gpfs/SIMONSOBS/users/ip8725/git/so_mapmaking_campaign_manager/output/null_tests"
+bands = "f090"
+wafer = "ws0"
+comps = "TQU"
+maxiter = 10
+query = "start_time >1551238659 and start_time < 1551263125"
+tiled = 1
+site = "act"
+[campaign.ml-null-tests.environment]
+MOBY2_TOD_STAGING_PATH="/tmp/"
+DOT_MOBY2="/scratch/gpfs/SIMONSOBS/users/ip8725/act_test/act_dot_moby2"
+SOTODLIB_SITECONFIG="/scratch/gpfs/SIMONSOBS/users/ip8725/act_test/site.yaml"
+[campaign.ml-null-tests.mission-tests]
+chunk_nobs=10 # This is based on the start timestamp of the query. Always in days
 nsplits=8 # Multiple of 2. We take the total duration, break it to cunk_durations and assign each chunk to a split randomly. Based on the null test have a defaul
+[campaign.ml-null-tests.mission-tests.resources]
+ranks = 1
+threads = 32
+memory = "80000"  # in MBs
+runtime = "80000" # in seconds
+[campaign.ml-null-tests.wafer-tests]
+chunk_nobs=10 # This is based on the start timestamp of the query. Always in days
+nsplits=8 # Multiple of 2. We take the total duration, break it to cunk_durations and assign each chunk to a split randomly. Based on the null test have a defaul
+[campaign.ml-null-tests.wafer-tests.resources]
+ranks = 1
+threads = 32
+memory = "80000"  # in MBs
+runtime = "80000" # in seconds
+

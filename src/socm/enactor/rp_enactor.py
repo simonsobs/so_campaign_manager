@@ -3,14 +3,15 @@ import os
 import threading as mt
 from copy import deepcopy
 from datetime import datetime
+from typing import List
 
 # Imports from dependent packages
 import radical.pilot as rp
 import radical.utils as ru
 
-from ..core import Resource
-from ..utils import states as st
-from .base import Enactor
+from socm.core import Resource, Workflow
+from socm.utils import states as st
+from socm.enactor.base import Enactor
 
 
 class RPEnactor(Enactor):
@@ -63,7 +64,7 @@ class RPEnactor(Enactor):
         pilot.wait(state=rp.PMGR_ACTIVE)
         self._logger.info("Pilot is ready")
 
-    def enact(self, workflows, core_requirements, memory_requirements):
+    def enact(self, workflows: List[Workflow]) -> None:
         """
         Method enact receives a set workflows and resources. It is responsible to
         start the execution of the workflow and set a endpoint to the WMF that
@@ -75,7 +76,7 @@ class RPEnactor(Enactor):
 
         self._prof.prof("enacting_start", uid=self._uid)
         exec_workflows = []
-        for workflow, ncpus, memory in zip(workflows, core_requirements, memory_requirements):
+        for workflow in workflows:
             # If the enactor has already received a workflow issue a warning and
             # proceed.
             if workflow.id in self._execution_status:
@@ -105,7 +106,7 @@ class RPEnactor(Enactor):
                 exec_workflow.ranks = workflow.resources["ranks"]
                 exec_workflow.cores_per_rank = workflow.resources["threads"]
                 exec_workflow.threading_type = rp.OpenMP
-                exec_workflow.mem_per_rank = memory / workflow.resources["ranks"]
+                exec_workflow.mem_per_rank = workflow.resources["memory"] / workflow.resources["ranks"]
                 exec_workflow.post_exec = "echo ${SLURM_JOB_ID}.${SLURM_STEP_ID}"
                 if workflow.environment:
                     exec_workflow.environment = workflow.environment
