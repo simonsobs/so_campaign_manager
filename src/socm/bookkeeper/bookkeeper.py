@@ -91,11 +91,11 @@ class Bookkeeper(object):
         for workflow in self._campaign["campaign"].workflows:
             tmp_runtime = np.inf
             cores = 1
-            while cores <= total_cores:
+            while cores <= (total_cores // workflow.resources["threads"]):
                 self._logger.debug(f"Workflow command: {workflow.get_command()} and subcommand: {workflow.subcommand}")
                 numerical_fields = {
                     "ranks": cores,
-                    "threads": 1,
+                    "threads": workflow.resources["threads"],
                 }
                 for field in workflow.get_numeric_fields(avoid_attributes=["id"]):
                     numerical_fields[field] = getattr(workflow, field)
