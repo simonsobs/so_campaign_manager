@@ -1,9 +1,10 @@
+from datetime import timedelta
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Union
-from datetime import timedelta
 
 from sotodlib.core import Context
 from sotodlib.core.metadata.loader import LoaderError
+
 from socm.workflows import MLMapmakingWorkflow
 
 
@@ -97,6 +98,10 @@ class NullTestWorkflow(MLMapmakingWorkflow):
                 "datasize",
                 "chunk_nobs",
                 "nsplits",
+                "wafers",
+                "subcommand",
+                "name",
+                "chunk_duration",
             ]:
                 arguments.append(f"--{k}={v}")
         return arguments

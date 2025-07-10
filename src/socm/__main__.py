@@ -1,11 +1,10 @@
 from argparse import ArgumentParser
-from rich import print
-import toml
 
+import toml
 from socm.bookkeeper import Bookkeeper
 from socm.core import Campaign, Resource
-from socm.workflows import registered_workflows, subcampaign_map
 from socm.utils.misc import get_workflow_entries
+from socm.workflows import registered_workflows, subcampaign_map
 
 
 def get_parser() -> ArgumentParser:

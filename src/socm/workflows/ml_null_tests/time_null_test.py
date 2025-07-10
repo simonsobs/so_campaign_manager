@@ -1,7 +1,7 @@
 from datetime import timedelta
-import numpy as np
 from typing import Dict, List, Optional, Union
 
+import numpy as np
 from sotodlib.core import Context
 
 from socm.workflows.ml_null_tests import NullTestWorkflow
@@ -12,7 +12,6 @@ class TimeNullTestWorkflow(NullTestWorkflow):
     A workflow for time null tests.
     """
 
-    band: str = "f090"
     chunk_nobs: Optional[int] = None
     chunk_duration: Optional[timedelta] = None
     nsplits: int = 8

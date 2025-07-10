@@ -10,8 +10,8 @@ import radical.pilot as rp
 import radical.utils as ru
 
 from socm.core import Resource, Workflow
-from socm.utils import states as st
 from socm.enactor.base import Enactor
+from socm.utils import states as st
 
 
 class RPEnactor(Enactor):
@@ -106,7 +106,7 @@ class RPEnactor(Enactor):
                 exec_workflow.ranks = workflow.resources["ranks"]
                 exec_workflow.cores_per_rank = workflow.resources["threads"]
                 exec_workflow.threading_type = rp.OpenMP
-                exec_workflow.mem_per_rank = workflow.resources["memory"] / workflow.resources["ranks"]
+                exec_workflow.mem_per_rank = workflow.resources["memory"]  # this translates to memory per node
                 exec_workflow.post_exec = "echo ${SLURM_JOB_ID}.${SLURM_STEP_ID}"
                 if workflow.environment:
                     exec_workflow.environment = workflow.environment
