@@ -93,7 +93,31 @@ class Bookkeeper(object):
             cores = 1
             while cores <= total_cores:
                 self._logger.debug(f"Workflow command: {workflow.get_command()} and subcommand: {workflow.subcommand}")
-                slurm_job, warns = self._slurmise.predict(cmd=workflow.get_command(), job_name=workflow.subcommand)
+                numerical_fields = {
+                    "ranks": cores,
+                    "threads": 1,
+                }
+                for field in workflow.get_numeric_fields(avoid_attributes=["id"]):
+                    numerical_fields[field] = getattr(workflow, field)
+
+                categorical_fields = {}
+                for field in workflow.get_categorical_fields(
+                    avoid_attributes=["executable", "name", "context", "output_dir", "query"]
+                ):
+                    val = getattr(workflow, field)
+                    field_val = (
+                        FileMD5().parse_file(Path(val.split("file://")[-1]).absolute())
+                        if val.startswith("file://")
+                        else val
+                    )
+                    categorical_fields[field] = field_val
+                workflow_jobdata = JobData(
+                    job_name=workflow.name,
+                    categorical=categorical_fields,
+                    numerical=numerical_fields,
+                    cmd=workflow.get_command(),
+                )
+                slurm_job, warns = self._slurmise.raw_predict(query_jd=workflow_jobdata)
                 self._logger.debug(
                     f"Slurm job prediction for {workflow.id}: {slurm_job}, "
                     f"runtime: {slurm_job.runtime}, memory: {slurm_job.memory}"
