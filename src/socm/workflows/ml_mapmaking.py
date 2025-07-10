@@ -43,7 +43,7 @@ class MLMapmakingWorkflow(Workflow):
         Get the command to run the ML mapmaking workflow.
         """
         command = f"srun --cpu_bind=cores --export=ALL --ntasks-per-node={self.resources['ranks']} --cpus-per-task={self.resources['threads']} {self.executable} {self.subcommand} "
-        command += self.get_arguments()
+        command += " ".join(self.get_arguments())
 
         return command.strip()
 
@@ -52,7 +52,7 @@ class MLMapmakingWorkflow(Workflow):
         Get the command to run the ML mapmaking workflow.
         """
         area = Path(self.area.split("file://")[-1])
-        arguments = f"{self.query} {area.absolute()} {self.output_dir} "
+        arguments = [self.query, f"{area.absolute()}", self.output_dir]
         sorted_workflow = dict(sorted(self.model_dump(exclude_unset=True).items()))
 
         for k, v in sorted_workflow.items():
@@ -69,8 +69,8 @@ class MLMapmakingWorkflow(Workflow):
                 "resources",
                 "datasize",
             ]:
-                arguments += f"--{k}={v} "
-        return arguments.strip()
+                arguments.append(f"--{k}={v}")
+        return arguments
 
     @classmethod
     def get_workflows(cls, descriptions: Union[List[dict], dict]) -> List["MLMapmakingWorkflow"]:

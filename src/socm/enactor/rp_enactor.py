@@ -101,8 +101,8 @@ class RPEnactor(Enactor):
                 exec_workflow.arguments = []
                 if workflow.subcommand:
                     exec_workflow.arguments += [workflow.subcommand]
-                arguments = workflow.get_arguments()
-                exec_workflow.arguments += arguments.split()
+                exec_workflow.arguments += workflow.get_arguments()
+                self._logger.debug("Workflow %s arguments: %s", workflow.id, exec_workflow.arguments)
                 exec_workflow.ranks = workflow.resources["ranks"]
                 exec_workflow.cores_per_rank = workflow.resources["threads"]
                 exec_workflow.threading_type = rp.OpenMP

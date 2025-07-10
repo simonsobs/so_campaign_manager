@@ -73,3 +73,30 @@ class NullTestWorkflow(MLMapmakingWorkflow):
             raise
 
         return workflows
+
+    def get_arguments(self) -> str:
+        """
+        Get the command to run the ML mapmaking workflow.
+        """
+        area = Path(self.area.split("file://")[-1])
+        arguments = [self.query, f"{area.absolute()}", self.output_dir]
+        sorted_workflow = dict(sorted(self.model_dump(exclude_unset=True).items()))
+
+        for k, v in sorted_workflow.items():
+            if isinstance(v, str) and v.startswith("file://"):
+                v = Path(v.split("file://")[-1]).absolute()
+            if k not in [
+                "area",
+                "output_dir",
+                "executable",
+                "query",
+                "output_dir",
+                "id",
+                "environment",
+                "resources",
+                "datasize",
+                "chunk_nobs",
+                "nsplits",
+            ]:
+                arguments.append(f"--{k}={v}")
+        return arguments

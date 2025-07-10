@@ -1,5 +1,5 @@
 from argparse import ArgumentParser
-
+from rich import print
 import toml
 
 from socm.bookkeeper import Bookkeeper
@@ -36,30 +36,30 @@ def main() -> None:
                 workflow.id = len(workflows) + 1  # Assign a unique ID to each workflow
                 workflows.append(workflow)
 
-    print(workflows)
-    # campaign = Campaign(
-    #     id=1,
-    #     workflows=workflows,
-    #     campaign_policy="time",
-    #     deadline=config["campaign"]["deadline"],
-    # )
+    # print(workflows)
+    campaign = Campaign(
+        id=1,
+        workflows=workflows,
+        campaign_policy="time",
+        deadline=config["campaign"]["deadline"],
+    )
 
-    # # A resource is where the campaign will run.
-    # resource = Resource(
-    #     name="tiger3",
-    #     nodes=1,
-    #     cores_per_node=112,
-    #     memory_per_node=100000000,
-    #     default_queue="tiger-test",
-    #     maximum_walltime=3600000,
-    # )
+    # A resource is where the campaign will run.
+    resource = Resource(
+        name="tiger3",
+        nodes=1,
+        cores_per_node=112,
+        memory_per_node=100000000,
+        default_queue="tiger-test",
+        maximum_walltime=3600000,
+    )
 
-    # # This main class to execute the campaign to a resource.
-    # b = Bookkeeper(
-    #     campaign=campaign,
-    #     resources={"tiger3": resource},
-    #     policy="time",
-    #     target_resource="tiger3",
-    # )
+    # This main class to execute the campaign to a resource.
+    b = Bookkeeper(
+        campaign=campaign,
+        resources={"tiger3": resource},
+        policy="time",
+        target_resource="tiger3",
+    )
 
-    # b.run()
+    b.run()
