@@ -3,7 +3,7 @@ from typing import Any, List, Optional, Union
 
 from sotodlib.core import Context
 
-from ..core.models import Workflow
+from socm.core import Workflow
 
 
 class MLMapmakingWorkflow(Workflow):
@@ -34,26 +34,25 @@ class MLMapmakingWorkflow(Workflow):
         """
         ctx_file = Path(self.context.split("file://")[-1]).absolute()
         ctx = Context(ctx_file)
-        obs_ids = ctx.obsdb.query(self.query)["obs_id"]
+        obs_ids = ctx.obsdb.query(self.query)
         for obs_id in obs_ids:
-            obs_meta = ctx.get_meta(obs_id)
-            self.datasize += obs_meta.samps.count
+            self.datasize += obs_id["n_samples"]
 
     def get_command(self) -> str:
         """
         Get the command to run the ML mapmaking workflow.
         """
         command = f"srun --cpu_bind=cores --export=ALL --ntasks-per-node={self.resources['ranks']} --cpus-per-task={self.resources['threads']} {self.executable} {self.subcommand} "
-        command += self.get_arguments()
+        command += " ".join(self.get_arguments())
 
         return command.strip()
 
-    def get_arguments(self) -> str:
+    def get_arguments(self) -> List[str]:
         """
         Get the command to run the ML mapmaking workflow.
         """
         area = Path(self.area.split("file://")[-1])
-        arguments = f"{self.query} {area.absolute()} {self.output_dir} "
+        arguments = [self.query, f"{area.absolute()}", self.output_dir]
         sorted_workflow = dict(sorted(self.model_dump(exclude_unset=True).items()))
 
         for k, v in sorted_workflow.items():
@@ -70,5 +69,20 @@ class MLMapmakingWorkflow(Workflow):
                 "resources",
                 "datasize",
             ]:
-                arguments += f"--{k}={v} "
-        return arguments.strip()
+                arguments.append(f"--{k}={v}")
+        return arguments
+
+    @classmethod
+    def get_workflows(cls, descriptions: Union[List[dict], dict]) -> List["MLMapmakingWorkflow"]:
+        """
+        Create a list of MLMapmakingWorkflow instances from the provided descriptions.
+        """
+        if isinstance(descriptions, dict):
+            descriptions = [descriptions]
+
+        workflows = []
+        for desc in descriptions:
+            workflow = cls(**desc)
+            workflows.append(workflow)
+
+        return workflows

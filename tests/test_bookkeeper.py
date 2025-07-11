@@ -11,32 +11,38 @@ def test_record(mocked_logger, mocked_init, mock_slurmise, mock_parse_slurm_job_
     Test the record method of the Bookkeeper class.
     """
 
-    workflow = MLMapmakingWorkflow(
-        name="ml_mapmaking_workflow",
-        executable="so-site-pipeline",
-        context="file:///scratch/gpfs/ACT/data/context-so-fixed/context.yaml",
-        subcommand="make-ml-map",
-        id=1,
-        environment={
-            "MOBY2_TOD_STAGING_PATH": "/tmp/",
-            "DOT_MOBY2": "/scratch/gpfs/SIMONSOBS/users/ip8725/act_test/act_dot_moby2",
-            "SOTODLIB_SITECONFIG": "/scratch/gpfs/SIMONSOBS/users/ip8725/act_test/site.yaml",
-        },
-        resources={"ranks": 1, "threads": 32, "memory": 80000, "runtime": 80000},
-        area="file:///scratch/gpfs/SIMONSOBS/so/science-readiness/footprint/v20250306/so_geometry_v20250306_lat_f090.fits",
-        output_dir="/scratch/gpfs/SIMONSOBS/users/ip8725/git/so_mapmaking_campaign_manager/output",
-        query="obs_id='1575600533.1575611468.ar5_1'",
-        comps="TQU",
-        wafers=None,
-        bands="f090",
-        nmat="corr",
-        max_dets=None,
-        site="act",
-        downsample=1,
-        maxiter=10,
-        tiled=1,
-        wafer="ws0",
+    workflow = mock.MagicMock(spec=MLMapmakingWorkflow)
+    workflow.name = "ml_mapmaking_workflow"
+    workflow.executable = "so-site-pipeline"
+    workflow.context = "file:///scratch/gpfs/ACT/data/context-so-fixed/context.yaml"
+    workflow.subcommand = "make-ml-map"
+    workflow.id = 1
+    workflow.environment = {
+        "MOBY2_TOD_STAGING_PATH": "/tmp/",
+        "DOT_MOBY2": "/scratch/gpfs/SIMONSOBS/users/ip8725/act_test/act_dot_moby2",
+        "SOTODLIB_SITECONFIG": "/scratch/gpfs/SIMONSOBS/users/ip8725/act_test/site.yaml",
+    }
+    workflow.resources = {
+        "ranks": 1,
+        "threads": 32,
+        "memory": 80000,
+        "runtime": 80000,
+    }
+    workflow.area = (
+        "file:///scratch/gpfs/SIMONSOBS/so/science-readiness/footprint/v20250306/so_geometry_v20250306_lat_f090.fits"
     )
+    workflow.output_dir = "/scratch/gpfs/SIMONSOBS/users/ip8725/git/so_mapmaking_campaign_manager/output"
+    workflow.query = "obs_id='1575600533.1575611468.ar5_1'"
+    workflow.comps = "TQU"
+    workflow.wafers = None
+    workflow.bands = "f090"
+    workflow.nmat = "corr"
+    workflow.max_dets = None
+    workflow.site = "act"
+    workflow.downsample = 1
+    workflow.maxiter = 10
+    workflow.tiled = 1
+    workflow.wafer = "ws0"
 
     bookkeeper = Bookkeeper()
     bookkeeper._workflows_execids = {1: "1181754.5"}

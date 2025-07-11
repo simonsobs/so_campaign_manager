@@ -4,7 +4,8 @@ import toml
 
 from socm.bookkeeper import Bookkeeper
 from socm.core import Campaign, Resource
-from socm.workflows import registered_workflows
+from socm.utils.misc import get_workflow_entries
+from socm.workflows import registered_workflows, subcampaign_map
 
 
 def get_parser() -> ArgumentParser:
@@ -24,15 +25,18 @@ def main() -> None:
     parser = get_parser()
     args = parser.parse_args()
     config = toml.load(args.toml)
-    workflow_types = config["campaign"].keys()
+    workflows_configs = get_workflow_entries(config, subcampaign_map=subcampaign_map)
     workflows = []
-    for workflow_type in workflow_types:
+    for workflow_type, workflow_config in workflows_configs.items():
         if workflow_type in registered_workflows:
             # TODO: this can be a list of workflows, not just one.
-            workflow = registered_workflows[workflow_type](**config["campaign"][workflow_type])
-            workflow.id = len(workflows) + 1  # Assign a unique ID to each workflow
-            workflows.append(workflow)
+            workflow_factory = registered_workflows[workflow_type]
+            tmp_workflows = workflow_factory.get_workflows(workflow_config)
+            for workflow in tmp_workflows:
+                workflow.id = len(workflows) + 1  # Assign a unique ID to each workflow
+                workflows.append(workflow)
 
+    # print(workflows)
     campaign = Campaign(
         id=1,
         workflows=workflows,
@@ -43,8 +47,8 @@ def main() -> None:
     # A resource is where the campaign will run.
     resource = Resource(
         name="tiger3",
-        nodes=1,
-        cores_per_node=112,
+        nodes=config["campaign"]["resources"]["nodes"],
+        cores_per_node=config["campaign"]["resources"]["cores-per-node"],
         memory_per_node=100000000,
         default_queue="tiger-test",
         maximum_walltime=3600000,
