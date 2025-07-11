@@ -31,10 +31,18 @@ def test_mlworkflow(mock_context, simple_config):
 def test_get_arguments(mock_context, simple_config):
     workflow = MLMapmakingWorkflow(**simple_config["campaign"]["ml-mapmaking"])
     arguments = workflow.get_arguments()
-    assert (
-        arguments
-        == f"obs_id='1575600533.1575611468.ar5_1' {Path('so_geometry_v20250306_lat_f090.fits').absolute()} output --bands=f090 --comps=TQU --context=context.yaml --maxiter=10 --site=act --tiled=1 --wafer=ws0"
-    )
+    assert arguments == [
+        "obs_id='1575600533.1575611468.ar5_1'",
+        str(Path("so_geometry_v20250306_lat_f090.fits").absolute()),
+        "output",
+        "--bands=f090",
+        "--comps=TQU",
+        "--context=context.yaml",
+        "--maxiter=10",
+        "--site=act",
+        "--tiled=1",
+        "--wafer=ws0",
+    ]
 
 
 def test_get_command(mock_context, lite_config):

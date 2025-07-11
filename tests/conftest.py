@@ -90,7 +90,9 @@ def mock_context():
         class MockContextImpl:
             def __init__(self, context_file):
                 self.obsdb = mock.Mock()
-                self.obsdb.query = mock.Mock(return_value={"obs_id": ["1575600533.1575611468.ar5_1"]})
+                self.obsdb.query = mock.Mock(
+                    return_value=[{"obs_id": "1575600533.1575611468.ar5_1", "n_samples": 259584}]
+                )
 
             def get_meta(self, obs_id):
                 return mock.Mock(samps=mock.Mock(count=1000))
