@@ -49,6 +49,7 @@ class TimeNullTestWorkflow(NullTestWorkflow):
         workflows = []
         for split in time_workflow._splits:
             desc = time_workflow.model_dump(exclude_unset=True)
+            desc["datasize"] = 0
             desc["query"] = "obs_id IN ("
             for oid in split:
                 desc["query"] += f"'{oid}',"
