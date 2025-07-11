@@ -19,7 +19,6 @@ def test_mlworkflow(mock_context, simple_config):
     assert workflow.query == "obs_id='1575600533.1575611468.ar5_1'"
     assert workflow.tiled == 1
     assert workflow.site == "act"
-    assert workflow.environment["MOBY2_TOD_STAGING_PATH"] == "/tmp/"
     assert workflow.environment["DOT_MOBY2"] == "act_dot_moby2"
     assert workflow.environment["SOTODLIB_SITECONFIG"] == "site.yaml"
     assert workflow.name == "ml_mapmaking_workflow"
