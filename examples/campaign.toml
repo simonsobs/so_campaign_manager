@@ -39,7 +39,7 @@ DOT_MOBY2="/scratch/gpfs/SIMONSOBS/users/ip8725/act_test/act_dot_moby2"
 SOTODLIB_SITECONFIG="/scratch/gpfs/SIMONSOBS/users/ip8725/act_test/site.yaml"
 [campaign.ml-null-tests.mission-tests]
 chunk_nobs=10 # This is based on the start timestamp of the query. Always in days
-nsplits=8 # Multiple of 2. We take the total duration, break it to cunk_durations and assign each chunk to a split randomly. Based on the null test have a defaul
+nsplits=8 # Multiple of 2. We take the total duration, break it into chunk_durations and assign each chunk to a split randomly. Based on the null test, have a default assignment strategy.
 [campaign.ml-null-tests.mission-tests.resources]
 ranks = 1
 threads = 32

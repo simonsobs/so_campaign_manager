@@ -91,7 +91,6 @@ class NullTestWorkflow(MLMapmakingWorkflow):
                 "output_dir",
                 "executable",
                 "query",
-                "output_dir",
                 "id",
                 "environment",
                 "resources",
