@@ -46,8 +46,8 @@ def main() -> None:
     # A resource is where the campaign will run.
     resource = Resource(
         name="tiger3",
-        nodes=1,
-        cores_per_node=112,
+        nodes=config["campaign"]["resources"]["nodes"],
+        cores_per_node=config["campaign"]["resources"]["cores-per-node"],
         memory_per_node=100000000,
         default_queue="tiger-test",
         maximum_walltime=3600000,

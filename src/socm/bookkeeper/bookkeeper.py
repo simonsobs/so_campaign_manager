@@ -427,7 +427,7 @@ class Bookkeeper(object):
                     elif self._workflows_state[workflow.id] not in st.CFINAL:
                         cont = True
 
-                if not cont:
+                if not cont and not self._workflows_to_monitor:
                     self._campaign["state"] = st.DONE
 
             if self._campaign["state"] not in st.CFINAL:
