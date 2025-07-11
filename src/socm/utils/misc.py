@@ -1,5 +1,3 @@
-from sqlite3 import Cursor
-from typing import Dict, Tuple
 from uuid import uuid4
 
 
