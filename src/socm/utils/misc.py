@@ -7,15 +7,15 @@ def generate_ids(namespace: str) -> str:
     return namespace + uuid4().hex[:8]
 
 
-def dict_factory(cursor: Cursor, row: Tuple) -> Dict:
-    d = {}
-    for idx, col in enumerate(cursor.description):
-        d[col[0]] = row[idx]
-    return d
+# def dict_factory(cursor: Cursor, row: Tuple) -> Dict:
+#     d = {}
+#     for idx, col in enumerate(cursor.description):
+#         d[col[0]] = row[idx]
+#     return d
 
 
-def linear_func(x: float, a: float, b: float) -> float:
-    return a * x + b
+# def linear_func(x: float, a: float, b: float) -> float:
+#     return a * x + b
 
 
 def get_workflow_entries(campaign_dict, subcampaign_map=None):
@@ -49,19 +49,18 @@ def get_workflow_entries(campaign_dict, subcampaign_map=None):
             # Process known workflows for this subcampaign
             subcampaign_name = key
             subcampaign_workflows = subcampaign_map[key]
-            
+
             # Create a copy of the subcampaign config without its workflows
-            subcampaign_common_config = {k: v for k, v in value.items() 
-                                        if k not in subcampaign_workflows}
-            
+            subcampaign_common_config = {k: v for k, v in value.items() if k not in subcampaign_workflows}
+
             for workflow_name in subcampaign_workflows:
                 if workflow_name in value:
                     # Start with the workflow's own config
                     workflow_config = value[workflow_name].copy()
-                    
+
                     # Update with common subcampaign config
                     workflow_config.update(subcampaign_common_config)
-                    
+
                     if isinstance(workflow_config, dict):
                         # Create combined key: subcampaign.workflow_name
                         workflows[f"{subcampaign_name}.{workflow_name}"] = workflow_config
