@@ -27,7 +27,7 @@ class TimeNullTestWorkflow(NullTestWorkflow):
             raise ValueError("Only one of chunk_nobs or duration can be set.")
         elif self.chunk_nobs is None:
             # Decide the chunk size based on the duration. Each chunk needs to have the
-            # observataions that their start times are just less than chunk_duration.
+            # observations that their start times are just less than chunk_duration.
             raise NotImplementedError("Splitting by duration is not implemented yet. Please set chunk_nobs.")
         sorted_ids = sorted(obs_info, key=lambda k: obs_info[k]["start_time"])
         # Group in chunks of 10 observations.
