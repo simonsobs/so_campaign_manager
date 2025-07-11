@@ -47,7 +47,7 @@ class MLMapmakingWorkflow(Workflow):
 
         return command.strip()
 
-    def get_arguments(self) -> str:
+    def get_arguments(self) -> List[str]:
         """
         Get the command to run the ML mapmaking workflow.
         """
