@@ -1,6 +1,7 @@
 from argparse import ArgumentParser
 
 import toml
+
 from socm.bookkeeper import Bookkeeper
 from socm.core import Campaign, Resource
 from socm.utils.misc import get_workflow_entries

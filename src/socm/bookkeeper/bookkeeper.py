@@ -93,20 +93,21 @@ class Bookkeeper(object):
             cores = 1
             while cores <= total_cores:
                 self._logger.debug(f"Workflow command: {workflow.get_command()} and subcommand: {workflow.subcommand}")
-                slurm_job, warns = (
-                    None,
-                    [1, 2],
-                )  # self._slurmise.predict(cmd=workflow.get_command(), job_name=workflow.subcommand)
-                # self._logger.debug(
-                #     f"Slurm job prediction for {workflow.id}: {slurm_job}, "
-                #     f"runtime: {slurm_job.runtime}, memory: {slurm_job.memory}"
+                # slurm_job, warns = (
+                #     None,
+                #     [1, 2],
                 # )
+                slurm_job, warns = self._slurmise.predict(cmd=workflow.get_command(), job_name=workflow.subcommand)
+                self._logger.debug(
+                    f"Slurm job prediction for {workflow.id}: {slurm_job}, "
+                    f"runtime: {slurm_job.runtime}, memory: {slurm_job.memory}"
+                )
                 cores *= 2
-                # if tmp_runtime / slurm_job.runtime > 1.5 and slurm_job.memory < total_memory:
-                # tmp_runtime = slurm_job.runtime
-                # cores *= 2
-                # else:
-                # break
+                if tmp_runtime / slurm_job.runtime > 1.5 and slurm_job.memory < total_memory:
+                    tmp_runtime = slurm_job.runtime
+                    cores *= 2
+                else:
+                    break
 
             if cores > total_cores or len(warns) > 0:
                 workflow_requirements[workflow.id] = {
