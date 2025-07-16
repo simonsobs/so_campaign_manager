@@ -20,8 +20,8 @@ class WaferNullTestWorkflow(NullTestWorkflow):
 
     _wafer_list_per_telescope: Dict[str, List[str]] = PrivateAttr(
         {
-            "sat": ["ws0", "ws1", "ws2", "ws3", "ws4", "ws5", "ws6"],
-            "act": ["ws0"],
+            "sat": ["st1:ws0", "st1:ws1", "st1:ws2", "st1:ws3", "st1:ws4", "st1:ws5", "st1:ws6"],
+            "act": ["st1:ws0"],
             "lat": [
                 "c1:ws0",
                 "c1:ws1",
@@ -63,8 +63,17 @@ class WaferNullTestWorkflow(NullTestWorkflow):
             # observataions that their start times are just less than chunk_duration.
             raise NotImplementedError("Splitting by duration is not implemented yet. Please set chunk_nobs.")
         final_splits = {}
-        for wafer in self._wafer_list_per_telescope[self.site]:
-            wafer_obs_info = {k: v for k, v in obs_info.items() if wafer in v["wafer_slots_list"]}
+        for tube_wafer in self._wafer_list_per_telescope[self.site]:
+            tube_slot, wafer = tube_wafer.split(":")
+            wafer_obs_info = dict()
+            for k, v in obs_info.items():
+                if (
+                    v["wafer_slots_list"] is not None
+                    and v["tube_slot"] is not None
+                    and wafer in v["wafer_slots_list"]
+                    and tube_slot in v["tube_slot"]
+                ):
+                    wafer_obs_info[k] = v
             if not wafer_obs_info:
                 continue
             sorted_ids = sorted(wafer_obs_info, key=lambda k: wafer_obs_info[k]["start_time"])
