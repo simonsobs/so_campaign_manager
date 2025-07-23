@@ -36,6 +36,7 @@ class NullTestWorkflow(MLMapmakingWorkflow):
             obs_info[obs_id["obs_id"]] = {
                 "start_time": obs_id["timestamp"],
                 "wafer_list": obs_id["wafer_slots_list"].split(","),
+                "tube_slot": obs_id["tube_slot"],
             }
         # Ensure obs_ids are sorted by their timestamp
         # Order the obs_ids based on their timestamp it is in the obs_meta.obs_info.timestamp
