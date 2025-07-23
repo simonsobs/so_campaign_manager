@@ -1,6 +1,6 @@
 [project]
-dynamic = ["version"]
-name = "so_campaing_manager"
+version = "0.0.3"
+name = "so_campaign_manager"
 description = "A campaign manager to execute SO mapmaking campaign"
 readme = 'README.md'
 requires-python = '>=3.11'

@@ -3,6 +3,7 @@ from numbers import Number
 from typing import Dict, List, Optional, Union, get_args, get_origin
 
 from pydantic import BaseModel
+from radical.pilot import TaskDescription
 
 
 class Resource(BaseModel):
@@ -148,6 +149,13 @@ class Workflow(BaseModel):
                         pass
 
         return categorical_fields
+
+    def get_tasks(self) -> List[TaskDescription]:
+        """
+        Returns a list of TaskDescription objects for the workflow.
+        This is a placeholder method and should be implemented in subclasses.
+        """
+        raise NotImplementedError("This method should be implemented in subclasses")
 
 
 class Campaign(BaseModel):

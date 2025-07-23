@@ -93,11 +93,16 @@ class Bookkeeper(object):
             cores = 1
             while cores <= total_cores:
                 self._logger.debug(f"Workflow command: {workflow.get_command()} and subcommand: {workflow.subcommand}")
+                # slurm_job, warns = (
+                #     None,
+                #     [1, 2],
+                # )
                 slurm_job, warns = self._slurmise.predict(cmd=workflow.get_command(), job_name=workflow.subcommand)
                 self._logger.debug(
                     f"Slurm job prediction for {workflow.id}: {slurm_job}, "
                     f"runtime: {slurm_job.runtime}, memory: {slurm_job.memory}"
                 )
+                cores *= 2
                 if tmp_runtime / slurm_job.runtime > 1.5 and slurm_job.memory < total_memory:
                     tmp_runtime = slurm_job.runtime
                     cores *= 2
@@ -298,11 +303,7 @@ class Bookkeeper(object):
                 # self._logger.debug('Adding items: %s, %s', workflows, resources)
                 if workflows and cores and memory:
                     self._prof.prof("enactor_submit", uid=self._uid)
-                    self._enactor.enact(
-                        workflows=workflows,
-                        core_requirements=cores,
-                        memory_requirements=memory,
-                    )
+                    self._enactor.enact(workflows=workflows)
                     self._prof.prof("enactor_submitted", uid=self._uid)
 
                     with self._monitor_lock:
@@ -427,7 +428,7 @@ class Bookkeeper(object):
                     elif self._workflows_state[workflow.id] not in st.CFINAL:
                         cont = True
 
-                if not cont:
+                if not cont and not self._workflows_to_monitor:
                     self._campaign["state"] = st.DONE
 
             if self._campaign["state"] not in st.CFINAL:
