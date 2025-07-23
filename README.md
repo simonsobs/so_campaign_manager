@@ -3,6 +3,7 @@
 ![CI workflow](https://github.com/simonsobs/so_campaign_manager/actions/workflows/test.yaml/badge.svg)
 [![Coverage Status](https://coveralls.io/repos/github/simonsobs/so_campaign_manager/badge.svg?branch=main)](https://coveralls.io/github/simonsobs/so_campaign_manager?branch=main)
 [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.15784156.svg)](https://doi.org/10.5281/zenodo.15784156)
+[![Docs Status](https://readthedocs.org/projects/so-campaign-manager/badge/?version=latest&style=flat)](https://so-campaign-manager.readthedocs.io)
 
 
 ## SO Campaign Manager
