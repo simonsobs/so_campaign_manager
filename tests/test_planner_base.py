@@ -55,6 +55,7 @@ def test_planner_initialization_with_none_values(mock_nx, mock_os, mock_ru):
     
     from socm.planner.base import Planner
     
+    
     planner = Planner()
     
     assert planner._campaign is None
