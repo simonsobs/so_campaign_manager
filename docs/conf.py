@@ -17,7 +17,7 @@ sys.path.insert(0, os.path.abspath('../src'))
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#project-information
 
 project = 'SO Campaign Manager'
-copyright = '2024, Giannis Paraskevakos'
+copyright = '2024, Simons Observatory'
 author = 'Giannis Paraskevakos'
 release = '0.0.3'
 
