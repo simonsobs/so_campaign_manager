@@ -1,9 +1,9 @@
 """Tests for socm.core.models module with comprehensive mocking."""
 
-import pytest
-from unittest.mock import Mock, patch, MagicMock
-from numbers import Number
 import sys
+from unittest.mock import Mock
+
+import pytest
 
 
 class MockBaseModel:
@@ -375,9 +375,9 @@ def test_workflow_get_numeric_fields_edge_cases():
 
 def test_workflow_get_numeric_fields_with_model_fields():
     """Test get_numeric_fields using model_fields annotation checking."""
+    from typing import List, Optional, Union
+
     from socm.core.models import Workflow
-    from numbers import Number
-    from typing import Optional, List, Union
 
     # Create a mock field info for testing annotation checking
     class MockFieldInfo:
@@ -428,8 +428,9 @@ def test_workflow_get_numeric_fields_with_model_fields():
 
 def test_workflow_get_categorical_fields_with_model_fields():
     """Test get_categorical_fields using model_fields annotation checking."""
+    from typing import List, Optional, Union
+
     from socm.core.models import Workflow
-    from typing import Optional, List, Union
 
     class MockFieldInfo:
         def __init__(self, annotation):
@@ -475,8 +476,9 @@ def test_workflow_get_categorical_fields_with_model_fields():
 
 def test_workflow_get_fields_with_none_values_in_model():
     """Test field detection when model_fields exist but actual values are None."""
-    from socm.core.models import Workflow
     from typing import Optional
+
+    from socm.core.models import Workflow
 
     class MockFieldInfo:
         def __init__(self, annotation):
@@ -506,8 +508,9 @@ def test_workflow_get_fields_with_none_values_in_model():
 
 def test_workflow_get_fields_type_checking_edge_cases():
     """Test edge cases in type checking logic."""
+    from typing import List, Union
+
     from socm.core.models import Workflow
-    from typing import List, Optional, Union
 
     class MockFieldInfo:
         def __init__(self, annotation):
@@ -528,8 +531,8 @@ def test_workflow_get_fields_type_checking_edge_cases():
     workflow.complex_nested = [[1, 2], [3, 4]]
     workflow.non_iterable_origin = 42
 
-    numeric_fields = workflow.get_numeric_fields()
-    categorical_fields = workflow.get_categorical_fields()
+    _ = workflow.get_numeric_fields()
+    _ = workflow.get_categorical_fields()
 
     # These should be handled gracefully without errors
     # Exact behavior depends on implementation details

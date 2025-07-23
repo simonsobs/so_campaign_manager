@@ -1,7 +1,15 @@
 from socm.utils.misc import get_workflow_entries
+from socm.utils.states import (
+    CANCELED,
+    CFINAL,
+    DONE,
+    EXECUTING,
+    FAILED,
+    NEW,
+    PLANNING,
+    state_dict,
+)
 from socm.workflows import subcampaign_map
-
-from socm.utils.states import NEW, PLANNING, EXECUTING, DONE, FAILED, CANCELED, CFINAL, state_dict
 
 
 def test_state_constants_exist():

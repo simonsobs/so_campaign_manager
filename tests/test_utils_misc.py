@@ -1,6 +1,5 @@
 """Tests for socm.utils.misc module."""
 
-import pytest
 from socm.utils.misc import get_workflow_entries
 
 

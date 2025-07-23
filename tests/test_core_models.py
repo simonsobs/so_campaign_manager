@@ -1,8 +1,8 @@
 """Tests for socm.core.models module."""
 
+from unittest.mock import Mock, patch
+
 import pytest
-from unittest.mock import Mock, patch, MagicMock
-from numbers import Number
 
 
 # Mock pydantic BaseModel for testing
@@ -26,7 +26,7 @@ def test_imports():
     # These should not raise import errors when mocked properly
     with patch('socm.core.models.BaseModel', MockBaseModel):
         with patch('socm.core.models.TaskDescription', Mock):
-            from socm.core.models import Resource, Workflow, Campaign
+            pass
 
 
 @patch('socm.core.models.BaseModel', MockBaseModel)
@@ -105,7 +105,7 @@ def test_workflow_abstract_methods():
 def test_workflow_get_numeric_fields():
     """Test get_numeric_fields method."""
     from socm.core.models import Workflow
-    
+
     # Create a workflow with mixed field types
     workflow = Workflow(
         name="test",
