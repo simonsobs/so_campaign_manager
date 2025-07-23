@@ -35,6 +35,7 @@ class Planner(object):
         self._policy = policy
         self._plan = list()
         self._uid = ru.generate_id("planner.%(counter)04d", mode=ru.ID_CUSTOM, ns=sid)
+        sid = sid if sid is not None else ru.generate_id("planner.%(counter)04d", mode=ru.ID_CUSTOM)
         path = os.getcwd() + "/" + sid
         self._logger = ru.Logger(name=self._uid, level="DEBUG", path=path)
 
