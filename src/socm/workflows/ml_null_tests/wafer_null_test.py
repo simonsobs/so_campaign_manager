@@ -62,15 +62,19 @@ class WaferNullTestWorkflow(NullTestWorkflow):
             # Decide the chunk size based on the duration. Each chunk needs to have the
             # observataions that their start times are just less than chunk_duration.
             raise NotImplementedError("Splitting by duration is not implemented yet. Please set chunk_nobs.")
+
+        tube_slots = set([v["tube_slot"] for v in obs_info.values()])
+        if len(tube_slots) != 1:
+            raise ValueError(f"All observations must be from the same tube slot. Found: {tube_slots}")
         final_splits = {}
         for tube_wafer in self._wafer_list_per_telescope[self.site]:
             tube_slot, wafer = tube_wafer.split(":")
             wafer_obs_info = dict()
             for k, v in obs_info.items():
                 if (
-                    v["wafer_slots_list"] is not None
+                    v["wafer_list"] is not None
                     and v["tube_slot"] is not None
-                    and wafer in v["wafer_slots_list"]
+                    and wafer in v["wafer_list"]
                     and tube_slot in v["tube_slot"]
                 ):
                     wafer_obs_info[k] = v
@@ -82,7 +86,7 @@ class WaferNullTestWorkflow(NullTestWorkflow):
             splits = [[] for _ in range(self.nsplits)]
             for i, obs_list in enumerate(obs_lists):
                 splits[i % self.nsplits] += obs_list.tolist()
-            final_splits[wafer] = splits
+            final_splits[tube_wafer] = splits
 
         return final_splits
 
@@ -95,18 +99,20 @@ class WaferNullTestWorkflow(NullTestWorkflow):
         wafer_workflow = cls(**desc)
 
         workflows = []
-        for wafer, split in wafer_workflow._splits.items():
-            desc = wafer_workflow.model_dump(exclude_unset=True)
-            desc["datasize"] = 0
-            desc["query"] = "obs_id IN ("
-            for oid in split:
-                desc["query"] += f"'{oid}',"
-            desc["query"] = desc["query"].rstrip(",")
-            desc["query"] += ")"
-            desc["chunk_nobs"] = 1
-            desc["wafer"] = wafer
-            desc["output_dir"] = f"{wafer_workflow.output_dir}/wafer_{wafer}_split_{len(workflows) + 1}"
-            workflow = NullTestWorkflow(**desc)
-            workflows.append(workflow)
+        for tube_wafer, wafer_split in wafer_workflow._splits.items():
+            _, wafer = tube_wafer.split(":")
+            for idx, split in enumerate(wafer_split):
+                desc = wafer_workflow.model_dump(exclude_unset=True)
+                desc["datasize"] = 0
+                desc["query"] = "obs_id IN ("
+                for oid in split:
+                    desc["query"] += f"'{oid}',"
+                desc["query"] = desc["query"].rstrip(",")
+                desc["query"] += ")"
+                desc["chunk_nobs"] = 1
+                desc["wafer"] = wafer
+                desc["output_dir"] = f"{wafer_workflow.output_dir}/wafer_{wafer}_split_{len(workflows) + 1}"
+                workflow = NullTestWorkflow(**desc)
+                workflows.append(workflow)
 
         return workflows
