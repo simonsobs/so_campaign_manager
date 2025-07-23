@@ -17,6 +17,9 @@ sphinx:
 python:
    install:
    - method: pip
-     path: .
-     extra_requirements:
-       - docs
+     packages:
+       - sphinx
+       - sphinx_rtd_theme
+       - sphinxcontrib-napoleon
+       - sphinx-autodoc-typehints
+       - myst-parser
