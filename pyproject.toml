@@ -27,6 +27,13 @@ dev = [
     "pytest>=4.6",
     "hypothesis",
 ]
+docs = [
+    "sphinx",
+    "sphinx_rtd_theme",
+    "sphinxcontrib-napoleon",
+    "sphinx-autodoc-typehints",
+    "myst-parser",
+]
 
 [build-system]
 requires = ["setuptools", "versioneer[toml]"]
