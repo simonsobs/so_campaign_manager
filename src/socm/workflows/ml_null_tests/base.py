@@ -29,14 +29,14 @@ class NullTestWorkflow(MLMapmakingWorkflow):
         ctx_file = Path(self.context.split("file://")[-1]).absolute()
         ctx = Context(ctx_file)
         obs_ids = ctx.obsdb.query(self.query)
-
         obs_info = dict()
         for obs_id in obs_ids:
             self.datasize += obs_id["n_samples"]
             obs_info[obs_id["obs_id"]] = {
                 "start_time": obs_id["timestamp"],
                 "wafer_list": obs_id["wafer_slots_list"].split(","),
-                "tube_slot": obs_id["tube_slot"],
+                "tube_slot": obs_id.get("tube_slot", "st1"),
+                "az_center": obs_id["az_center"],
             }
         # Ensure obs_ids are sorted by their timestamp
         # Order the obs_ids based on their timestamp it is in the obs_meta.obs_info.timestamp

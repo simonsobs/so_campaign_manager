@@ -29,7 +29,7 @@ class TimeNullTestWorkflow(NullTestWorkflow):
             # Decide the chunk size based on the duration. Each chunk needs to have the
             # observations that their start times are just less than chunk_duration.
             raise NotImplementedError("Splitting by duration is not implemented yet. Please set chunk_nobs.")
-        
+
         sorted_ids = sorted(obs_info, key=lambda k: obs_info[k]["start_time"])
         # Group in chunks of 10 observations.
         obs_lists = np.array_split(sorted_ids, self.chunk_nobs)
@@ -50,6 +50,7 @@ class TimeNullTestWorkflow(NullTestWorkflow):
         workflows = []
         for split in time_workflow._splits:
             desc = time_workflow.model_dump(exclude_unset=True)
+            desc["name"] = f"mission_split_{len(workflows) + 1}_null_test_workflow"
             desc["datasize"] = 0
             desc["query"] = "obs_id IN ("
             for oid in split:

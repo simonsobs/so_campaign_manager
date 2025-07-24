@@ -21,6 +21,7 @@ def mock_context_act():
                                 "timestamp": 1575600533,
                                 "wafer_slots_list": "ws0,ws1",
                                 "tube_slot": "st1",
+                                "az_center": 280,
                             }
                         ]
                     return []
@@ -53,6 +54,7 @@ def mock_context_lat():
                                 "timestamp": 1575600533,
                                 "wafer_slots_list": "ws0,ws1",
                                 "tube_slot": "st1",
+                                "az_center": 280,
                             }
                         ]
                     return []

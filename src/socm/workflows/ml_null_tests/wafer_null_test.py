@@ -103,6 +103,7 @@ class WaferNullTestWorkflow(NullTestWorkflow):
             _, wafer = tube_wafer.split(":")
             for idx, split in enumerate(wafer_split):
                 desc = wafer_workflow.model_dump(exclude_unset=True)
+                desc["name"] = f"wafer_{wafer}_split_{idx + 1}_null_test_workflow"
                 desc["datasize"] = 0
                 desc["query"] = "obs_id IN ("
                 for oid in split:
@@ -111,7 +112,7 @@ class WaferNullTestWorkflow(NullTestWorkflow):
                 desc["query"] += ")"
                 desc["chunk_nobs"] = 1
                 desc["wafer"] = wafer
-                desc["output_dir"] = f"{wafer_workflow.output_dir}/wafer_{wafer}_split_{len(workflows) + 1}"
+                desc["output_dir"] = f"{wafer_workflow.output_dir}/wafer_{wafer}_split_{idx + 1}"
                 workflow = NullTestWorkflow(**desc)
                 workflows.append(workflow)
 
