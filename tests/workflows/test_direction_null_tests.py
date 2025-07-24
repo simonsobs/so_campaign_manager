@@ -1,10 +1,11 @@
-
 from socm.workflows import DirectionNullTestWorkflow
 from socm.workflows.ml_null_tests import NullTestWorkflow
 
 
 def test_direction_null_test_workflow(mock_context_act, simple_config):
-    workflow = DirectionNullTestWorkflow(**simple_config["campaign"]["ml-null-tests.mission-tests"])
+    workflow = DirectionNullTestWorkflow(
+        **simple_config["campaign"]["ml-null-tests.mission-tests"]
+    )
     assert workflow.context == "context.yaml"
     assert workflow.area == "so_geometry_v20250306_lat_f090.fits"
     assert workflow.output_dir == "output/null_tests"
@@ -22,13 +23,17 @@ def test_direction_null_test_workflow(mock_context_act, simple_config):
     assert workflow.subcommand == "make-ml-map"
     assert workflow.id is None  # Default value for id is None
 
-    workflows = DirectionNullTestWorkflow.get_workflows(simple_config["campaign"]["ml-null-tests.mission-tests"])
+    workflows = DirectionNullTestWorkflow.get_workflows(
+        simple_config["campaign"]["ml-null-tests.mission-tests"]
+    )
     assert len(workflows) == 4
     print(workflows)
     for idx, workflow in enumerate(workflows):
         assert isinstance(workflow, NullTestWorkflow)
-        expected_prefix = f"direction_{workflow.direction}_split_"
-        assert workflow.output_dir == f"output/null_tests/{expected_prefix}{idx + 1}"
+        assert (
+            workflow.output_dir
+            == f"output/null_tests/direction_setting_split_{idx + 1}"
+        )
         if idx == 0:
             assert workflow.query == "obs_id IN ('1551468569.1551475843.ar5_1')"
             assert workflow.datasize == 259584
