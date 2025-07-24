@@ -1,3 +1,5 @@
+from pathlib import Path
+
 from socm.workflows import DirectionNullTestWorkflow
 from socm.workflows.ml_null_tests import NullTestWorkflow
 
@@ -42,19 +44,21 @@ def test_direction_null_test_workflow(mock_context_act, simple_config):
             assert workflow.datasize == 0
 
 
-# def test_get_arguments(mock_context_act, simple_config):
-#     workflows = DirectionNullTestWorkflow.get_workflows(simple_config["campaign"]["ml-null-tests.mission-tests"])
+def test_get_arguments(mock_context_act, simple_config):
+    workflows = DirectionNullTestWorkflow.get_workflows(
+        simple_config["campaign"]["ml-null-tests.mission-tests"]
+    )
 
-#     for idx, workflow in enumerate(workflows):
-#         assert workflow.get_arguments() == [
-#             "obs_id IN ('1551468569.1551475843.ar5_1')" if idx == 0 else "obs_id IN ()",
-#             str(Path("so_geometry_v20250306_lat_f090.fits").absolute()),
-#             f"output/null_tests/wafer_ws0_split_{idx + 1}",
-#             "--bands=f090",
-#             "--comps=TQU",
-#             "--context=context.yaml",
-#             "--maxiter=10",
-#             "--site=act",
-#             "--tiled=1",
-#             "--wafer=ws0",
-#         ]
+    for idx, workflow in enumerate(workflows):
+        assert workflow.get_arguments() == [
+            "obs_id IN ('1551468569.1551475843.ar5_1')" if idx == 0 else "obs_id IN ()",
+            str(Path("so_geometry_v20250306_lat_f090.fits").absolute()),
+            f"output/null_tests/direction_setting_split_{idx + 1}",
+            "--bands=f090",
+            "--comps=TQU",
+            "--context=context.yaml",
+            "--maxiter=10",
+            "--site=act",
+            "--tiled=1",
+            "--wafer=ws0",
+        ]
