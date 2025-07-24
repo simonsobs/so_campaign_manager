@@ -222,6 +222,11 @@ def campaign_config():
                     "nsplits": 8,
                     "resources": {"ranks": 1, "threads": 32, "memory": "80000", "runtime": "80000"},
                 },
+                "direction-tests": {
+                    "chunk_nobs": 10,
+                    "nsplits": 8,
+                    "resources": {"ranks": 1, "threads": 32, "memory": "80000", "runtime": "80000"},
+                },
             },
         },
     }
