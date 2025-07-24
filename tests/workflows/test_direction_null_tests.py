@@ -27,7 +27,8 @@ def test_direction_null_test_workflow(mock_context_act, simple_config):
     print(workflows)
     for idx, workflow in enumerate(workflows):
         assert isinstance(workflow, NullTestWorkflow)
-        assert workflow.output_dir == f"output/null_tests/direction_setting_split_{idx + 1}"
+        expected_prefix = f"direction_{workflow.direction}_split_"
+        assert workflow.output_dir == f"output/null_tests/{expected_prefix}{idx + 1}"
         if idx == 0:
             assert workflow.query == "obs_id IN ('1551468569.1551475843.ar5_1')"
             assert workflow.datasize == 259584
