@@ -5,7 +5,6 @@ from socm.workflows.ml_null_tests import NullTestWorkflow
 
 
 def test_pwv_null_test_workflow(mock_context_act, simple_config):
-    # breakpoint()
     workflow = PWVNullTestWorkflow(
         **simple_config["campaign"]["ml-null-tests.mission-tests"]
     )
