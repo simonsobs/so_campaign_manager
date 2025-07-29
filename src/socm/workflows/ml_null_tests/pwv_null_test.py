@@ -25,17 +25,17 @@ class PWVNullTestWorkflow(NullTestWorkflow):
         self, ctx: Context, obs_info: Dict[str, Dict[str, Union[float, str]]]
     ) -> Dict[str, List[List[str]]]:
         """
-        Distribute the observations across splits based on scan direction.
+        Distribute the observations across splits based on PWV values.
 
-        Groups observations by direction (rising, setting, middle) and then
-        creates time-interleaved splits for each direction with nsplits=2.
+        Groups observations by PWV level (high, low) and then
+        creates time-interleaved splits for each level with nsplits=2.
 
         Args:
             ctx: Context object
             obs_info: Dictionary mapping obs_id to observation metadata
 
         Returns:
-            Dict mapping direction to list of splits, where each split is a list
+            Dict mapping PWV level to list of splits, where each split is a list
             of obs_ids
         """
         if self.chunk_nobs is None and self.chunk_duration is None:
