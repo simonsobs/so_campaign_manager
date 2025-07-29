@@ -59,7 +59,14 @@ def test_state_dict_exists():
 
 def test_state_dict_completeness():
     """Test that state_dict contains all states."""
-    expected_states = {0: "NEW", 1: "PLANNING", 2: "EXECUTING", 3: "DONE", 4: "FAILED", 5: "CANCELED"}
+    expected_states = {
+        0: "NEW",
+        1: "PLANNING",
+        2: "EXECUTING",
+        3: "DONE",
+        4: "FAILED",
+        5: "CANCELED",
+    }
 
     assert state_dict == expected_states
 
@@ -88,7 +95,9 @@ def test_state_dict_values_are_uppercase():
 
 
 def test_workflow_entries(campaign_config):
-    workflows_configs = get_workflow_entries(campaign_config, subcampaign_map=subcampaign_map)
+    workflows_configs = get_workflow_entries(
+        campaign_config, subcampaign_map=subcampaign_map
+    )
 
     assert workflows_configs == {
         "resources": {"nodes": 4, "cores-per-node": 112},
@@ -103,12 +112,22 @@ def test_workflow_entries(campaign_config):
             "query": "obs_id IN ('1551468569.1551475843.ar5_1')",
             "tiled": 1,
             "site": "act",
-            "resources": {"ranks": 8, "threads": 8, "memory": "80000", "runtime": "80000"},
+            "resources": {
+                "ranks": 8,
+                "threads": 8,
+                "memory": "80000",
+                "runtime": "80000",
+            },
         },
         "ml-null-tests.direction-tests": {
             "chunk_nobs": 10,
             "nsplits": 8,
-            "resources": {"ranks": 1, "threads": 32, "memory": "80000", "runtime": "80000"},
+            "resources": {
+                "ranks": 1,
+                "threads": 32,
+                "memory": "80000",
+                "runtime": "80000",
+            },
             "context": "context.yaml",
             "area": "so_geometry_v20250306_lat_f090.fits",
             "output_dir": "output/null_tests",
@@ -119,12 +138,20 @@ def test_workflow_entries(campaign_config):
             "query": "obs_id IN ('1551468569.1551475843.ar5_1')",
             "tiled": 1,
             "site": "act",
-            "environment": {"DOT_MOBY2": "act_dot_moby2", "SOTODLIB_SITECONFIG": "site.yaml"},
+            "environment": {
+                "DOT_MOBY2": "act_dot_moby2",
+                "SOTODLIB_SITECONFIG": "site.yaml",
+            },
         },
         "ml-null-tests.mission-tests": {
             "chunk_nobs": 5,
             "nsplits": 4,
-            "resources": {"ranks": 4, "threads": 8, "memory": "80000", "runtime": "80000"},
+            "resources": {
+                "ranks": 4,
+                "threads": 8,
+                "memory": "80000",
+                "runtime": "80000",
+            },
             "context": "context.yaml",
             "area": "so_geometry_v20250306_lat_f090.fits",
             "output_dir": "output/null_tests",
@@ -135,12 +162,20 @@ def test_workflow_entries(campaign_config):
             "query": "obs_id IN ('1551468569.1551475843.ar5_1')",
             "tiled": 1,
             "site": "act",
-            "environment": {"DOT_MOBY2": "act_dot_moby2", "SOTODLIB_SITECONFIG": "site.yaml"},
+            "environment": {
+                "DOT_MOBY2": "act_dot_moby2",
+                "SOTODLIB_SITECONFIG": "site.yaml",
+            },
         },
         "ml-null-tests.wafer-tests": {
             "chunk_nobs": 10,
             "nsplits": 8,
-            "resources": {"ranks": 1, "threads": 32, "memory": "80000", "runtime": "80000"},
+            "resources": {
+                "ranks": 1,
+                "threads": 32,
+                "memory": "80000",
+                "runtime": "80000",
+            },
             "context": "context.yaml",
             "area": "so_geometry_v20250306_lat_f090.fits",
             "output_dir": "output/null_tests",
@@ -151,7 +186,34 @@ def test_workflow_entries(campaign_config):
             "query": "obs_id IN ('1551468569.1551475843.ar5_1')",
             "tiled": 1,
             "site": "act",
-            "environment": {"DOT_MOBY2": "act_dot_moby2", "SOTODLIB_SITECONFIG": "site.yaml"},
+            "environment": {
+                "DOT_MOBY2": "act_dot_moby2",
+                "SOTODLIB_SITECONFIG": "site.yaml",
+            },
+        },
+        "ml-null-tests.pwv-tests": {
+            "chunk_nobs": 10,
+            "nsplits": 8,
+            "resources": {
+                "ranks": 1,
+                "threads": 32,
+                "memory": "80000",
+                "runtime": "80000",
+            },
+            "context": "context.yaml",
+            "area": "so_geometry_v20250306_lat_f090.fits",
+            "output_dir": "output/null_tests",
+            "bands": "f090",
+            "wafer": "ws0",
+            "comps": "TQU",
+            "maxiter": 10,
+            "query": "obs_id IN ('1551468569.1551475843.ar5_1')",
+            "tiled": 1,
+            "site": "act",
+            "environment": {
+                "DOT_MOBY2": "act_dot_moby2",
+                "SOTODLIB_SITECONFIG": "site.yaml",
+            },
         },
     }
 
@@ -178,7 +240,11 @@ def test_get_workflow_entries_empty_campaign():
 
 def test_get_workflow_entries_simple_workflow():
     """Test get_workflow_entries with a simple workflow."""
-    campaign_dict = {"campaign": {"simple-workflow": {"context": "context.yaml", "output_dir": "output"}}}
+    campaign_dict = {
+        "campaign": {
+            "simple-workflow": {"context": "context.yaml", "output_dir": "output"}
+        }
+    }
 
     result = get_workflow_entries(campaign_dict)
     expected = {"simple-workflow": {"context": "context.yaml", "output_dir": "output"}}
@@ -252,7 +318,10 @@ def test_get_workflow_entries_common_overrides_specific():
             "test-campaign": {
                 "common_param": "common_value",
                 "override_param": "common_override",
-                "sub-workflow": {"specific_param": "specific_value", "override_param": "specific_override"},
+                "sub-workflow": {
+                    "specific_param": "specific_value",
+                    "override_param": "specific_override",
+                },
             }
         }
     }
@@ -275,7 +344,10 @@ def test_get_workflow_entries_mixed_workflows():
     """Test get_workflow_entries with mix of direct workflows and subcampaigns."""
     campaign_dict = {
         "campaign": {
-            "direct-workflow": {"context": "direct.yaml", "output_dir": "direct_output"},
+            "direct-workflow": {
+                "context": "direct.yaml",
+                "output_dir": "direct_output",
+            },
             "subcampaign": {
                 "common_context": "common.yaml",
                 "sub1": {"specific_param": "value1"},
@@ -290,8 +362,14 @@ def test_get_workflow_entries_mixed_workflows():
 
     expected = {
         "direct-workflow": {"context": "direct.yaml", "output_dir": "direct_output"},
-        "subcampaign.sub1": {"specific_param": "value1", "common_context": "common.yaml"},
-        "subcampaign.sub2": {"specific_param": "value2", "common_context": "common.yaml"},
+        "subcampaign.sub1": {
+            "specific_param": "value1",
+            "common_context": "common.yaml",
+        },
+        "subcampaign.sub2": {
+            "specific_param": "value2",
+            "common_context": "common.yaml",
+        },
     }
     assert result == expected
 
@@ -326,7 +404,12 @@ def test_get_workflow_entries_none_subcampaign_map():
 def test_get_workflow_entries_missing_subcampaign_workflow():
     """Test behavior when subcampaign references non-existent workflow."""
     campaign_dict = {
-        "campaign": {"subcampaign": {"common_param": "value", "existing_workflow": {"specific_param": "specific"}}}
+        "campaign": {
+            "subcampaign": {
+                "common_param": "value",
+                "existing_workflow": {"specific_param": "specific"},
+            }
+        }
     }
 
     subcampaign_map = {"subcampaign": ["existing_workflow", "missing_workflow"]}
@@ -334,7 +417,12 @@ def test_get_workflow_entries_missing_subcampaign_workflow():
     result = get_workflow_entries(campaign_dict, subcampaign_map)
 
     # Should only include existing workflow
-    expected = {"subcampaign.existing_workflow": {"specific_param": "specific", "common_param": "value"}}
+    expected = {
+        "subcampaign.existing_workflow": {
+            "specific_param": "specific",
+            "common_param": "value",
+        }
+    }
     assert result == expected
 
 
@@ -351,7 +439,12 @@ def test_get_workflow_entries_non_dict_workflow_config():
 
     # Let's just document this edge case for now and test a regular case
     campaign_dict = {
-        "campaign": {"subcampaign": {"common_param": "value", "workflow_dict": {"specific_param": "specific"}}}
+        "campaign": {
+            "subcampaign": {
+                "common_param": "value",
+                "workflow_dict": {"specific_param": "specific"},
+            }
+        }
     }
 
     subcampaign_map = {"subcampaign": ["workflow_dict"]}
@@ -359,5 +452,10 @@ def test_get_workflow_entries_non_dict_workflow_config():
     result = get_workflow_entries(campaign_dict, subcampaign_map)
 
     # Should include the workflow since it's a proper dict
-    expected = {"subcampaign.workflow_dict": {"specific_param": "specific", "common_param": "value"}}
+    expected = {
+        "subcampaign.workflow_dict": {
+            "specific_param": "specific",
+            "common_param": "value",
+        }
+    }
     assert result == expected
