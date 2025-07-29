@@ -91,7 +91,9 @@ def mock_context():
             def __init__(self, context_file):
                 self.obsdb = mock.Mock()
                 self.obsdb.query = mock.Mock(
-                    return_value=[{"obs_id": "1575600533.1575611468.ar5_1", "n_samples": 259584}]
+                    return_value=[
+                        {"obs_id": "1575600533.1575611468.ar5_1", "n_samples": 259584}
+                    ]
                 )
 
             def get_meta(self, obs_id):
@@ -120,7 +122,12 @@ def simple_config():
                 "query": "obs_id='1575600533.1575611468.ar5_1'",
                 "tiled": 1,
                 "site": "act",
-                "resources": {"ranks": 8, "threads": 8, "memory": "80000", "runtime": "80000"},
+                "resources": {
+                    "ranks": 8,
+                    "threads": 8,
+                    "memory": "80000",
+                    "runtime": "80000",
+                },
                 "environment": {
                     "DOT_MOBY2": "act_dot_moby2",
                     "SOTODLIB_SITECONFIG": "site.yaml",
@@ -129,7 +136,12 @@ def simple_config():
             "ml-null-tests.mission-tests": {
                 "chunk_nobs": 5,
                 "nsplits": 4,
-                "resources": {"ranks": 4, "threads": 8, "memory": "80000", "runtime": "80000"},
+                "resources": {
+                    "ranks": 4,
+                    "threads": 8,
+                    "memory": "80000",
+                    "runtime": "80000",
+                },
                 "context": "context.yaml",
                 "area": "so_geometry_v20250306_lat_f090.fits",
                 "output_dir": "output/null_tests",
@@ -140,7 +152,10 @@ def simple_config():
                 "query": "obs_id IN ('1551468569.1551475843.ar5_1')",
                 "tiled": 1,
                 "site": "act",
-                "environment": {"DOT_MOBY2": "act_dot_moby2", "SOTODLIB_SITECONFIG": "site.yaml"},
+                "environment": {
+                    "DOT_MOBY2": "act_dot_moby2",
+                    "SOTODLIB_SITECONFIG": "site.yaml",
+                },
             },
         }
     }
@@ -198,7 +213,12 @@ def campaign_config():
                 "query": "obs_id IN ('1551468569.1551475843.ar5_1')",
                 "tiled": 1,
                 "site": "act",
-                "resources": {"ranks": 8, "threads": 8, "memory": "80000", "runtime": "80000"},
+                "resources": {
+                    "ranks": 8,
+                    "threads": 8,
+                    "memory": "80000",
+                    "runtime": "80000",
+                },
             },
             "ml-null-tests": {
                 "context": "context.yaml",
@@ -211,21 +231,49 @@ def campaign_config():
                 "query": "obs_id IN ('1551468569.1551475843.ar5_1')",
                 "tiled": 1,
                 "site": "act",
-                "environment": {"DOT_MOBY2": "act_dot_moby2", "SOTODLIB_SITECONFIG": "site.yaml"},
+                "environment": {
+                    "DOT_MOBY2": "act_dot_moby2",
+                    "SOTODLIB_SITECONFIG": "site.yaml",
+                },
                 "mission-tests": {
                     "chunk_nobs": 5,
                     "nsplits": 4,
-                    "resources": {"ranks": 4, "threads": 8, "memory": "80000", "runtime": "80000"},
+                    "resources": {
+                        "ranks": 4,
+                        "threads": 8,
+                        "memory": "80000",
+                        "runtime": "80000",
+                    },
                 },
                 "wafer-tests": {
                     "chunk_nobs": 10,
                     "nsplits": 8,
-                    "resources": {"ranks": 1, "threads": 32, "memory": "80000", "runtime": "80000"},
+                    "resources": {
+                        "ranks": 1,
+                        "threads": 32,
+                        "memory": "80000",
+                        "runtime": "80000",
+                    },
                 },
                 "direction-tests": {
                     "chunk_nobs": 10,
                     "nsplits": 8,
-                    "resources": {"ranks": 1, "threads": 32, "memory": "80000", "runtime": "80000"},
+                    "resources": {
+                        "ranks": 1,
+                        "threads": 32,
+                        "memory": "80000",
+                        "runtime": "80000",
+                    },
+                },
+                "pwv-tests": {
+                    "chunk_nobs": 10,
+                    "nsplits": 8,
+                    "resources": {
+                        "ranks": 1,
+                        "threads": 32,
+                        "memory": "80000",
+                        "runtime": "80000",
+                    },
                 },
             },
         },

@@ -37,18 +37,23 @@ class NullTestWorkflow(MLMapmakingWorkflow):
                 "wafer_list": obs_id["wafer_slots_list"].split(","),
                 "tube_slot": obs_id.get("tube_slot", "st1"),
                 "az_center": obs_id["az_center"],
+                "pwv": obs_id["pwv"],
             }
         # Ensure obs_ids are sorted by their timestamp
         # Order the obs_ids based on their timestamp it is in the obs_meta.obs_info.timestamp
 
         self._splits = self._get_splits(ctx, obs_info)
 
-    def _get_splits(self, ctx: Context, obs_info: Dict[str, Dict[str, Union[float, str]]]) -> List[List[str]]:
+    def _get_splits(
+        self, ctx: Context, obs_info: Dict[str, Dict[str, Union[float, str]]]
+    ) -> List[List[str]]:
         """
         Distribute the observations across splits based on the context and observation IDs.
         """
         if self.__class__.__name__ != "NullTestWorkflow":
-            raise NotImplementedError("This method should be implemented in subclasses.")
+            raise NotImplementedError(
+                "This method should be implemented in subclasses."
+            )
         else:
             pass
 
@@ -67,7 +72,9 @@ class NullTestWorkflow(MLMapmakingWorkflow):
                 desc_copy["query"] = desc_copy["query"].rstrip(",")
                 desc_copy["query"] += ")"
                 desc_copy["chunk_nobs"] = 1
-                desc_copy["output_dir"] = f"{desc['output_dir']}/mission_split_{len(workflows) + 1}"
+                desc_copy["output_dir"] = (
+                    f"{desc['output_dir']}/mission_split_{len(workflows) + 1}"
+                )
                 workflow = cls(**desc_copy)
                 workflows.append(workflow)
         except LoaderError as e:
