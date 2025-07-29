@@ -11,6 +11,7 @@ Welcome to the SO Campaign Manager documentation! This package provides tools fo
    quickstart
    user_guide
    api
+   api_complete
    workflows
    developer_guide
 
@@ -29,7 +30,8 @@ Quick Links
 * :doc:`installation` - Install the package
 * :doc:`quickstart` - Get started quickly
 * :doc:`user_guide` - Comprehensive user guide
-* :doc:`api` - API reference
+* :doc:`api` - Public API reference
+* :doc:`api_complete` - Complete API reference (including private methods)
 
 Indices and tables
 ==================
