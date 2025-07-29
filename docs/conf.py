@@ -5,6 +5,7 @@
 
 import os
 import sys
+from unittest.mock import MagicMock
 
 # -- Path setup --------------------------------------------------------------
 
@@ -12,6 +13,21 @@ import sys
 # add these directories to sys.path here. If the directory is relative to the
 # documentation root, use os.path.abspath to make it absolute, like shown here.
 sys.path.insert(0, os.path.abspath('../src'))
+sys.path.insert(0, '/tmp/stub_modules')
+
+# Mock modules that may not be available during documentation build
+class Mock(MagicMock):
+    @classmethod
+    def __getattr__(cls, name):
+        return MagicMock()
+
+MOCK_MODULES = [
+    'sotodlib', 'sotodlib.core', 'sotodlib.core.Context',
+    'radical', 'radical.utils', 'radical.pilot',
+    'slurmise', 
+    'networkx',
+]
+sys.modules.update((mod_name, Mock()) for mod_name in MOCK_MODULES)
 
 # -- Project information -----------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#project-information
@@ -65,6 +81,16 @@ autodoc_default_options = {
     'undoc-members': True,
     'exclude-members': '__weakref__'
 }
+
+# Configure to exclude private members from main documentation
+def skip_private(app, what, name, obj, skip, options):
+    """Skip private members (starting with _) except in API reference."""
+    if name.startswith('_') and name != '__init__':
+        return True
+    return skip
+
+def setup(app):
+    app.connect('autodoc-skip-member', skip_private)
 
 # Intersphinx mapping
 intersphinx_mapping = {

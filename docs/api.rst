@@ -3,27 +3,62 @@ API Reference
 
 This section documents the core API of SO Campaign Manager.
 
-Core Models
------------
+Core Modules
+------------
+
+Models
+~~~~~~
 
 .. automodule:: socm.core.models
    :members:
    :undoc-members:
    :show-inheritance:
 
+Campaign Management
+-------------------
+
 Bookkeeper
-----------
+~~~~~~~~~~
 
 .. automodule:: socm.bookkeeper.bookkeeper
    :members:
    :undoc-members:
    :show-inheritance:
 
-Workflows
+Planning
+~~~~~~~~
+
+.. automodule:: socm.planner.base
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+.. automodule:: socm.planner.heft_planner
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+Execution
 ---------
 
+Enactors
+~~~~~~~~
+
+.. automodule:: socm.enactor.base
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+.. automodule:: socm.enactor.rp_enactor
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+Workflows
+~~~~~~~~~
+
 Base Workflow
-~~~~~~~~~~~~~
+^^^^^^^^^^^^^
 
 .. automodule:: socm.workflows
    :members:
@@ -31,7 +66,7 @@ Base Workflow
    :show-inheritance:
 
 ML Mapmaking
-~~~~~~~~~~~~
+^^^^^^^^^^^^
 
 .. automodule:: socm.workflows.ml_mapmaking
    :members:
@@ -39,7 +74,7 @@ ML Mapmaking
    :show-inheritance:
 
 SAT Simulation
-~~~~~~~~~~~~~~
+^^^^^^^^^^^^^^
 
 .. automodule:: socm.workflows.sat_simulation
    :members:
@@ -47,7 +82,7 @@ SAT Simulation
    :show-inheritance:
 
 Null Tests
-~~~~~~~~~~
+^^^^^^^^^^
 
 .. automodule:: socm.workflows.ml_null_tests.base
    :members:
@@ -64,21 +99,12 @@ Null Tests
    :undoc-members:
    :show-inheritance:
 
-Enactors
---------
-
-Base Enactor
-~~~~~~~~~~~~
-
-.. automodule:: socm.enactor.base
+.. automodule:: socm.workflows.ml_null_tests.pwv_null_test
    :members:
    :undoc-members:
    :show-inheritance:
 
-Radical Pilot Enactor
-~~~~~~~~~~~~~~~~~~~~~
-
-.. automodule:: socm.enactor.rp_enactor
+.. automodule:: socm.workflows.ml_null_tests.direction_null_test
    :members:
    :undoc-members:
    :show-inheritance:
@@ -86,24 +112,10 @@ Radical Pilot Enactor
 Utilities
 ---------
 
-Constants
-~~~~~~~~~
-
-.. automodule:: socm.utils.const
-   :members:
-   :undoc-members:
-   :show-inheritance:
-
-Miscellaneous
-~~~~~~~~~~~~~
-
 .. automodule:: socm.utils.misc
    :members:
    :undoc-members:
    :show-inheritance:
-
-States
-~~~~~~
 
 .. automodule:: socm.utils.states
    :members:
