@@ -83,8 +83,8 @@ class PWVNullTestWorkflow(NullTestWorkflow):
         """
         Create a list of NullTestWorkflows instances from the provided descriptions.
 
-        Creates separate workflows for each direction split following the naming
-        convention: {setname} = direction_[rising,setting,middle]
+        Creates separate workflows for each PWV-based split following the naming
+        convention: {setname} = pwv_{pwv_level}_split_{split_idx + 1}_null_test_workflow
         """
         pwv_workflow = cls(**desc)
 
