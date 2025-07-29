@@ -13,7 +13,6 @@ from unittest.mock import MagicMock
 # add these directories to sys.path here. If the directory is relative to the
 # documentation root, use os.path.abspath to make it absolute, like shown here.
 sys.path.insert(0, os.path.abspath('../src'))
-sys.path.insert(0, '/tmp/stub_modules')
 
 # Mock modules that may not be available during documentation build
 class Mock(MagicMock):
@@ -84,8 +83,12 @@ autodoc_default_options = {
 
 # Configure to exclude private members from main documentation
 def skip_private(app, what, name, obj, skip, options):
-    """Skip private members (starting with _) except in API reference."""
-    if name.startswith('_') and name != '__init__':
+    """Skip private members (starting with _) except in complete API reference."""
+    # Get the current document being processed
+    docname = getattr(app.env, 'docname', '')
+    
+    # Skip private members in main API documentation, but not in complete reference
+    if name.startswith('_') and name != '__init__' and 'api_complete' not in docname:
         return True
     return skip
 
