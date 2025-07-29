@@ -9,9 +9,9 @@ from socm.workflows.ml_null_tests import NullTestWorkflow
 
 class PWVNullTestWorkflow(NullTestWorkflow):
     """
-    A workflow for direction null tests.
+    A workflow for PWV (precipitable water vapor) null tests.
 
-    This workflow splits observations based on scan direction (rising, setting, middle)
+    This workflow splits observations into two groups based on PWV levels ('high' and 'low')
     and creates time-interleaved splits with nsplits=2 as specified.
     """
 
