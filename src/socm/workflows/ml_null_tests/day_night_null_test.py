@@ -74,7 +74,7 @@ class DayNightNullTestWorkflow(NullTestWorkflow):
 
         # For each direction, create time-interleaved splits
         for day_night, obs_infos in day_night_splits.items():
-            if len(obs_infos) == 0:
+            if not obs_infos:
                 continue
 
             # Sort by timestamp for time-based splitting
