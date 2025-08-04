@@ -47,8 +47,9 @@ def mock_context_lat():
                 self.obsdb = mock.Mock()
 
                 def mock_query(query):
+                    result = []
                     if "1551468569.1551475843.ar5_1" in query:
-                        return [
+                        result.append(
                             {
                                 "obs_id": "1551468569.1551475843.ar5_1",
                                 "n_samples": 259584,
@@ -56,10 +57,23 @@ def mock_context_lat():
                                 "wafer_slots_list": "ws0,ws1",
                                 "tube_slot": "st1",
                                 "az_center": 280,
-                                "pwv": 1.8,
+                                "pwv": 2.1,
                             }
-                        ]
-                    return []
+                        )
+                    if "1551242564.1551254228.ar5_1" in query:
+                        result.append(
+                            {
+                                "obs_id": "1551240592.1551250138.ar5_1",
+                                "timestamp": 1551240591.0,
+                                "pwv": 1.8157540559768677,
+                                "wafer_slots_list": "ws0",
+                                "tube_slot": "st1",
+                                "az_center": 43.18838342795353,
+                                "n_samples": 259584,
+                            }
+                        )
+
+                    return result
 
                 self.obsdb.query = mock.Mock(side_effect=mock_query)
 
