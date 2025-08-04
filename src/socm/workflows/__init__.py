@@ -1,5 +1,6 @@
 from socm.workflows.ml_mapmaking import MLMapmakingWorkflow  # noqa: F401
 from socm.workflows.ml_null_tests import (  # noqa: F401
+    DayNightNullTestWorkflow,
     DirectionNullTestWorkflow,
     PWVNullTestWorkflow,
     TimeNullTestWorkflow,
@@ -14,8 +15,15 @@ registered_workflows = {
     "ml-null-tests.wafer-tests": WaferNullTestWorkflow,
     "ml-null-tests.direction-tests": DirectionNullTestWorkflow,
     "ml-null-tests.pwv-tests": PWVNullTestWorkflow,
+    "ml-null-tests.day-night-tests": DayNightNullTestWorkflow,
 }
 
 subcampaign_map = {
-    "ml-null-tests": ["mission-tests", "wafer-tests", "direction-tests", "pwv-tests"]
+    "ml-null-tests": [
+        "mission-tests",
+        "wafer-tests",
+        "direction-tests",
+        "pwv-tests",
+        "day-night-tests",
+    ]
 }

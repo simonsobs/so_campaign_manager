@@ -3,16 +3,17 @@ version = "0.0.3"
 name = "so_campaign_manager"
 description = "A campaign manager to execute SO mapmaking campaign"
 readme = 'README.md'
-requires-python = '>=3.11'
+requires-python = '>=3.11,<3.13'
 authors = [{ name = 'Giannis Paraskevakos', email = 'iparask@princeton.edu' }]
 dependencies = [
-    "pydantic>=2.0",
     "numpy",
+    "pydantic>=2.0",
     "radical.pilot",
     "networkx",
     "toml",
     "click",
-    "sotodlib",
+    "sotodlib @ git+https://github.com/simonsobs/sotodlib.git",
+    "astral",
     "slurmise",
 ]
 
