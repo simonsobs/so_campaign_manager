@@ -60,7 +60,7 @@ class PWVNullTestWorkflow(NullTestWorkflow):
 
         # For each pwv level, create time-interleaved splits
         for pwv_level, pwv_obs_info in pwv_splits.items():
-            if not pwv_obs_info:
+            if len(pwv_obs_info) == 0:
                 continue
 
             # Sort by timestamp for time-based splitting
