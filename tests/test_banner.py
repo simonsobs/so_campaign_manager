@@ -8,18 +8,28 @@ import pytest
 
 
 def display_banner() -> None:
-    """Display the SO LAT mission launched banner with ASCII galaxy design."""
+    """Display the SO LAT mission launched banner with 20-line ASCII galaxy design."""
     banner_lines = [
-        "      .  :  * . .  ^     +         SO LAT MISSION LAUNCHED         +     ^ . . *  :  .      ",
-        "   .  +   ~   * :    .   +      +-------------------------------------+   .    : *   ~   +  .   ",
-        " :  * .   o   :  . #     .      |           Welcome to SO Campaign           |      . #  .  :   o   . *  : ",
-        "+  .   *   ^  : .   #  .        |             Manager (socm)                 |        . #   . :  ^   *   . +",
-        " ~  :   . *  o   : =   .        |         Simmons Observatory                |        .   = :   o  * .   : ~ ",
-        "* .  ^   : +  .  :  ~  .        |      Large Aperture Telescope              |        . ~  :  . +  :   ^  .* ",
-        " =  :  *  . ^  : #   .          |            Ready for launch!               |          . #  : ^  . *  : = ",
-        "  + .   * :  . ^   = .          +-------------------------------------+          . =   ^ .  : *   . +  ",
-        "   # :  . * +  :  ~   .  *        ~  .  :  + # o  = .  ^ : *  .  = o # +  :  .  ~        *  .   ~  : + * .  : #   ",
-        "     =  . + : * .  ~   :          Campaign management for cutting-edge astronomy          :   ~ .  * : + .  =     "
+        "                  .     *       :        .    *       :        .     *                  ",
+        "            *           :   .        +       .   :        +        :   .           *            ",
+        "       .         +    :     .   *         .     :     .         *   .     :    +         .       ",
+        "    :     .  *      ~    ^   .     +   .  SO LAT MISSION LAUNCHED  .   +     .   ^    ~      *  .     :    ",
+        " .    +      *   :    .   ^    ~     +-------------------------------------+     ~    ^   .    :   *      +    . ",
+        "   .     :    +    ^  .    :   *     |           Welcome to SO Campaign           |     *   :    .  ^    +    :     .   ",
+        " +    *    .   :    ~   ^    .   +   |             Manager (socm)                 |   +   .    ^   ~    :   .    *    + ",
+        "   :     +   *    .    :   ^   ~     |         Simmons Observatory                |     ~   ^   :    .    *   +     :   ",
+        " *   .    +     ^   .   :   *   .    |      Large Aperture Telescope              |    .   *   :   .   ^     +    .   * ",
+        "^   +    .   *    :    ^   +   .   * |            Ready for launch!               | *   .   +   ^    :    *   .    +   ^",
+        "  :   .   *   ^     .   +   :   ^    +-------------------------------------+    ^   :   +   .     ^   *   .   :  ",
+        ".   *    +    :   ^    .   *    +  :     .   +   :   ^   *   .   :   +   .     :  +    *   .    ^   :    +    *   .",
+        " :   +   .   *    ^    :   +   .   *    .   :   +   ^   .   *   :   +   .   *    .   +   :    ^    *   .   +   : ",
+        "  .   :    +    ^   .   *   +   :   ^   .   +   :   *   ^   +   .   :   ^   +   :   +   *   .   ^    +    :   .  ",
+        "+    .   *    :   ^    +   .   :   *   ^   +   .   :   *   .   ^   +   *   :   .   +   ^   :   .   +    ^   :    +",
+        "  ^   +    *    :   .   ^   +   *   :   .   +   ^   *   +   .   :   *   ^   +   .   :   *   +   ^   .   :    *   ",
+        ":   .   +   *   ^    :   .   +   *   ^   :   +   .   *   :   ^   +   .   *   :   ^   +   .   :   ^   *   +   .   :",
+        "  *    :   .   +   ^   *    :   .   +   ^   *   :   +   .   ^   *   +   .   :   *   ^   +   .   :    ^   +   .   ",
+        ".   :   *   +   .   :   ^   *   +   .   :   *   ^   +   *   :   .   ^   +   *   :   .   +   ^   *   :   .   +   .",
+        "   *      :      +      .      ^      *     Campaign management for cutting-edge astronomy     *      ^      "
     ]
     
     print()
@@ -58,9 +68,9 @@ def test_display_banner():
     assert "~" in output
     assert ":" in output
     
-    # Count lines (should be 10 lines plus empty lines before and after)
+    # Count lines (should be 20 lines plus empty lines before and after)
     lines = output.strip().split('\n')
-    assert len(lines) == 10, f"Expected 10 lines, got {len(lines)}"
+    assert len(lines) == 20, f"Expected 20 lines, got {len(lines)}"
     
     # Verify no line exceeds 120 characters
     for i, line in enumerate(lines, 1):
@@ -78,8 +88,8 @@ def test_banner_line_requirements():
     output = captured_output.getvalue()
     lines = output.strip().split('\n')
     
-    # Test that we have exactly 10 content lines (requirement: up to 10 lines)
-    assert len(lines) == 10
+    # Test that we have exactly 20 content lines (requirement: up to 20 lines)
+    assert len(lines) == 20
     
     # Test that all lines are within 120 character limit
     for line in lines:
