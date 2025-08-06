@@ -65,7 +65,7 @@ class MoonRiseSetNullTestWorkflow(NullTestWorkflow):
 
             moon_times = []
             if moon_set.hour < moon_rise.hour:
-                # Moon set the on different day
+                # Moon sets on a different day
                 start_of_day = obs_time.replace(
                     hour=0, minute=0, second=0, microsecond=0
                 )
