@@ -77,7 +77,7 @@ class MoonRiseSetNullTestWorkflow(NullTestWorkflow):
                     {"start_time": moon_rise, "end_time": end_of_day},
                 ]
             else:
-                # Moon set on the same day
+                # Moon sets on the same day
                 moon_times = [{"start_time": moon_rise, "end_time": moon_set}]
             moon_in_sky = False
             for mt in moon_times:
