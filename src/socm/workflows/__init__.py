@@ -2,6 +2,7 @@ from socm.workflows.ml_mapmaking import MLMapmakingWorkflow  # noqa: F401
 from socm.workflows.ml_null_tests import (  # noqa: F401
     DayNightNullTestWorkflow,
     DirectionNullTestWorkflow,
+    ElevationNullTestWorkflow,
     MoonRiseSetNullTestWorkflow,
     PWVNullTestWorkflow,
     TimeNullTestWorkflow,
@@ -18,6 +19,7 @@ registered_workflows = {
     "ml-null-tests.pwv-tests": PWVNullTestWorkflow,
     "ml-null-tests.day-night-tests": DayNightNullTestWorkflow,
     "ml-null-tests.moonrise-set-tests": MoonRiseSetNullTestWorkflow,
+    "ml-null-tests.elevation-tests": ElevationNullTestWorkflow,
 }
 
 subcampaign_map = {
@@ -28,5 +30,6 @@ subcampaign_map = {
         "pwv-tests",
         "day-night-tests",
         "moonrise-set-tests",
+        "elevation-tests",
     ]
 }

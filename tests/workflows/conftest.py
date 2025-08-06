@@ -22,6 +22,7 @@ def mock_context_act():
                                 "wafer_slots_list": "ws0,ws1",
                                 "tube_slot": "st1",
                                 "az_center": 280,
+                                "el_center": 35,
                                 "pwv": 2.5,
                             }
                         ]
@@ -58,6 +59,7 @@ def mock_context_lat():
                                 "tube_slot": "st1",
                                 "az_center": 280,
                                 "pwv": 2.1,
+                                "el_center": 35,
                             }
                         )
                     if "1551242564.1551254228.ar5_1" in query:
@@ -70,6 +72,7 @@ def mock_context_lat():
                                 "tube_slot": "st1",
                                 "az_center": 43.18838342795353,
                                 "n_samples": 259584,
+                                "el_center": 55,
                             }
                         )
 
