@@ -7,6 +7,27 @@ from socm.utils.misc import get_workflow_entries
 from socm.workflows import registered_workflows, subcampaign_map
 
 
+def display_banner() -> None:
+    """Display the SO LAT mission launched banner with galaxy."""
+    banner_lines = [
+        "        ✦       🌌      ⭐     ✨         SO LAT MISSION LAUNCHED         ✨     ⭐      🌌       ✦        ",
+        "     ✨    🌟        ★           ╭─────────────────────────────────────────────╮           ★        🌟    ✨     ",
+        "   ⭐      ∘    ⭐       ●       │           Welcome to SO Campaign           │       ●       ⭐    ∘      ⭐   ",
+        "  🌌   ☆     ✦    ★      ◦      │             Manager (socm)                 │      ◦      ★    ✦     ☆   🌌  ",
+        "    ∘   ✨     ●   ⭐      ⊙     │         Simmons Observatory                │     ⊙      ⭐   ●     ✨   ∘    ",
+        "  ★      ◦    🌟     ∘    ☆     │      Large Aperture Telescope              │     ☆    ∘     🌟    ◦      ★  ",
+        "    ●   ⭐      ∘   ★     ◦      │            Ready for launch!               │      ◦     ★   ∘      ⭐   ●    ",
+        "   🌌  ✦     ☆     ●     ⊙      ╰─────────────────────────────────────────────╯      ⊙     ●     ☆     ✦  🌌   ",
+        "     ✨    ⭐      ★    ∘        ✦       🌌      ⭐     ✨         ★         ✨     ⭐      🌌       ✦        ",
+        "        ∘       ●     ☆          Campaign management for cutting-edge astronomy          ☆     ●       ∘        "
+    ]
+    
+    print()
+    for line in banner_lines:
+        print(line)
+    print()
+
+
 def get_parser() -> ArgumentParser:
     """Create and return the argument parser for the SO campaign."""
     parser = ArgumentParser(description="Run the SO campaign.")
@@ -21,6 +42,7 @@ def get_parser() -> ArgumentParser:
 
 
 def main() -> None:
+    display_banner()
     parser = get_parser()
     args = parser.parse_args()
     config = toml.load(args.toml)
