@@ -19,6 +19,7 @@ class ElevationNullTestWorkflow(NullTestWorkflow):
     chunk_duration: Optional[timedelta] = None
     nsplits: int = 2  # Fixed to 2 as specified in the issue
     name: str = "elevation_null_test_workflow"
+    elevation_threshold: float = 45.0  # Elevation threshold in degrees
 
     def _get_splits(
         self, ctx: Context, obs_info: Dict[str, Dict[str, Union[float, str]]]
@@ -50,7 +51,7 @@ class ElevationNullTestWorkflow(NullTestWorkflow):
         # Group observations by elevation angles
         elevation_splits = {"low": [], "high": []}
         for obs_id, obs_meta in obs_info.items():
-            if obs_meta["el_center"] < 45:
+            if obs_meta["el_center"] < self.elevation_threshold:
                 elevation_splits["low"].append(obs_id)
             else:
                 elevation_splits["high"].append(obs_id)
