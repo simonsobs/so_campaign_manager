@@ -8,18 +8,18 @@ from socm.workflows import registered_workflows, subcampaign_map
 
 
 def display_banner() -> None:
-    """Display the SO LAT mission launched banner with ASCII symbols."""
+    """Display the SO LAT mission launched banner with ASCII galaxy design."""
     banner_lines = [
-        "        *       ~      .     +         SO LAT MISSION LAUNCHED         +     .      ~       *        ",
-        "     +    o        *           +-------------------------------------+           *        o    +     ",
-        "   .      :    .       #       |           Welcome to SO Campaign           |       #       .    :      .   ",
-        "  ~   ^     *    #      :      |             Manager (socm)                 |      :      #    *     ^   ~  ",
-        "    :   +     #   .      =     |         Simmons Observatory                |     =      .   #     +   :    ",
-        "  *      :    o     :    ^     |      Large Aperture Telescope              |     ^    :     o    :      *  ",
-        "    #   .      :   *     :      |            Ready for launch!               |      :     *   :      .   #    ",
-        "   ~  *     ^     #     =      +-------------------------------------+      =     #     ^     *  ~   ",
-        "     +    .      *    :        *       ~      .     +         *         +     .      ~       *        ",
-        "        :       #     ^          Campaign management for cutting-edge astronomy          ^     #       :        "
+        "      .  :  * . .  ^     +         SO LAT MISSION LAUNCHED         +     ^ . . *  :  .      ",
+        "   .  +   ~   * :    .   +      +-------------------------------------+   .    : *   ~   +  .   ",
+        " :  * .   o   :  . #     .      |           Welcome to SO Campaign           |      . #  .  :   o   . *  : ",
+        "+  .   *   ^  : .   #  .        |             Manager (socm)                 |        . #   . :  ^   *   . +",
+        " ~  :   . *  o   : =   .        |         Simmons Observatory                |        .   = :   o  * .   : ~ ",
+        "* .  ^   : +  .  :  ~  .        |      Large Aperture Telescope              |        . ~  :  . +  :   ^  .* ",
+        " =  :  *  . ^  : #   .          |            Ready for launch!               |          . #  : ^  . *  : = ",
+        "  + .   * :  . ^   = .          +-------------------------------------+          . =   ^ .  : *   . +  ",
+        "   # :  . * +  :  ~   .  *        ~  .  :  + # o  = .  ^ : *  .  = o # +  :  .  ~        *  .   ~  : + * .  : #   ",
+        "     =  . + : * .  ~   :          Campaign management for cutting-edge astronomy          :   ~ .  * : + .  =     "
     ]
     
     print()
