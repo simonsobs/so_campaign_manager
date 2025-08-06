@@ -37,6 +37,7 @@ class NullTestWorkflow(MLMapmakingWorkflow):
                 "wafer_list": obs_id["wafer_slots_list"].split(","),
                 "tube_slot": obs_id.get("tube_slot", "st1"),
                 "az_center": obs_id["az_center"],
+                "el_center": obs_id["el_center"],
                 "pwv": obs_id["pwv"],
             }
         # Ensure obs_ids are sorted by their timestamp
