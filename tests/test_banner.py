@@ -8,18 +8,18 @@ import pytest
 
 
 def display_banner() -> None:
-    """Display the SO LAT mission launched banner with galaxy."""
+    """Display the SO LAT mission launched banner with ASCII symbols."""
     banner_lines = [
-        "        ✦       🌌      ⭐     ✨         SO LAT MISSION LAUNCHED         ✨     ⭐      🌌       ✦        ",
-        "     ✨    🌟        ★           ╭─────────────────────────────────────────────╮           ★        🌟    ✨     ",
-        "   ⭐      ∘    ⭐       ●       │           Welcome to SO Campaign           │       ●       ⭐    ∘      ⭐   ",
-        "  🌌   ☆     ✦    ★      ◦      │             Manager (socm)                 │      ◦      ★    ✦     ☆   🌌  ",
-        "    ∘   ✨     ●   ⭐      ⊙     │         Simmons Observatory                │     ⊙      ⭐   ●     ✨   ∘    ",
-        "  ★      ◦    🌟     ∘    ☆     │      Large Aperture Telescope              │     ☆    ∘     🌟    ◦      ★  ",
-        "    ●   ⭐      ∘   ★     ◦      │            Ready for launch!               │      ◦     ★   ∘      ⭐   ●    ",
-        "   🌌  ✦     ☆     ●     ⊙      ╰─────────────────────────────────────────────╯      ⊙     ●     ☆     ✦  🌌   ",
-        "     ✨    ⭐      ★    ∘        ✦       🌌      ⭐     ✨         ★         ✨     ⭐      🌌       ✦        ",
-        "        ∘       ●     ☆          Campaign management for cutting-edge astronomy          ☆     ●       ∘        "
+        "        *       ~      .     +         SO LAT MISSION LAUNCHED         +     .      ~       *        ",
+        "     +    o        *           +-------------------------------------+           *        o    +     ",
+        "   .      :    .       #       |           Welcome to SO Campaign           |       #       .    :      .   ",
+        "  ~   ^     *    #      :      |             Manager (socm)                 |      :      #    *     ^   ~  ",
+        "    :   +     #   .      =     |         Simmons Observatory                |     =      .   #     +   :    ",
+        "  *      :    o     :    ^     |      Large Aperture Telescope              |     ^    :     o    :      *  ",
+        "    #   .      :   *     :      |            Ready for launch!               |      :     *   :      .   #    ",
+        "   ~  *     ^     #     =      +-------------------------------------+      =     #     ^     *  ~   ",
+        "     +    .      *    :        *       ~      .     +         *         +     .      ~       *        ",
+        "        :       #     ^          Campaign management for cutting-edge astronomy          ^     #       :        "
     ]
     
     print()
@@ -51,12 +51,12 @@ def test_display_banner():
     assert "Ready for launch!" in output
     assert "Campaign management for cutting-edge astronomy" in output
     
-    # Verify galaxy characters are present
-    assert "🌌" in output
-    assert "⭐" in output
-    assert "✨" in output
-    assert "🌟" in output
-    assert "★" in output
+    # Verify ASCII symbols are present
+    assert "*" in output
+    assert "." in output
+    assert "+" in output
+    assert "~" in output
+    assert ":" in output
     
     # Count lines (should be 10 lines plus empty lines before and after)
     lines = output.strip().split('\n')
@@ -85,9 +85,9 @@ def test_banner_line_requirements():
     for line in lines:
         assert len(line) <= 120
     
-    # Test that it includes galaxy symbols
-    galaxy_symbols = ["🌌", "⭐", "✨", "🌟", "★", "☆", "●", "◦", "⊙", "∘"]
-    assert any(symbol in output for symbol in galaxy_symbols)
+    # Test that it includes ASCII symbols
+    ascii_symbols = ["*", ".", "+", "~", ":", "#", "^", "=", "o"]
+    assert any(symbol in output for symbol in ascii_symbols)
     
     # Test that it says "SO LAT mission launched" (case insensitive check)
     assert "SO LAT MISSION LAUNCHED" in output.upper()
