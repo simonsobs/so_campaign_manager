@@ -47,7 +47,8 @@ class MoonCloseFarNullTestWorkflow(NullTestWorkflow):
 
         Returns:
             Dict mapping 'day' and 'night' to list of splits, where each split is a list
-            of obs_ids
+            Dict mapping 'close' and 'far' to list of splits, where each split is a list
+            of obs_ids.
         """
         if self.chunk_nobs is None and self.chunk_duration is None:
             raise ValueError("Either chunk_nobs or duration must be set.")
