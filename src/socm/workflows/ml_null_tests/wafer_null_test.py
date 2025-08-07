@@ -97,7 +97,7 @@ class WaferNullTestWorkflow(NullTestWorkflow):
             sorted_ids = sorted(
                 wafer_obs_info, key=lambda k: wafer_obs_info[k]["start_time"]
             )
-            # Group in chunks of 10 observations.
+            # Group in chunks of size self.chunk_nobs observations.
             num_chunks = (
                 len(sorted_ids) + self.chunk_nobs - 1
             ) // self.chunk_nobs  # Ceiling division
