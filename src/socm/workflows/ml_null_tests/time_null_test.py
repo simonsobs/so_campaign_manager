@@ -17,7 +17,9 @@ class TimeNullTestWorkflow(NullTestWorkflow):
     nsplits: int = 8
     name: str = "time_null_test_workflow"
 
-    def _get_splits(self, ctx: Context, obs_info: Dict[str, Dict[str, Union[float, str]]]) -> List[List[str]]:
+    def _get_splits(
+        self, ctx: Context, obs_info: Dict[str, Dict[str, Union[float, str]]]
+    ) -> List[List[str]]:
         """
         Distribute the observations across splits based on the context and observation IDs.
         """
@@ -28,11 +30,16 @@ class TimeNullTestWorkflow(NullTestWorkflow):
         elif self.chunk_nobs is None:
             # Decide the chunk size based on the duration. Each chunk needs to have the
             # observations that their start times are just less than chunk_duration.
-            raise NotImplementedError("Splitting by duration is not implemented yet. Please set chunk_nobs.")
+            raise NotImplementedError(
+                "Splitting by duration is not implemented yet. Please set chunk_nobs."
+            )
 
         sorted_ids = sorted(obs_info, key=lambda k: obs_info[k]["start_time"])
-        # Group in chunks of 10 observations.
-        obs_lists = np.array_split(sorted_ids, self.chunk_nobs)
+        # Group in chunks of size self.chunk_nobs observations.
+        num_chunks = (
+            len(sorted_ids) + self.chunk_nobs - 1
+        ) // self.chunk_nobs  # Ceiling division
+        obs_lists = np.array_split(sorted_ids, num_chunks)
         splits = [[] for _ in range(self.nsplits)]
         for i, obs_list in enumerate(obs_lists):
             splits[i % self.nsplits] += obs_list.tolist()
@@ -58,7 +65,9 @@ class TimeNullTestWorkflow(NullTestWorkflow):
             desc["query"] = desc["query"].rstrip(",")
             desc["query"] += ")"
             desc["chunk_nobs"] = 1
-            desc["output_dir"] = f"{time_workflow.output_dir}/mission_split_{len(workflows) + 1}"
+            desc["output_dir"] = (
+                f"{time_workflow.output_dir}/mission_split_{len(workflows) + 1}"
+            )
             workflow = NullTestWorkflow(**desc)
             workflows.append(workflow)
 

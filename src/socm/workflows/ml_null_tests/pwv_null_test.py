@@ -67,7 +67,10 @@ class PWVNullTestWorkflow(NullTestWorkflow):
             sorted_ids = sorted(pwv_obs_info, key=lambda k: obs_info[k]["start_time"])
 
             # Group in chunks based on chunk_nobs
-            obs_lists = np.array_split(sorted_ids, self.chunk_nobs)
+            num_chunks = (
+                len(sorted_ids) + self.chunk_nobs - 1
+            ) // self.chunk_nobs  # Ceiling division
+            obs_lists = np.array_split(sorted_ids, num_chunks)
 
             # Create nsplits (=2) time-interleaved splits
             splits = [[] for _ in range(self.nsplits)]
