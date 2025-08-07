@@ -3,8 +3,10 @@ from socm.workflows.ml_null_tests import (  # noqa: F401
     DayNightNullTestWorkflow,
     DirectionNullTestWorkflow,
     ElevationNullTestWorkflow,
+    MoonCloseFarNullTestWorkflow,
     MoonRiseSetNullTestWorkflow,
     PWVNullTestWorkflow,
+    SunCloseFarNullTestWorkflow,
     TimeNullTestWorkflow,
     WaferNullTestWorkflow,
 )
@@ -20,6 +22,8 @@ registered_workflows = {
     "ml-null-tests.day-night-tests": DayNightNullTestWorkflow,
     "ml-null-tests.moonrise-set-tests": MoonRiseSetNullTestWorkflow,
     "ml-null-tests.elevation-tests": ElevationNullTestWorkflow,
+    "ml-null-tests.sun-close-tests": SunCloseFarNullTestWorkflow,
+    "ml-null-tests.moon-close-tests": MoonCloseFarNullTestWorkflow,
 }
 
 subcampaign_map = {
@@ -31,5 +35,7 @@ subcampaign_map = {
         "day-night-tests",
         "moonrise-set-tests",
         "elevation-tests",
+        "sun-close-tests",
+        "moon-close-tests",
     ]
 }
