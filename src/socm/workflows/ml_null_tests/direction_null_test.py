@@ -43,19 +43,29 @@ class DirectionNullTestWorkflow(NullTestWorkflow):
             raise ValueError("Only one of chunk_nobs or duration can be set.")
         elif self.chunk_nobs is None:
             # Decide the chunk size based on the duration
-            raise NotImplementedError("Splitting by duration is not implemented yet. Please set chunk_nobs.")
+            raise NotImplementedError(
+                "Splitting by duration is not implemented yet. Please set chunk_nobs."
+            )
 
         # Group observations by scan direction
         direction_splits = {"rising": [], "setting": [], "middle": []}
         for obs_id, obs_meta in obs_info.items():
-            if np.isclose(obs_meta["az_center"] % 360, 180):  # Azimuth close to 180 is considered 'middle'
+            if np.isclose(
+                obs_meta["az_center"] % 360, 180
+            ):  # Azimuth close to 180 is considered 'middle'
                 direction = "middle"
-            elif (obs_meta["az_center"] % 360) > 180:  # More than 180 degrees is considered 'setting'
+            elif (
+                obs_meta["az_center"] % 360
+            ) > 180:  # More than 180 degrees is considered 'setting'
                 direction = "setting"
-            elif (obs_meta["az_center"] % 360) < 180:  # Less than 180 degrees is considered 'rising'
+            elif (
+                obs_meta["az_center"] % 360
+            ) < 180:  # Less than 180 degrees is considered 'rising'
                 direction = "rising"
             else:
-                raise ValueError(f"Unknown azimuth center value for {obs_id}: {obs_meta['az_center']}")
+                raise ValueError(
+                    f"Unknown azimuth center value for {obs_id}: {obs_meta['az_center']}"
+                )
 
             if direction in direction_splits:
                 direction_splits[direction].append(obs_id)
@@ -68,10 +78,15 @@ class DirectionNullTestWorkflow(NullTestWorkflow):
                 continue
 
             # Sort by timestamp for time-based splitting
-            sorted_ids = sorted(direction_obs_info, key=lambda k: obs_info[k]["start_time"])
+            sorted_ids = sorted(
+                direction_obs_info, key=lambda k: obs_info[k]["start_time"]
+            )
 
             # Group in chunks based on chunk_nobs
-            obs_lists = np.array_split(sorted_ids, self.chunk_nobs)
+            num_chunks = (
+                len(sorted_ids) + self.chunk_nobs - 1
+            ) // self.chunk_nobs  # Ceiling division
+            obs_lists = np.array_split(sorted_ids, num_chunks)
 
             # Create nsplits (=2) time-interleaved splits
             splits = [[] for _ in range(self.nsplits)]
@@ -96,7 +111,9 @@ class DirectionNullTestWorkflow(NullTestWorkflow):
         for direction, direction_splits in direction_workflow._splits.items():
             for split_idx, split in enumerate(direction_splits):
                 desc_copy = direction_workflow.model_dump(exclude_unset=True)
-                desc_copy["name"] = f"direction_{direction}_split_{split_idx + 1}_null_test_workflow"
+                desc_copy["name"] = (
+                    f"direction_{direction}_split_{split_idx + 1}_null_test_workflow"
+                )
                 desc_copy["datasize"] = 0
                 desc_copy["query"] = "obs_id IN ("
                 for oid in split:
@@ -106,7 +123,9 @@ class DirectionNullTestWorkflow(NullTestWorkflow):
                 desc_copy["chunk_nobs"] = 1
 
                 # Follow the naming convention: direction_[rising,setting,middle]
-                desc_copy["output_dir"] = f"{direction_workflow.output_dir}/direction_{direction}_split_{split_idx + 1}"
+                desc_copy["output_dir"] = (
+                    f"{direction_workflow.output_dir}/direction_{direction}_split_{split_idx + 1}"
+                )
 
                 workflow = NullTestWorkflow(**desc_copy)
                 workflows.append(workflow)

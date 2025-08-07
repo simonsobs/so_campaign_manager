@@ -20,7 +20,15 @@ class WaferNullTestWorkflow(NullTestWorkflow):
 
     _wafer_list_per_telescope: Dict[str, List[str]] = PrivateAttr(
         {
-            "sat": ["st1:ws0", "st1:ws1", "st1:ws2", "st1:ws3", "st1:ws4", "st1:ws5", "st1:ws6"],
+            "sat": [
+                "st1:ws0",
+                "st1:ws1",
+                "st1:ws2",
+                "st1:ws3",
+                "st1:ws4",
+                "st1:ws5",
+                "st1:ws6",
+            ],
             "act": ["st1:ws0"],
             "lat": [
                 "c1:ws0",
@@ -48,7 +56,9 @@ class WaferNullTestWorkflow(NullTestWorkflow):
         }
     )
 
-    def _get_splits(self, ctx: Context, obs_info: Dict[str, Dict[str, Union[float, str]]]) -> Dict[str, List[str]]:
+    def _get_splits(
+        self, ctx: Context, obs_info: Dict[str, Dict[str, Union[float, str]]]
+    ) -> Dict[str, List[str]]:
         """
         Distribute the observations across splits based on the context and observation IDs.
         """
@@ -61,11 +71,15 @@ class WaferNullTestWorkflow(NullTestWorkflow):
         elif self.chunk_nobs is None:
             # Decide the chunk size based on the duration. Each chunk needs to have the
             # observataions that their start times are just less than chunk_duration.
-            raise NotImplementedError("Splitting by duration is not implemented yet. Please set chunk_nobs.")
+            raise NotImplementedError(
+                "Splitting by duration is not implemented yet. Please set chunk_nobs."
+            )
 
         tube_slots = set([v["tube_slot"] for v in obs_info.values()])
         if len(tube_slots) != 1:
-            raise ValueError(f"All observations must be from the same tube slot. Found: {tube_slots}")
+            raise ValueError(
+                f"All observations must be from the same tube slot. Found: {tube_slots}"
+            )
         final_splits = {}
         for tube_wafer in self._wafer_list_per_telescope[self.site]:
             tube_slot, wafer = tube_wafer.split(":")
@@ -80,9 +94,14 @@ class WaferNullTestWorkflow(NullTestWorkflow):
                     wafer_obs_info[k] = v
             if not wafer_obs_info:
                 continue
-            sorted_ids = sorted(wafer_obs_info, key=lambda k: wafer_obs_info[k]["start_time"])
+            sorted_ids = sorted(
+                wafer_obs_info, key=lambda k: wafer_obs_info[k]["start_time"]
+            )
             # Group in chunks of 10 observations.
-            obs_lists = np.array_split(sorted_ids, self.chunk_nobs)
+            num_chunks = (
+                len(sorted_ids) + self.chunk_nobs - 1
+            ) // self.chunk_nobs  # Ceiling division
+            obs_lists = np.array_split(sorted_ids, num_chunks)
             splits = [[] for _ in range(self.nsplits)]
             for i, obs_list in enumerate(obs_lists):
                 splits[i % self.nsplits] += obs_list.tolist()
@@ -112,7 +131,9 @@ class WaferNullTestWorkflow(NullTestWorkflow):
                 desc["query"] += ")"
                 desc["chunk_nobs"] = 1
                 desc["wafer"] = wafer
-                desc["output_dir"] = f"{wafer_workflow.output_dir}/wafer_{wafer}_split_{idx + 1}"
+                desc["output_dir"] = (
+                    f"{wafer_workflow.output_dir}/wafer_{wafer}_split_{idx + 1}"
+                )
                 workflow = NullTestWorkflow(**desc)
                 workflows.append(workflow)
 
