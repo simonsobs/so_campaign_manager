@@ -17,7 +17,11 @@ class SunCloseFarNullTestWorkflow(NullTestWorkflow):
     A workflow for day/night null tests.
 
     This workflow splits observations based on whether they were taken during the day or night.
-    It creates time-interleaved splits with nsplits=2 as specified.
+    A workflow for sun proximity-based null tests.
+
+    This workflow splits observations based on whether they are "close" or "far" from the Sun,
+    using a configurable sun distance threshold (in degrees). It creates time-interleaved splits
+    with nsplits=2 as specified.
     """
 
     chunk_nobs: Optional[int] = None
