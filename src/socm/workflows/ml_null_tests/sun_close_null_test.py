@@ -80,7 +80,6 @@ class SunCloseFarNullTestWorkflow(NullTestWorkflow):
             obs_time = datetime.fromtimestamp(
                 timestamp=obs_meta["start_time"], tz=timezone.utc
             )  # Assuming time is in ISO format
-
             obs_time = Time(obs_meta["start_time"], format="unix", scale="utc")
 
             city = LocationInfo(
