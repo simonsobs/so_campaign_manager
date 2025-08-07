@@ -16,7 +16,9 @@ class MoonCloseFarNullTestWorkflow(NullTestWorkflow):
     """
     A workflow for day/night null tests.
 
-    This workflow splits observations based on whether they were taken during the day or night.
+    A workflow for moon proximity-based null tests.
+
+    This workflow splits observations based on whether they were taken close to or far from the moon.
     It creates time-interleaved splits with nsplits=2 as specified.
     """
 
