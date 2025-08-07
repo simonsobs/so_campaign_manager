@@ -27,7 +27,7 @@ class MoonCloseFarNullTestWorkflow(NullTestWorkflow):
     nsplits: int = 2  # Fixed to 2 as specified in the issue
     name: str = "moon_close_far_null_test_workflow"
     sun_distance_threshold: float = (
-        10.0  # in degrees, threshold for close/far from the Sun
+        10.0  # in degrees, threshold for close/far from the Moon
     )
 
     _field_view_radius_per_telescope: Dict[str, float] = PrivateAttr(
