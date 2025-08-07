@@ -50,7 +50,18 @@ class SunCloseFarNullTestWorkflow(NullTestWorkflow):
             obs_info: Dictionary mapping obs_id to observation metadata
 
         Returns:
-            Dict mapping 'day' and 'night' to list of splits, where each split is a list
+        Distribute the observations across splits based on proximity to the sun.
+
+        Groups observations by whether they are 'close' or 'far' from the sun, according to
+        the sun_distance_threshold, and then creates time-interleaved splits for each group
+        with nsplits=2.
+
+        Args:
+            ctx: Context object
+            obs_info: Dictionary mapping obs_id to observation metadata
+
+        Returns:
+            Dict mapping 'close' and 'far' to list of splits, where each split is a list
             of obs_ids
         """
         if self.chunk_nobs is None and self.chunk_duration is None:
