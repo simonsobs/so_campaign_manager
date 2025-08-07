@@ -38,7 +38,9 @@ class MoonCloseFarNullTestWorkflow(NullTestWorkflow):
         """
         Distribute the observations across splits based on day/night.
 
-        Groups observations by whether they were taken during the day or night and then
+        Distribute the observations across splits based on proximity to the moon (close/far).
+
+        Groups observations by whether they were taken close to or far from the moon and then
         creates time-interleaved splits for each with nsplits=2.
 
         Args:
