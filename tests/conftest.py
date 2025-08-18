@@ -22,6 +22,15 @@ def mock_filemd5():
 
 
 @pytest.fixture
+def mock_queryfile(tmp_path):
+    """Create a fixture that returns a mock Context class."""
+    query = "1\n2\n3\n"
+    p = tmp_path / "query.txt"
+    p.write_text(query)
+    return p
+
+
+@pytest.fixture
 def mock_slurmise():
     """Create a fixture that returns a mock Context class."""
     with mock.patch("socm.bookkeeper.bookkeeper.Slurmise") as mocked:

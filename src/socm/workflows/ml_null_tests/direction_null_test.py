@@ -1,4 +1,5 @@
 from datetime import timedelta
+from pathlib import Path
 from typing import Dict, List, Optional, Union
 
 import numpy as np
@@ -115,18 +116,17 @@ class DirectionNullTestWorkflow(NullTestWorkflow):
                     f"direction_{direction}_split_{split_idx + 1}_null_test_workflow"
                 )
                 desc_copy["datasize"] = 0
-                desc_copy["query"] = "obs_id IN ("
-                for oid in split:
-                    desc_copy["query"] += f"'{oid}',"
-                desc_copy["query"] = desc_copy["query"].rstrip(",")
-                desc_copy["query"] += ")"
-                desc_copy["chunk_nobs"] = 1
-
                 # Follow the naming convention: direction_[rising,setting,middle]
                 desc_copy["output_dir"] = (
                     f"{direction_workflow.output_dir}/direction_{direction}_split_{split_idx + 1}"
                 )
-
+                query_file = Path(desc_copy["output_dir"]) / "query.txt"
+                query_file.parent.mkdir(parents=True, exist_ok=True)
+                with open(query_file, "w") as f:
+                    for oid in split:
+                        f.write(f"{oid}\n")
+                desc_copy["query"] = f"file://{str(query_file.absolute())}"
+                desc_copy["chunk_nobs"] = 1
                 workflow = NullTestWorkflow(**desc_copy)
                 workflows.append(workflow)
 

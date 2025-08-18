@@ -4,6 +4,7 @@ from typing import Any, List, Optional, Union
 from sotodlib.core import Context
 
 from socm.core import Workflow
+from socm.utils.misc import get_query_from_file
 
 
 class MLMapmakingWorkflow(Workflow):
@@ -34,7 +35,12 @@ class MLMapmakingWorkflow(Workflow):
         """
         ctx_file = Path(self.context.split("file://")[-1]).absolute()
         ctx = Context(ctx_file)
-        obs_ids = ctx.obsdb.query(self.query)
+
+        final_query = self.query
+        if self.query.startswith("file://"):
+            self.query = Path(self.query.split("file://")[-1]).absolute()
+            final_query = get_query_from_file(self.query)
+        obs_ids = ctx.obsdb.query(final_query)
         for obs_id in obs_ids:
             self.datasize += obs_id["n_samples"]
 
@@ -73,7 +79,9 @@ class MLMapmakingWorkflow(Workflow):
         return arguments
 
     @classmethod
-    def get_workflows(cls, descriptions: Union[List[dict], dict]) -> List["MLMapmakingWorkflow"]:
+    def get_workflows(
+        cls, descriptions: Union[List[dict], dict]
+    ) -> List["MLMapmakingWorkflow"]:
         """
         Create a list of MLMapmakingWorkflow instances from the provided descriptions.
         """

@@ -1,4 +1,5 @@
 from datetime import timedelta
+from pathlib import Path
 from typing import Dict, List, Optional, Union
 
 import numpy as np
@@ -123,17 +124,18 @@ class WaferNullTestWorkflow(NullTestWorkflow):
             for idx, split in enumerate(wafer_split):
                 desc = wafer_workflow.model_dump(exclude_unset=True)
                 desc["name"] = f"wafer_{wafer}_split_{idx + 1}_null_test_workflow"
-                desc["datasize"] = 0
-                desc["query"] = "obs_id IN ("
-                for oid in split:
-                    desc["query"] += f"'{oid}',"
-                desc["query"] = desc["query"].rstrip(",")
-                desc["query"] += ")"
-                desc["chunk_nobs"] = 1
                 desc["wafer"] = wafer
                 desc["output_dir"] = (
                     f"{wafer_workflow.output_dir}/wafer_{wafer}_split_{idx + 1}"
                 )
+                desc["datasize"] = 0
+                query_file = Path(desc["output_dir"]) / "query.txt"
+                query_file.parent.mkdir(parents=True, exist_ok=True)
+                with open(query_file, "w") as f:
+                    for oid in split:
+                        f.write(f"{oid}\n")
+                desc["query"] = f"file://{str(query_file.absolute())}"
+                desc["chunk_nobs"] = 1
                 workflow = NullTestWorkflow(**desc)
                 workflows.append(workflow)
 

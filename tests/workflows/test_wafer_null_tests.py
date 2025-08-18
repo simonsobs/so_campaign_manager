@@ -5,7 +5,9 @@ from socm.workflows.ml_null_tests import NullTestWorkflow
 
 
 def test_wafer_null_test_workflow(mock_context_act, simple_config):
-    workflow = WaferNullTestWorkflow(**simple_config["campaign"]["ml-null-tests.mission-tests"])
+    workflow = WaferNullTestWorkflow(
+        **simple_config["campaign"]["ml-null-tests.mission-tests"]
+    )
     assert workflow.context == "context.yaml"
     assert workflow.area == "so_geometry_v20250306_lat_f090.fits"
     assert workflow.output_dir == "output/null_tests"
@@ -22,27 +24,36 @@ def test_wafer_null_test_workflow(mock_context_act, simple_config):
     assert workflow.executable == "so-site-pipeline"
     assert workflow.subcommand == "make-ml-map"
     assert workflow.id is None  # Default value for id is None
-
-    workflows = WaferNullTestWorkflow.get_workflows(simple_config["campaign"]["ml-null-tests.mission-tests"])
+    workflows = WaferNullTestWorkflow.get_workflows(
+        simple_config["campaign"]["ml-null-tests.mission-tests"]
+    )
     assert len(workflows) == 4
     print(workflows)
     for idx, workflow in enumerate(workflows):
         assert isinstance(workflow, NullTestWorkflow)
         assert workflow.output_dir == f"output/null_tests/wafer_ws0_split_{idx + 1}"
+        assert (
+            workflow.query
+            == f"file://{str(Path(f'output/null_tests/wafer_ws0_split_{idx + 1}/query.txt').absolute())}"
+        )
         if idx == 0:
-            assert workflow.query == "obs_id IN ('1551468569.1551475843.ar5_1')"
             assert workflow.datasize == 259584
         else:
-            assert workflow.query == "obs_id IN ()"
             assert workflow.datasize == 0
 
 
 def test_get_arguments(mock_context_act, simple_config):
-    workflows = WaferNullTestWorkflow.get_workflows(simple_config["campaign"]["ml-null-tests.mission-tests"])
+    workflows = WaferNullTestWorkflow.get_workflows(
+        simple_config["campaign"]["ml-null-tests.mission-tests"]
+    )
 
     for idx, workflow in enumerate(workflows):
         assert workflow.get_arguments() == [
-            "obs_id IN ('1551468569.1551475843.ar5_1')" if idx == 0 else "obs_id IN ()",
+            str(
+                Path(
+                    f"output/null_tests/wafer_ws0_split_{idx + 1}/query.txt"
+                ).absolute()
+            ),
             str(Path("so_geometry_v20250306_lat_f090.fits").absolute()),
             f"output/null_tests/wafer_ws0_split_{idx + 1}",
             "--bands=f090",

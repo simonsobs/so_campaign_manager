@@ -1,4 +1,4 @@
-def get_workflow_entries(campaign_dict, subcampaign_map=None):
+def get_workflow_entries(campaign_dict: dict, subcampaign_map: dict | None = None):
     """
     Extract workflow entries from a campaign dictionary using a predefined mapping.
 
@@ -31,7 +31,9 @@ def get_workflow_entries(campaign_dict, subcampaign_map=None):
             subcampaign_workflows = subcampaign_map[key]
 
             # Create a copy of the subcampaign config without its workflows
-            subcampaign_common_config = {k: v for k, v in value.items() if k not in subcampaign_workflows}
+            subcampaign_common_config = {
+                k: v for k, v in value.items() if k not in subcampaign_workflows
+            }
 
             for workflow_name in subcampaign_workflows:
                 if workflow_name in value:
@@ -43,9 +45,33 @@ def get_workflow_entries(campaign_dict, subcampaign_map=None):
 
                     if isinstance(workflow_config, dict):
                         # Create combined key: subcampaign.workflow_name
-                        workflows[f"{subcampaign_name}.{workflow_name}"] = workflow_config
+                        workflows[f"{subcampaign_name}.{workflow_name}"] = (
+                            workflow_config
+                        )
         else:
             # Treat as regular workflow
             workflows[key] = value
 
     return workflows
+
+
+def get_query_from_file(file_path: str) -> str:
+    """
+    Extract a SQL query from a file.
+
+    Args:
+        file_path: The path to the file containing the SQL query.
+
+    Returns:
+        The SQL query as a string.
+    """
+    query = "obs_id IN ("
+    with open(file_path, "r") as file:
+        obslist = file.readlines()
+        for obs_id in obslist:
+            obs_id = obs_id.strip()
+            query += f"'{obs_id}',"
+    query = query.rstrip(",")
+    query += ")"
+
+    return query
