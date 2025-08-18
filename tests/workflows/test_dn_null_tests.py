@@ -22,6 +22,7 @@ def test_day_night_null_test_workflow(mock_context_act, simple_config):
         workflow.query
         == "obs_id IN ('1551468569.1551475843.ar5_1','1551242564.1551254228.ar5_1')"
     )
+
     assert workflow.tiled == 1
     assert workflow.site == "act"
     assert workflow.environment["DOT_MOBY2"] == "act_dot_moby2"
@@ -39,11 +40,13 @@ def test_day_night_null_test_workflow(mock_context_act, simple_config):
     for idx, workflow in enumerate(workflows):
         assert isinstance(workflow, NullTestWorkflow)
         assert workflow.output_dir == f"output/null_tests/night_split_{idx + 1}"
+        assert (
+            workflow.query
+            == f"file://{str(Path(f'output/null_tests/night_split_{idx + 1}/query.txt').absolute())}"
+        )
         if idx == 0:
-            assert workflow.query == "obs_id IN ('1551468569.1551475843.ar5_1')"
             assert workflow.datasize == 259584
         else:
-            assert workflow.query == "obs_id IN ()"
             assert workflow.datasize == 0
 
 
@@ -54,7 +57,7 @@ def test_get_arguments(mock_context_act, simple_config):
 
     for idx, workflow in enumerate(workflows):
         assert workflow.get_arguments() == [
-            "obs_id IN ('1551468569.1551475843.ar5_1')" if idx == 0 else "obs_id IN ()",
+            str(Path(f"output/null_tests/night_split_{idx + 1}/query.txt").absolute()),
             str(Path("so_geometry_v20250306_lat_f090.fits").absolute()),
             f"output/null_tests/night_split_{idx + 1}",
             "--bands=f090",

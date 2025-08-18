@@ -4,6 +4,7 @@ from typing import Any, List, Optional, Union
 from sotodlib.core import Context
 
 from socm.core import Workflow
+from socm.utils.misc import get_query_from_file
 
 
 class MLMapmakingWorkflow(Workflow):
@@ -34,7 +35,12 @@ class MLMapmakingWorkflow(Workflow):
         """
         ctx_file = Path(self.context.split("file://")[-1]).absolute()
         ctx = Context(ctx_file)
-        obs_ids = ctx.obsdb.query(self.query)
+
+        final_query = self.query
+        if self.query.startswith("file://"):
+            query_path = Path(self.query.split("file://")[-1]).absolute()
+            final_query = get_query_from_file(query_path)
+        obs_ids = ctx.obsdb.query(final_query)
         for obs_id in obs_ids:
             self.datasize += obs_id["n_samples"]
 
@@ -52,7 +58,11 @@ class MLMapmakingWorkflow(Workflow):
         Get the command to run the ML mapmaking workflow.
         """
         area = Path(self.area.split("file://")[-1])
-        arguments = [self.query, f"{area.absolute()}", self.output_dir]
+        final_query = self.query
+        if self.query.startswith("file://"):
+            final_query = Path(self.query.split("file://")[-1]).absolute()
+            final_query = f"{final_query.absolute()}"
+        arguments = [final_query, f"{area.absolute()}", self.output_dir]
         sorted_workflow = dict(sorted(self.model_dump(exclude_unset=True).items()))
 
         for k, v in sorted_workflow.items():
@@ -73,7 +83,9 @@ class MLMapmakingWorkflow(Workflow):
         return arguments
 
     @classmethod
-    def get_workflows(cls, descriptions: Union[List[dict], dict]) -> List["MLMapmakingWorkflow"]:
+    def get_workflows(
+        cls, descriptions: Union[List[dict], dict]
+    ) -> List["MLMapmakingWorkflow"]:
         """
         Create a list of MLMapmakingWorkflow instances from the provided descriptions.
         """

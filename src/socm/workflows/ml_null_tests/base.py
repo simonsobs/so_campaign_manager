@@ -5,6 +5,7 @@ from typing import Any, Dict, List, Optional, Union
 from sotodlib.core import Context
 from sotodlib.core.metadata.loader import LoaderError
 
+from socm.utils.misc import get_query_from_file
 from socm.workflows import MLMapmakingWorkflow
 
 
@@ -28,7 +29,11 @@ class NullTestWorkflow(MLMapmakingWorkflow):
         """
         ctx_file = Path(self.context.split("file://")[-1]).absolute()
         ctx = Context(ctx_file)
-        obs_ids = ctx.obsdb.query(self.query)
+        final_query = self.query
+        if self.query.startswith("file://"):
+            query_path = Path(self.query.split("file://")[-1]).absolute()
+            final_query = get_query_from_file(query_path)
+        obs_ids = ctx.obsdb.query(final_query)
         obs_info = dict()
         for obs_id in obs_ids:
             self.datasize += obs_id["n_samples"]
@@ -67,15 +72,16 @@ class NullTestWorkflow(MLMapmakingWorkflow):
         try:
             for split in desc["_splits"]:
                 desc_copy = desc.copy()
-                desc_copy["query"] = "obs_id IN ("
-                for oid in split:
-                    desc_copy["query"] += f"'{oid}',"
-                desc_copy["query"] = desc_copy["query"].rstrip(",")
-                desc_copy["query"] += ")"
-                desc_copy["chunk_nobs"] = 1
                 desc_copy["output_dir"] = (
                     f"{desc['output_dir']}/mission_split_{len(workflows) + 1}"
                 )
+                query_file = Path(desc_copy["output_dir"]) / "query.txt"
+                query_file.parent.mkdir(parents=True, exist_ok=True)
+                with open(query_file, "w") as f:
+                    for oid in split:
+                        f.write(f"{oid}\n")
+                desc_copy["query"] = f"file://{str(query_file)}"
+                desc_copy["chunk_nobs"] = 1
                 workflow = cls(**desc_copy)
                 workflows.append(workflow)
         except LoaderError as e:
@@ -89,7 +95,8 @@ class NullTestWorkflow(MLMapmakingWorkflow):
         Get the command to run the ML mapmaking workflow.
         """
         area = Path(self.area.split("file://")[-1])
-        arguments = [self.query, f"{area.absolute()}", self.output_dir]
+        query = Path(self.query.split("file://")[-1])
+        arguments = [f"{query.absolute()}", f"{area.absolute()}", self.output_dir]
         sorted_workflow = dict(sorted(self.model_dump(exclude_unset=True).items()))
 
         for k, v in sorted_workflow.items():
