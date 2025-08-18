@@ -38,8 +38,8 @@ class MLMapmakingWorkflow(Workflow):
 
         final_query = self.query
         if self.query.startswith("file://"):
-            self.query = Path(self.query.split("file://")[-1]).absolute()
-            final_query = get_query_from_file(self.query)
+            query_path = Path(self.query.split("file://")[-1]).absolute()
+            final_query = get_query_from_file(query_path)
         obs_ids = ctx.obsdb.query(final_query)
         for obs_id in obs_ids:
             self.datasize += obs_id["n_samples"]
@@ -58,7 +58,10 @@ class MLMapmakingWorkflow(Workflow):
         Get the command to run the ML mapmaking workflow.
         """
         area = Path(self.area.split("file://")[-1])
-        arguments = [self.query, f"{area.absolute()}", self.output_dir]
+        final_query = self.query
+        if self.query.startswith("file://"):
+            final_query = Path(self.query.split("file://")[-1]).absolute()
+        arguments = [f"{final_query.absolute()}", f"{area.absolute()}", self.output_dir]
         sorted_workflow = dict(sorted(self.model_dump(exclude_unset=True).items()))
 
         for k, v in sorted_workflow.items():
