@@ -61,7 +61,8 @@ class MLMapmakingWorkflow(Workflow):
         final_query = self.query
         if self.query.startswith("file://"):
             final_query = Path(self.query.split("file://")[-1]).absolute()
-        arguments = [f"{final_query.absolute()}", f"{area.absolute()}", self.output_dir]
+            final_query = f"{final_query.absolute()}"
+        arguments = [final_query, f"{area.absolute()}", self.output_dir]
         sorted_workflow = dict(sorted(self.model_dump(exclude_unset=True).items()))
 
         for k, v in sorted_workflow.items():

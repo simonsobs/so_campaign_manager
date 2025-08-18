@@ -31,8 +31,8 @@ class NullTestWorkflow(MLMapmakingWorkflow):
         ctx = Context(ctx_file)
         final_query = self.query
         if self.query.startswith("file://"):
-            query = Path(self.query.split("file://")[-1]).absolute()
-            final_query = get_query_from_file(query)
+            query_path = Path(self.query.split("file://")[-1]).absolute()
+            final_query = get_query_from_file(query_path)
         obs_ids = ctx.obsdb.query(final_query)
         obs_info = dict()
         for obs_id in obs_ids:
