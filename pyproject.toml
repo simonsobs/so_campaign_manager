@@ -71,6 +71,7 @@ tests = ["tests", "*/so_mapmaking_campaign_manager/tests"]
 [tool.coverage.report]
 exclude_lines = ["pragma: no cover"]
 exclude_also = ["if TYPE_CHECKING:"]
+omit = ["*/so_mapmaking_campaign_manager/src/socm/__main__.py"]
 
 [tool.isort]
 profile = "black"
