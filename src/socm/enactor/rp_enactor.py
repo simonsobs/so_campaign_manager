@@ -116,7 +116,7 @@ class RPEnactor(Enactor):
                 exec_workflow.threading_type = rp.OpenMP
                 exec_workflow.mem_per_rank = np.ceil(
                     workflow.resources["memory"] / workflow.resources["ranks"]
-                )  # this translates to memory per node
+                )  # this translates to memory per rank
                 exec_workflow.post_exec = "echo ${SLURM_JOB_ID}.${SLURM_STEP_ID}"
                 if workflow.environment:
                     exec_workflow.environment = workflow.environment
