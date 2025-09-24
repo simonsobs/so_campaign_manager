@@ -95,6 +95,8 @@ class ElevationNullTestWorkflow(NullTestWorkflow):
         workflows = []
         for elevation, elevation_splits in elevation_workflow._splits.items():
             for split_idx, split in enumerate(elevation_splits):
+                if not split:
+                    continue
                 desc_copy = elevation_workflow.model_dump(exclude_unset=True)
                 desc_copy["name"] = (
                     f"elevation_{elevation}_split_{split_idx + 1}_null_test_workflow"

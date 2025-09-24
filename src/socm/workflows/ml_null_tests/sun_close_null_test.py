@@ -150,6 +150,8 @@ class SunCloseFarNullTestWorkflow(NullTestWorkflow):
         workflows = []
         for sun_position, sun_position_splits in sun_position_workflow._splits.items():
             for split_idx, split in enumerate(sun_position_splits):
+                if not split:
+                    continue
                 desc_copy = sun_position_workflow.model_dump(exclude_unset=True)
                 desc_copy["name"] = (
                     f"sun_{sun_position}_split_{split_idx + 1}_null_test_workflow"

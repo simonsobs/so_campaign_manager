@@ -28,7 +28,7 @@ def test_moon_close_far_null_test_workflow(mock_context_act, simple_config):
     workflows = MoonCloseFarNullTestWorkflow.get_workflows(
         simple_config["campaign"]["ml-null-tests.mission-tests"]
     )
-    assert len(workflows) == 4
+    assert len(workflows) == 1
     print(workflows)
     for idx, workflow in enumerate(workflows):
         assert isinstance(workflow, NullTestWorkflow)

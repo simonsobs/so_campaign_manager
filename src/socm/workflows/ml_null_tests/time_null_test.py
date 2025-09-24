@@ -57,6 +57,8 @@ class TimeNullTestWorkflow(NullTestWorkflow):
 
         workflows = []
         for split in time_workflow._splits:
+            if not split:
+                continue
             desc = time_workflow.model_dump(exclude_unset=True)
             desc["name"] = f"mission_split_{len(workflows) + 1}_null_test_workflow"
             desc["output_dir"] = (
