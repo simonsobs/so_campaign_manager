@@ -122,6 +122,8 @@ class WaferNullTestWorkflow(NullTestWorkflow):
         for tube_wafer, wafer_split in wafer_workflow._splits.items():
             _, wafer = tube_wafer.split(":")
             for idx, split in enumerate(wafer_split):
+                if not split:
+                    continue
                 desc = wafer_workflow.model_dump(exclude_unset=True)
                 desc["name"] = f"wafer_{wafer}_split_{idx + 1}_null_test_workflow"
                 desc["wafer"] = wafer

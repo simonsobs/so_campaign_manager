@@ -6,6 +6,7 @@ from datetime import datetime
 from typing import List
 
 # Imports from dependent packages
+import numpy as np
 import radical.pilot as rp
 import radical.utils as ru
 
@@ -21,13 +22,15 @@ class RPEnactor(Enactor):
     and executes the workflows on their selected resources.
     """
 
-    def __init__(self, sid):
+    def __init__(self, sid: str):
         super(RPEnactor, self).__init__(sid=sid)
         # List with all the workflows that are executing and require to be
         # monitored. This list is atomic and requires a lock
         self._to_monitor = list()
 
-        os.environ["RADICAL_CONFIG_USER_DIR"] = os.path.join(os.path.dirname(__file__) + "/../configs/")
+        os.environ["RADICAL_CONFIG_USER_DIR"] = os.path.join(
+            os.path.dirname(__file__) + "/../configs/"
+        )
         self._prof.prof("enactor_setup", uid=self._uid)
         # Lock to provide atomicity in the monitoring data structure
         self._monitoring_lock = ru.RLock("cm.monitor_lock")
@@ -39,6 +42,7 @@ class RPEnactor(Enactor):
         self._terminate_monitor = mt.Event()  # Thread event to terminate.
 
         self._run = False
+        self._resource = None
         self._prof.prof("enactor_started", uid=self._uid)
         self._rp_session = rp.Session(uid=sid)
         self._rp_pmgr = rp.PilotManager(session=self._rp_session)
@@ -49,6 +53,7 @@ class RPEnactor(Enactor):
         """
         Sets up the enactor to execute workflows.
         """
+        self._resource = resource
         pd_init = {
             "resource": f"so.{resource.name}",
             "runtime": walltime,  # pilot runtime (min)
@@ -102,11 +107,16 @@ class RPEnactor(Enactor):
                 if workflow.subcommand:
                     exec_workflow.arguments += [workflow.subcommand]
                 exec_workflow.arguments += workflow.get_arguments()
-                self._logger.debug("Workflow %s arguments: %s", workflow.id, exec_workflow.arguments)
+                self._logger.debug(
+                    "Workflow %s arguments: %s", workflow.id, exec_workflow.arguments
+                )
+
                 exec_workflow.ranks = workflow.resources["ranks"]
                 exec_workflow.cores_per_rank = workflow.resources["threads"]
                 exec_workflow.threading_type = rp.OpenMP
-                exec_workflow.mem_per_rank = workflow.resources["memory"]  # this translates to memory per node
+                exec_workflow.mem_per_rank = np.ceil(
+                    workflow.resources["memory"] / workflow.resources["ranks"]
+                )  # this translates to memory per node
                 exec_workflow.post_exec = "echo ${SLURM_JOB_ID}.${SLURM_STEP_ID}"
                 if workflow.environment:
                     exec_workflow.environment = workflow.environment
@@ -141,7 +151,9 @@ class RPEnactor(Enactor):
         # If there is no monitoring tasks, start one.
         if self._monitoring_thread is None:
             self._logger.info("Starting monitor thread")
-            self._monitoring_thread = mt.Thread(target=self._monitor, name="monitor-thread")
+            self._monitoring_thread = mt.Thread(
+                target=self._monitor, name="monitor-thread"
+            )
             self._monitoring_thread.start()
 
     def _monitor(self):
@@ -163,12 +175,16 @@ class RPEnactor(Enactor):
 
                 for workflow_id in monitoring_list:
                     if f"workflow.{workflow_id}" in workflows_executing:
-                        rp_workflow = self._rp_tmgr.get_tasks(uids=f"workflow.{workflow_id}")
+                        rp_workflow = self._rp_tmgr.get_tasks(
+                            uids=f"workflow.{workflow_id}"
+                        )
                         if rp_workflow.state in rp.FINAL:
                             with self._monitoring_lock:
                                 self._logger.debug(f"workflow.{workflow_id} Done")
                                 self._execution_status[workflow_id]["state"] = st.DONE
-                                self._execution_status[workflow_id]["end_time"] = datetime.now()
+                                self._execution_status[workflow_id][
+                                    "end_time"
+                                ] = datetime.now()
                                 self._logger.debug(
                                     "Workflow %s finished: %s, step_id: %s",
                                     workflow_id,

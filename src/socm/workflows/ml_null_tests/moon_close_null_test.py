@@ -143,6 +143,8 @@ class MoonCloseFarNullTestWorkflow(NullTestWorkflow):
             moon_position_splits,
         ) in moon_position_workflow._splits.items():
             for split_idx, split in enumerate(moon_position_splits):
+                if not split:
+                    continue
                 desc_copy = moon_position_workflow.model_dump(exclude_unset=True)
                 desc_copy["name"] = (
                     f"moon_{moon_position}_split_{split_idx + 1}_null_test_workflow"

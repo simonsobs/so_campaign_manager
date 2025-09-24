@@ -95,6 +95,8 @@ class PWVNullTestWorkflow(NullTestWorkflow):
         workflows = []
         for pwv_level, pwv_splits in pwv_workflow._splits.items():
             for split_idx, split in enumerate(pwv_splits):
+                if not split:
+                    continue
                 desc_copy = pwv_workflow.model_dump(exclude_unset=True)
                 desc_copy["name"] = (
                     f"pwv_{pwv_level}_split_{split_idx + 1}_null_test_workflow"

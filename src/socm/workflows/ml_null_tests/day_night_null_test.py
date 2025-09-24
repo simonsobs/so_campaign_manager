@@ -106,6 +106,8 @@ class DayNightNullTestWorkflow(NullTestWorkflow):
         workflows = []
         for day_night, day_night_splits in day_night_workflow._splits.items():
             for split_idx, split in enumerate(day_night_splits):
+                if not split:
+                    continue
                 desc_copy = day_night_workflow.model_dump(exclude_unset=True)
                 # Follow the naming convention: direction_[rising,setting,middle]
                 desc_copy["output_dir"] = (

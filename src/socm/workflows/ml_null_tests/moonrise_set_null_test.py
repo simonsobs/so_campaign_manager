@@ -128,6 +128,8 @@ class MoonRiseSetNullTestWorkflow(NullTestWorkflow):
         workflows = []
         for moon_sky, moon_sky_splits in moon_sky_workflow._splits.items():
             for split_idx, split in enumerate(moon_sky_splits):
+                if not split:
+                    continue
                 desc_copy = moon_sky_workflow.model_dump(exclude_unset=True)
                 desc_copy["name"] = (
                     f"moon_{moon_sky}_split_{split_idx + 1}_null_test_workflow"

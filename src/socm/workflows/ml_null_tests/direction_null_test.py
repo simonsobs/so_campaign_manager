@@ -111,6 +111,8 @@ class DirectionNullTestWorkflow(NullTestWorkflow):
         workflows = []
         for direction, direction_splits in direction_workflow._splits.items():
             for split_idx, split in enumerate(direction_splits):
+                if not split:
+                    continue
                 desc_copy = direction_workflow.model_dump(exclude_unset=True)
                 desc_copy["name"] = (
                     f"direction_{direction}_split_{split_idx + 1}_null_test_workflow"
