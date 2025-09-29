@@ -1,5 +1,6 @@
 from argparse import ArgumentParser
 
+import humanfriendly
 import toml
 
 from socm.bookkeeper import Bookkeeper
@@ -29,7 +30,13 @@ def main() -> None:
     workflows = []
     for workflow_type, workflow_config in workflows_configs.items():
         if workflow_type in registered_workflows:
-            # TODO: this can be a list of workflows, not just one.
+            workflow_config["resources"]["memory"] = (
+                humanfriendly.parse_size(workflow_config["resources"]["memory"])
+                // 1000000
+            )
+            workflow_config["resources"]["runtime"] = humanfriendly.parse_timespan(
+                workflow_config["resources"]["runtime"]
+            )
             workflow_factory = registered_workflows[workflow_type]
             tmp_workflows = workflow_factory.get_workflows(workflow_config)
             for workflow in tmp_workflows:
@@ -49,7 +56,7 @@ def main() -> None:
         name="tiger3",
         nodes=config["campaign"]["resources"]["nodes"],
         cores_per_node=config["campaign"]["resources"]["cores-per-node"],
-        memory_per_node=100000000,
+        memory_per_node=humanfriendly.parse_size("1TB") // 1000000,
         default_queue="tiger-test",
         maximum_walltime=3600000,
     )
