@@ -15,6 +15,7 @@ dependencies = [
     "sotodlib @ git+https://github.com/simonsobs/sotodlib.git",
     "astral",
     "slurmise",
+    "humanfriendly",
 ]
 
 [project.optional-dependencies]
