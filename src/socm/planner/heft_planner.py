@@ -95,7 +95,7 @@ class HeftPlanner(Planner):
         campaign: List[Workflow] | None = None,
         resources: range | None = None,
         resource_requirements: Dict[int, Dict[str, float]] | None = None,
-        start_time: int = 0,
+        start_time: float = 0.0,
     ) -> Tuple[List[Tuple[Workflow, range, float, float]], nx.DiGraph]:
         """
         This method implements the basic HEFT algorithm. It returns a list of tuples
@@ -150,7 +150,7 @@ class HeftPlanner(Planner):
             wf_est_cpus = self._est_cpus[sorted_idx]
             min_end_time = float("inf")
             i = 0
-            while (i + wf_est_cpus) < len(tmp_res):
+            while (i + wf_est_cpus) <= len(tmp_res):
                 # for i in range(0, len(tmp_res), wf_est_cpus):
                 tmp_str_time = resource_free[i : i + wf_est_cpus]
                 tmp_end_time = tmp_str_time + wf_est_tx
