@@ -95,7 +95,7 @@ class HeftPlanner(Planner):
         campaign: List[Workflow] | None = None,
         resources: range | None = None,
         resource_requirements: Dict[int, Dict[str, float]] | None = None,
-        start_time: int = 0,
+        start_time: float = 0.0,
     ) -> Tuple[List[Tuple[Workflow, range, float, float]], nx.DiGraph]:
         """
         This method implements the basic HEFT algorithm. It returns a list of tuples

@@ -34,9 +34,10 @@ def main() -> None:
                 humanfriendly.parse_size(workflow_config["resources"]["memory"])
                 // 1000000
             )
-            workflow_config["resources"]["runtime"] = humanfriendly.parse_timespan(
-                workflow_config["resources"]["runtime"]
-            )
+            workflow_config["resources"]["runtime"] = (
+                humanfriendly.parse_timespan(workflow_config["resources"]["runtime"])
+                / 60
+            )  # in minutes
             workflow_factory = registered_workflows[workflow_type]
             tmp_workflows = workflow_factory.get_workflows(workflow_config)
             for workflow in tmp_workflows:
@@ -58,7 +59,7 @@ def main() -> None:
         cores_per_node=config["campaign"]["resources"]["cores-per-node"],
         memory_per_node=humanfriendly.parse_size("1TB") // 1000000,
         default_queue="tiger-test",
-        maximum_walltime=3600000,
+        maximum_walltime=humanfriendly.parse_timespan("24h") / 60,  # in minutes
     )
 
     # This main class to execute the campaign to a resource.

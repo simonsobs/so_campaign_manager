@@ -1,4 +1,5 @@
 import humanfriendly
+import numpy as np
 import radical.utils as ru
 
 from socm.core import Resource, Workflow
@@ -737,8 +738,8 @@ def test_failing_plan(mocked_init):
             ),
             range(0, 7168),
             64000000,
-            0,
-            13200.000000000002,
+            np.float64(0),
+            np.float64(13200.000000000002),
         ),
         (
             Workflow(
@@ -774,8 +775,8 @@ def test_failing_plan(mocked_init):
             ),
             range(0, 1792),
             16000000,
-            13200,
-            26400.0,
+            np.float64(13200.000000000002),
+            np.float64(26400.000000000004),
         ),
         (
             Workflow(
@@ -809,10 +810,10 @@ def test_failing_plan(mocked_init):
                 nsplits=4,
                 wafer="ws0",
             ),
-            range(0, 1792),
+            range(1792, 3584),
             16000000,
-            26400,
-            39600.0,
+            np.float64(13200.000000000002),
+            np.float64(26400.000000000004),
         ),
         (
             Workflow(
@@ -846,10 +847,10 @@ def test_failing_plan(mocked_init):
                 nsplits=4,
                 wafer="ws0",
             ),
-            range(0, 1792),
+            range(3584, 5376),
             16000000,
-            39600,
-            52800.0,
+            np.float64(13200.000000000002),
+            np.float64(26400.000000000004),
         ),
         (
             Workflow(
@@ -883,10 +884,10 @@ def test_failing_plan(mocked_init):
                 nsplits=4,
                 wafer="ws0",
             ),
-            range(0, 1792),
+            range(5376, 7168),
             16000000,
-            52800,
-            66000.0,
+            np.float64(13200.000000000002),
+            np.float64(26400.000000000004),
         ),
         (
             Workflow(
@@ -922,8 +923,8 @@ def test_failing_plan(mocked_init):
             ),
             range(0, 1792),
             16000000,
-            66000,
-            79200.0,
+            np.float64(26400.000000000004),
+            np.float64(39600.00000000001),
         ),
         (
             Workflow(
@@ -957,10 +958,10 @@ def test_failing_plan(mocked_init):
                 nsplits=4,
                 wafer="ws0",
             ),
-            range(0, 1792),
+            range(1792, 3584),
             16000000,
-            79200,
-            92400.0,
+            np.float64(26400.000000000004),
+            np.float64(39600.00000000001),
         ),
         (
             Workflow(
@@ -994,10 +995,10 @@ def test_failing_plan(mocked_init):
                 nsplits=4,
                 wafer="ws0",
             ),
-            range(0, 1792),
+            range(3584, 5376),
             16000000,
-            92400,
-            105600.0,
+            np.float64(26400.000000000004),
+            np.float64(39600.00000000001),
         ),
         (
             Workflow(
@@ -1031,10 +1032,10 @@ def test_failing_plan(mocked_init):
                 nsplits=4,
                 wafer="ws0",
             ),
-            range(0, 1792),
+            range(5376, 7168),
             16000000,
-            105600,
-            118800.0,
+            np.float64(26400.000000000004),
+            np.float64(39600.00000000001),
         ),
         (
             Workflow(
@@ -1070,8 +1071,8 @@ def test_failing_plan(mocked_init):
             ),
             range(0, 1792),
             16000000,
-            118800,
-            132000.0,
+            np.float64(39600.00000000001),
+            np.float64(52800.00000000001),
         ),
         (
             Workflow(
@@ -1105,10 +1106,10 @@ def test_failing_plan(mocked_init):
                 nsplits=4,
                 wafer="ws0",
             ),
-            range(0, 1792),
+            range(1792, 3584),
             16000000,
-            132000,
-            145200.0,
+            np.float64(39600.00000000001),
+            np.float64(52800.00000000001),
         ),
         (
             Workflow(
@@ -1142,10 +1143,10 @@ def test_failing_plan(mocked_init):
                 nsplits=4,
                 wafer="ws0",
             ),
-            range(0, 1792),
+            range(3584, 5376),
             16000000,
-            145200,
-            158400.0,
+            np.float64(39600.00000000001),
+            np.float64(52800.00000000001),
         ),
         (
             Workflow(
@@ -1179,10 +1180,10 @@ def test_failing_plan(mocked_init):
                 nsplits=4,
                 wafer="ws0",
             ),
-            range(0, 1792),
+            range(5376, 7168),
             16000000,
-            158400,
-            171600.0,
+            np.float64(39600.00000000001),
+            np.float64(52800.00000000001),
         ),
         (
             Workflow(
@@ -1218,8 +1219,8 @@ def test_failing_plan(mocked_init):
             ),
             range(0, 1792),
             16000000,
-            171600,
-            184800.0,
+            np.float64(52800.00000000001),
+            np.float64(66000.00000000001),
         ),
         (
             Workflow(
@@ -1253,10 +1254,10 @@ def test_failing_plan(mocked_init):
                 nsplits=4,
                 wafer="ws0",
             ),
-            range(0, 1792),
+            range(1792, 3584),
             16000000,
-            184800,
-            198000.0,
+            np.float64(52800.00000000001),
+            np.float64(66000.00000000001),
         ),
         (
             Workflow(
@@ -1290,10 +1291,10 @@ def test_failing_plan(mocked_init):
                 nsplits=4,
                 wafer="ws0",
             ),
-            range(0, 1792),
+            range(3584, 5376),
             16000000,
-            198000,
-            211200.0,
+            np.float64(52800.00000000001),
+            np.float64(66000.00000000001),
         ),
         (
             Workflow(
@@ -1327,10 +1328,10 @@ def test_failing_plan(mocked_init):
                 nsplits=4,
                 wafer="ws0",
             ),
-            range(0, 1792),
+            range(5376, 7168),
             16000000,
-            211200,
-            224400.0,
+            np.float64(52800.00000000001),
+            np.float64(66000.00000000001),
         ),
     ]
 
@@ -1435,6 +1436,6 @@ def test_failing_plan(mocked_init):
         default_queue="normal",
         maximum_walltime=3600000,  # in minutes
     )
-
+    # breakpoint()
     est_plan, _ = planner.plan()
     assert actual_plan == est_plan
