@@ -6,13 +6,19 @@ from pydantic import BaseModel
 from radical.pilot import TaskDescription
 
 
+class QosPolicy(BaseModel):
+    name: str
+    max_walltime: Optional[int] = None  # in minutes
+    max_jobs: Optional[int] = None
+    max_cores: Optional[int] = None
+
+
 class Resource(BaseModel):
     name: str
     nodes: int
     cores_per_node: int
     memory_per_node: int
-    default_queue: str = "normal"
-    maximum_walltime: int = 1440
+    qos: List[QosPolicy] = []
 
 
 class Workflow(BaseModel):

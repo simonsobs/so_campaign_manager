@@ -68,6 +68,7 @@ def main() -> None:
         resources={"tiger3": resource},
         policy="time",
         target_resource="tiger3",
+        deadline=humanfriendly.parse_timespan(config["campaign"]["deadline"])
     )
 
     b.run()

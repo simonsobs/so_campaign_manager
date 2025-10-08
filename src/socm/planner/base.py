@@ -1,11 +1,19 @@
 import os
-from typing import Dict, List, Tuple
+from typing import Dict, List, NamedTuple, Tuple
 
 import networkx as nx
 import radical.utils as ru
 
 from ..core import Campaign, Resource, Workflow
 
+
+class PlanEntry(NamedTuple):
+    """Represents a scheduled workflow in the execution plan."""
+    workflow: Workflow
+    cores: range
+    memory: float
+    start_time: float
+    end_time: float
 
 class Planner(object):
     """
@@ -28,11 +36,13 @@ class Planner(object):
         resource_requirements: Dict[int, Dict[str, float]] | None = None,
         policy: str | None = None,
         sid: str | None = None,
+        objective: int | None = None
     ):
         self._campaign = campaign
         self._resources = resources
         self._resource_requirements = resource_requirements
         self._policy = policy
+        self._objective = objective
         self._plan = list()
         self._uid = ru.generate_id("planner.%(counter)04d", mode=ru.ID_CUSTOM, ns=sid)
         sid = sid if sid is not None else ru.generate_id("planner.%(counter)04d", mode=ru.ID_CUSTOM)

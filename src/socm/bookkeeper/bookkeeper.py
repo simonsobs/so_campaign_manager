@@ -38,6 +38,7 @@ class Bookkeeper(object):
         resources: Dict[str, Resource],
         policy: str,
         target_resource: str,
+        deadline: int,
     ):
         self._campaign = {"campaign": campaign, "state": st.NEW}
         self._session_id = ru.generate_id("socm.session", mode=ru.ID_PRIVATE)
@@ -52,7 +53,7 @@ class Bookkeeper(object):
         self._unavail_resources = []
         self._workflows_state = dict()
         self._workflows_execids = dict()
-        self._objective = self._resource.maximum_walltime
+        self._objective = deadline
         self._exec_state_lock = ru.RLock("workflows_state_lock")
         self._monitor_lock = ru.RLock("monitor_list_lock")
         self._slurmise = Slurmise(toml_path=files("socm.configs") / "slurmise.toml")
@@ -69,6 +70,7 @@ class Bookkeeper(object):
             sid=self._session_id,
             policy=policy,
             resources=self._resource,
+            objective=deadline
         )
         # self._plan, self._plan_graph = self._planner.plan()
         # raise RuntimeError(
@@ -246,6 +248,7 @@ class Bookkeeper(object):
 
             self._plan, self._plan_graph = self._planner.plan(
                 campaign=self._campaign["campaign"].workflows,
+                execution_schema = self._campaign["campaign"].execution_schema,
                 resource_requirements=workflow_requirements,
                 start_time=0.0,
             )
