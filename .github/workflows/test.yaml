@@ -16,7 +16,7 @@ jobs:
           cache: "pip"
       - run: |
              pip install https://github.com/simonsobs/sotodlib/archive/master.tar.gz
-             pip install ".[dev]"
+             pip install -e ".[dev]"
              pytest -vvv tests/ --cov --cov-append
       - uses: coverallsapp/github-action@v2
         with:
