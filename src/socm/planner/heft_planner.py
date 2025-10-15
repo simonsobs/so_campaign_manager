@@ -46,16 +46,17 @@ class HeftPlanner(Planner):
         self._est_cpus: List[int] = []
         self._est_memory: List[float] = []
 
-    def _get_free_memory(self, start_time: float) -> float:
+    def _get_free_memory(self, start_time: float, num_nodes: float) -> float:
         """Calculate available memory at a given time.
 
         Args:
             start_time: Time point to check memory availability
+            num_nodes: The total number of nodes used
 
         Returns:
             Available memory in MB
         """
-        total_memory = self._resources.nodes * self._resources.memory_per_node
+        total_memory = num_nodes * self._resources.memory_per_node
         used_memory = sum(
             entry.memory
             for entry in self._plan
@@ -94,7 +95,7 @@ class HeftPlanner(Planner):
         while lower_bound <= upper_bound:
             mid = (lower_bound + upper_bound) // 2
 
-            test_plan, test_graph = self._plan(
+            test_plan, test_graph = self._calculate_plan(
                 campaign=campaign,
                 resources=range(mid),
                 resource_requirements=resource_requirements
@@ -231,10 +232,9 @@ class HeftPlanner(Planner):
         requested_resources: int
     ) -> Tuple[List[PlanEntry], nx.DiGraph, None, int]:
         """Plan execution for batch mode with fixed resources."""
-        resources = range(requested_resources)
-        plan, plan_graph = self._plan(
+        plan, plan_graph = self._calculate_plan(
             campaign=campaign,
-            resources=resources,
+            resources=range(requested_resources),
             resource_requirements=resource_requirements
         )
         return plan, plan_graph, None, requested_resources
@@ -314,7 +314,7 @@ class HeftPlanner(Planner):
             start_time_candidate = resource_free[core_slice].max()
             end_time_candidate = start_time_candidate + walltime
 
-            free_memory = self._get_free_memory(start_time_candidate)
+            free_memory = self._get_free_memory(start_time_candidate, len(resources) / self._resources.cores_per_node)
 
             if free_memory >= memory_required:
                 self._logger.debug(
@@ -335,7 +335,7 @@ class HeftPlanner(Planner):
 
         return best_core_idx, min_end_time - walltime
 
-    def _plan(
+    def _calculate_plan(
         self,
         campaign: List[Workflow] | None = None,
         resources: range | None = None,
@@ -427,7 +427,7 @@ class HeftPlanner(Planner):
         """
         if campaign and resources and resource_requirements:
             self._logger.debug("Replanning with updated parameters")
-            return self._plan(
+            return self._calculate_plan(
                 campaign=campaign,
                 resources=resources,
                 resource_requirements=resource_requirements,

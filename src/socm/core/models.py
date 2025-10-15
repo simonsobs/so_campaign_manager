@@ -28,7 +28,7 @@ class Workflow(BaseModel):
     subcommand: str = ""
     id: Optional[int] = None
     environment: Optional[Dict[str, str]] = None
-    resources: Optional[Dict[str, int]] = None
+    resources: Optional[Dict[str, int | float]] = None
 
     model_config = {
         "extra": "allow",
@@ -168,4 +168,7 @@ class Campaign(BaseModel):
     id: int
     workflows: List[Workflow]
     deadline: str
-    resource: str = "tiger3"
+    target_resource: str = "tiger3"
+    campaign_policy: str = "time"
+    execution_schema: str = "batch"
+    requested_resources: int =0

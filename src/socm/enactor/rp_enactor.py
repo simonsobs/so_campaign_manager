@@ -12,7 +12,7 @@ import radical.utils as ru
 
 from socm.core import Resource, Workflow
 from socm.enactor.base import Enactor
-from socm.utils import states as st
+from socm.utils.states import States
 
 
 class RPEnactor(Enactor):
@@ -88,7 +88,7 @@ class RPEnactor(Enactor):
                 self._logger.info(
                     "Workflow %s is in state %s",
                     workflow,
-                    st.state_dict[self._get_workflow_state(workflow.id)],
+                    self._get_workflow_state(workflow.id).name,
                 )
                 continue
 
@@ -127,7 +127,7 @@ class RPEnactor(Enactor):
                 with self._monitoring_lock:
                     self._to_monitor.append(workflow.id)
                     self._execution_status[workflow.id] = {
-                        "state": st.EXECUTING,
+                        "state": States.EXECUTING,
                         "endpoint": exec_workflow,
                         "exec_thread": None,
                         "start_time": datetime.now(),
@@ -137,7 +137,7 @@ class RPEnactor(Enactor):
                 for cb in self._callbacks:
                     self._callbacks[cb](
                         workflow_ids=[workflow.id],
-                        new_state=st.EXECUTING,
+                        new_state=States.EXECUTING,
                         step_ids=[None],
                     )
                 # Execute the task.
@@ -181,7 +181,7 @@ class RPEnactor(Enactor):
                         if rp_workflow.state in rp.FINAL:
                             with self._monitoring_lock:
                                 self._logger.debug(f"workflow.{workflow_id} Done")
-                                self._execution_status[workflow_id]["state"] = st.DONE
+                                self._execution_status[workflow_id]["state"] = States.DONE
                                 self._execution_status[workflow_id][
                                     "end_time"
                                 ] = datetime.now()
@@ -198,7 +198,7 @@ class RPEnactor(Enactor):
                     for cb in self._callbacks:
                         self._callbacks[cb](
                             workflow_ids=to_remove_wfs,
-                            new_state=st.DONE,
+                            new_state=States.DONE,
                             step_ids=to_remove_sids,
                         )
                     with self._monitoring_lock:
