@@ -249,7 +249,7 @@ class Bookkeeper(object):
 
             self._plan, self._plan_graph, _, cores_request = self._planner.plan(
                 campaign=self._campaign["campaign"].workflows,
-                execution_schema = self._campaign["campaign"].execution_schema,
+                execution_schema=self._campaign["campaign"].execution_schema,
                 resource_requirements=workflow_requirements,
                 requested_resources=self._campaign["campaign"].requested_resources
             )
