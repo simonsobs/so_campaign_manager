@@ -212,13 +212,16 @@ def test_campaign_creation():
         id=1,
         workflows=[workflow1, workflow2],
         deadline="2d",
-        resource="tiger3"
+        target_resource="tiger3"
     )
 
     assert campaign.id == 1
     assert len(campaign.workflows) == 2
     assert campaign.deadline == "2d"
-    assert campaign.resource == "tiger3"
+    assert campaign.target_resource == "tiger3"
+    assert campaign.campaign_policy == "time"
+    assert campaign.execution_schema == "batch"
+    assert campaign.requested_resources == 0
 
 
 @patch('socm.core.models.BaseModel', MockBaseModel)

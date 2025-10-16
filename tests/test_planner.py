@@ -64,7 +64,7 @@ def test_plan(mocked_init):
         memory_per_node=64 * 1024,  # in MB
     )
     planner._num_oper = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
-    est_plan, _ = planner._plan()
+    est_plan, _ = planner._calculate_plan()
 
     assert est_plan == actual_plan
 
@@ -143,7 +143,7 @@ def test_failing_plan(mocked_init):
         memory_per_node=humanfriendly.parse_size("1TB") // 1000000,  # in MB
     )
     # breakpoint()
-    est_plan, _ = planner._plan()
+    est_plan, _ = planner._calculate_plan()
     for expected_entry, planned_entry in zip(actual_plan, est_plan):
         compare_entries(expected_entry=expected_entry, test_entry=planned_entry)
 
@@ -233,13 +233,13 @@ def test_get_free_memory(mocked_init):
     ]
 
     # At time 25: only W1 is running (500 used)
-    assert planner._get_free_memory(25) == 1500
+    assert planner._get_free_memory(25, 2) == 1500
 
     # At time 75: both W1 and W2 are running (800 used)
-    assert planner._get_free_memory(75) == 1200
+    assert planner._get_free_memory(75, 2) == 1200
 
     # At time 125: only W2 is running (300 used)
-    assert planner._get_free_memory(125) == 1700
+    assert planner._get_free_memory(125, 2) == 1700
 
     # At time 200: nothing running
-    assert planner._get_free_memory(200) == 2000
+    assert planner._get_free_memory(200, 2) == 2000

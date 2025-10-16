@@ -171,4 +171,4 @@ class Campaign(BaseModel):
     target_resource: str = "tiger3"
     campaign_policy: str = "time"
     execution_schema: str = "batch"
-    requested_resources: int =0
+    requested_resources: int = 0
