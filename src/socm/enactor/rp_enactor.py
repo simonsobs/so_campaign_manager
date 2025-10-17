@@ -3,7 +3,7 @@ import os
 import threading as mt
 from copy import deepcopy
 from datetime import datetime
-from typing import List
+from typing import Dict, List
 
 # Imports from dependent packages
 import numpy as np
@@ -206,7 +206,7 @@ class RPEnactor(Enactor):
                             self._to_monitor.remove(wid)
                 self._prof.prof("workflow_monitor_end", uid=self._uid)
 
-    def get_status(self, workflows=None):
+    def get_status(self, workflows: str=None) -> Dict[States]:
         """
         Get the state of a workflow or workflows.
 
@@ -225,7 +225,7 @@ class RPEnactor(Enactor):
             for workflow in workflows:
                 status[workflow] = self._execution_status[workflow]["state"]
         else:
-            status[workflow] = self._execution_status[workflow]["state"]
+            status[workflows] = self._execution_status[workflows]["state"]
 
         return status
 
