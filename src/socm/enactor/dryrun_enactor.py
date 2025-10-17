@@ -175,7 +175,7 @@ class DryrunEnactor(Enactor):
             for workflow in workflows:
                 status[workflow] = self._execution_status[workflow]["state"]
         else:
-            status[workflow] = self._execution_status[workflow]["state"]
+            status[workflows] = self._execution_status[workflows]["state"]
 
         return status
 
