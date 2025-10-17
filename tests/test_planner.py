@@ -1,8 +1,9 @@
 import humanfriendly
 import numpy as np
+import pytest
 import radical.utils as ru
 
-from socm.core import Resource, Workflow
+from socm.core import QosPolicy, Resource, Workflow
 from socm.planner import HeftPlanner, PlanEntry
 
 try:
@@ -243,3 +244,131 @@ def test_get_free_memory(mocked_init):
 
     # At time 200: nothing running
     assert planner._get_free_memory(200, 2) == 2000
+
+
+@mock.patch.object(HeftPlanner, "__init__", return_value=None)
+def test_find_suitable_qos_policies_basic(mocked_init):
+    """Test finding suitable QoS policies that meet deadline."""
+    planner = HeftPlanner(None, None, None)
+    planner._objective = 60  # 60 minute deadline
+
+    # Create QoS policies with different max walltimes
+    planner._resources = Resource(
+        name="test",
+        nodes=2,
+        cores_per_node=10,
+        memory_per_node=1000,
+        qos=[
+            QosPolicy(name="vshort", max_walltime=30, max_jobs=10, max_cores=100),
+            QosPolicy(name="short", max_walltime=60, max_jobs=20, max_cores=200),
+            QosPolicy(name="medium", max_walltime=120, max_jobs=15, max_cores=300),
+            QosPolicy(name="long", max_walltime=240, max_jobs=10, max_cores=400),
+        ]
+    )
+
+    suitable = planner._find_suitable_qos_policies()
+
+    # Should filter out "vshort" (30 < 60) but include all others
+    assert len(suitable) == 3
+    assert suitable[0].name == "short"  # Shortest suitable walltime comes first
+    assert suitable[1].name == "medium"
+    assert suitable[2].name == "long"
+
+
+@mock.patch.object(HeftPlanner, "__init__", return_value=None)
+def test_find_suitable_qos_policies_sorted_by_walltime(mocked_init):
+    """Test that suitable QoS policies are sorted by walltime (shortest first)."""
+    planner = HeftPlanner(None, None, None)
+    planner._objective = 100  # 100 minute deadline
+
+    planner._resources = Resource(
+        name="test",
+        nodes=2,
+        cores_per_node=10,
+        memory_per_node=1000,
+        qos=[
+            QosPolicy(name="long", max_walltime=500, max_jobs=10, max_cores=400),
+            QosPolicy(name="medium", max_walltime=120, max_jobs=15, max_cores=300),
+            QosPolicy(name="vlong", max_walltime=1000, max_jobs=5, max_cores=500),
+            QosPolicy(name="short", max_walltime=100, max_jobs=20, max_cores=200),
+        ]
+    )
+
+    suitable = planner._find_suitable_qos_policies()
+
+    # All policies meet the deadline, should be sorted by walltime
+    assert len(suitable) == 4
+    assert suitable[0].name == "short"  # 100
+    assert suitable[1].name == "medium"  # 120
+    assert suitable[2].name == "long"  # 500
+    assert suitable[3].name == "vlong"  # 1000
+
+
+@mock.patch.object(HeftPlanner, "__init__", return_value=None)
+def test_find_suitable_qos_policies_none_suitable(mocked_init):
+    """Test that ValueError is raised when no QoS meets the deadline."""
+    planner = HeftPlanner(None, None, None)
+    planner._objective = 500  # 500 minute deadline
+
+    planner._resources = Resource(
+        name="test",
+        nodes=2,
+        cores_per_node=10,
+        memory_per_node=1000,
+        qos=[
+            QosPolicy(name="vshort", max_walltime=30, max_jobs=10, max_cores=100),
+            QosPolicy(name="short", max_walltime=60, max_jobs=20, max_cores=200),
+            QosPolicy(name="medium", max_walltime=120, max_jobs=15, max_cores=300),
+            QosPolicy(name="long", max_walltime=240, max_jobs=10, max_cores=400),
+        ]
+    )
+
+    # Should raise ValueError with appropriate message
+    with pytest.raises(ValueError, match="No QoS policy can accommodate deadline of 500 minutes"):
+        planner._find_suitable_qos_policies()
+
+
+@mock.patch.object(HeftPlanner, "__init__", return_value=None)
+def test_find_suitable_qos_policies_exact_match(mocked_init):
+    """Test QoS selection when deadline exactly matches a QoS walltime."""
+    planner = HeftPlanner(None, None, None)
+    planner._objective = 120  # Exactly matches "medium"
+
+    planner._resources = Resource(
+        name="test",
+        nodes=2,
+        cores_per_node=10,
+        memory_per_node=1000,
+        qos=[
+            QosPolicy(name="vshort", max_walltime=30, max_jobs=10, max_cores=100),
+            QosPolicy(name="short", max_walltime=60, max_jobs=20, max_cores=200),
+            QosPolicy(name="medium", max_walltime=120, max_jobs=15, max_cores=300),
+            QosPolicy(name="long", max_walltime=240, max_jobs=10, max_cores=400),
+        ]
+    )
+
+    suitable = planner._find_suitable_qos_policies()
+
+    # Should include QoS with walltime >= deadline (including exact match)
+    assert len(suitable) == 2
+    assert suitable[0].name == "medium"  # Exact match comes first
+    assert suitable[1].name == "long"
+
+
+@mock.patch.object(HeftPlanner, "__init__", return_value=None)
+def test_find_suitable_qos_policies_empty_qos_list(mocked_init):
+    """Test behavior when resource has no QoS policies defined."""
+    planner = HeftPlanner(None, None, None)
+    planner._objective = 100
+
+    planner._resources = Resource(
+        name="test",
+        nodes=2,
+        cores_per_node=10,
+        memory_per_node=1000,
+        qos=[]  # Empty QoS list
+    )
+
+    # Should raise ValueError when no QoS policies available
+    with pytest.raises(ValueError, match="No QoS policy can accommodate deadline of 100 minutes"):
+        planner._find_suitable_qos_policies()

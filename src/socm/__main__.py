@@ -19,6 +19,11 @@ def get_parser() -> ArgumentParser:
         required=True,
         help="Path to the configuration file for the workflow.",
     )
+    parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Enable dry run for faster development. This flag does not acctually run the campaign.",
+    )
     return parser
 
 
@@ -56,15 +61,13 @@ def main() -> None:
         policy=config["campaign"].get("policy","time"),
         target_resource=config["campaign"].get("resource", "tiger3"),
     )
-
     # This main class to execute the campaign to a resource.
     b = Bookkeeper(
         campaign=campaign,
         policy=config["campaign"].get("policy","time"),
         target_resource=config["campaign"].get("resource", "tiger3"),
-        deadline=humanfriendly.parse_timespan(config["campaign"]["deadline"]),
-        execution_schema=config["campaign"]["execution_schema"],
-        requested_resources=config["campaign"].get("request_resoruces", 0)
+        deadline=humanfriendly.parse_timespan(config["campaign"]["deadline"]) / 60,
+        dryrun=args.dry_run
     )
 
     b.run()
