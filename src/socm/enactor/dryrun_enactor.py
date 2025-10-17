@@ -102,7 +102,7 @@ class DryrunEnactor(Enactor):
 
         self._prof.prof("enacting_stop", uid=self._uid)
         # If there is no monitoring tasks, start one.
-        if self._monitoring_thread is None:
+        if self._monitoring_thread is None and self._to_monitor:
             self._logger.info("Starting monitor thread")
             self._monitoring_thread = mt.Thread(
                 target=self._monitor, name="monitor-thread"
@@ -188,7 +188,6 @@ class DryrunEnactor(Enactor):
             self._logger.warning(
                 "Has not enacted on workflow %s yet.",
                 workflow,
-                self._get_workflow_state(workflow),
             )
         else:
             self._execution_status[workflow]["state"] = new_state

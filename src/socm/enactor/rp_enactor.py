@@ -206,7 +206,7 @@ class RPEnactor(Enactor):
                             self._to_monitor.remove(wid)
                 self._prof.prof("workflow_monitor_end", uid=self._uid)
 
-    def get_status(self, workflows: str=None) -> Dict[States]:
+    def get_status(self, workflows: str=None) -> Dict[str, States]:
         """
         Get the state of a workflow or workflows.
 
