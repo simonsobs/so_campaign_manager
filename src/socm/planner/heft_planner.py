@@ -68,13 +68,13 @@ class HeftPlanner(Planner):
         """Get the maximum number of cores required by any single workflow."""
         return max(values["req_cpus"] for values in resource_requirements.values())
 
-    def _find_suitable_qos_policies(self) -> List[QosPolicy]:
+    def _find_suitable_qos_policies(self, cores:int) -> List[QosPolicy]:
         """Find QoS policies that can accommodate the campaign deadline."""
-        suitable = [q for q in self._resources.qos if q.max_walltime >= self._objective]
-        if not suitable:
+        suitable_qos = self._resources.fits_in_qos(self._objective, cores)
+        if not suitable_qos:
             raise ValueError(f"No QoS policy can accommodate deadline of {self._objective} minutes")
         # Prefer shorter queues (typically faster scheduling)
-        return sorted(suitable, key=lambda q: q.max_walltime)
+        return suitable_qos
 
     def _binary_search_resources(
         self,
@@ -128,21 +128,21 @@ class HeftPlanner(Planner):
             Tuple of (plan, graph, qos_name, ncores).
         """
         max_workflow_resources = self._get_max_ncores(resource_requirements)
-        suitable_qos = self._find_suitable_qos_policies()
+        qos_candidate = self._find_suitable_qos_policies(cores=max_workflow_resources)
 
         # Try each suitable QoS until we find one that works
-        for qos_candidate in suitable_qos:
-            # Start with min(2x max workflow resources, QoS max cores)
-            upper_bound = min(max_workflow_resources * 2, qos_candidate.max_cores)
-            lower_bound = max_workflow_resources
 
-            result = self._binary_search_resources(
-                campaign, resource_requirements, lower_bound, upper_bound
-            )
+        # Start with min(2x max workflow resources, QoS max cores)
+        upper_bound = min(max_workflow_resources * 2, qos_candidate.max_cores)
+        lower_bound = max_workflow_resources
 
-            if result is not None:
-                ncores, plan, plan_graph = result
-                return plan, plan_graph, qos_candidate.name, ncores
+        result = self._binary_search_resources(
+            campaign, resource_requirements, lower_bound, upper_bound
+        )
+
+        if result is not None:
+            ncores, plan, plan_graph = result
+            return plan, plan_graph, qos_candidate.name, ncores
 
         raise ValueError(
             f"Could not find resource allocation that meets deadline of {self._objective} minutes"

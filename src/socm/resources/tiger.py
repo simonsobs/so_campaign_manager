@@ -11,13 +11,12 @@ class TigerResource(Resource):
     nodes: int = 492
     cores_per_node: int = 112
     memory_per_node: int = 1000000  # in MB
-    default_qos: str = "normal"
+    default_qos: str = "test"
 
     def __init__(self, **data):
         super().__init__(**data)
-        # Define QoS policies specific to Tiger
         self.qos = [QosPolicy(name="test", max_walltime=60, max_jobs=1, max_cores=8000),
-                    QosPolicy(name="vshort", max_walltime=300),
+                    QosPolicy(name="vshort", max_walltime=300, max_jobs=2000, max_cores=55104),
                     QosPolicy(name="short", max_walltime=1440, max_jobs=50, max_cores=8000),
                     QosPolicy(name="medium", max_walltime=4320, max_jobs=80, max_cores=4000),
                     QosPolicy(name="long", max_walltime=8640, max_jobs=16, max_cores=1000),
@@ -25,7 +24,7 @@ class TigerResource(Resource):
                     ]
         self._existing_jobs = {}
 
-    def fits_in_qos(self, walltime: int, cores: int) -> str | None:
+    def fits_in_qos(self, walltime: int, cores: int) -> QosPolicy | None:
         """
         Check if the given walltime and cores fit within the specified QoS policy.
 
@@ -42,7 +41,7 @@ class TigerResource(Resource):
             existing_jobs = self._existing_jobs.get(policy.name, [])
             remaining_cores = policy.max_cores - sum(job[2] for job in existing_jobs)
             if policy.max_walltime >= walltime and remaining_cores >= cores:
-                return policy.name
+                return policy
         return None
 
     def register_job(self, job_id: str, walltime: int, cores: int) -> bool:
@@ -57,8 +56,9 @@ class TigerResource(Resource):
         Returns:
             bool: True if the job was registered successfully, False otherwise.
         """
-        qos_name = self.fits_in_qos(walltime, cores)
-        if qos_name:
+        qos_policy = self.fits_in_qos(walltime, cores)
+        if qos_policy:
+            qos_name = qos_policy.name
             existing_jobs = self._existing_jobs.get(qos_name, [])
             existing_jobs.append((job_id, walltime, cores))
             self._existing_jobs[qos_name] = existing_jobs
