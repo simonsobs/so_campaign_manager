@@ -22,7 +22,7 @@ def get_parser() -> ArgumentParser:
     parser.add_argument(
         "--dry-run",
         action="store_true",
-        help="Enable dry run for faster development. This flag does not acctually run the campaign.",
+        help="Enable dry run for faster development. This flag does not actually run the campaign.",
     )
     return parser
 
