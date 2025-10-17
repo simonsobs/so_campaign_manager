@@ -15,7 +15,7 @@ from slurmise.job_parse.file_parsers import FileMD5
 from slurmise.slurm import parse_slurm_job_metadata
 
 from ..core import Campaign, Workflow
-from ..enactor import RPEnactor
+from ..enactor import DryrunEnactor, RPEnactor
 from ..planner import HeftPlanner
 from ..resources import registered_resources
 from ..utils.states import CFINAL, States
@@ -39,7 +39,7 @@ class Bookkeeper(object):
         policy: str,
         target_resource: str,
         deadline: int,
-
+        dryrun: bool = False,
     ):
         self._campaign = {"campaign": campaign, "state": States.NEW}
         self._session_id = ru.generate_id("socm.session", mode=ru.ID_PRIVATE)
@@ -66,7 +66,7 @@ class Bookkeeper(object):
 
         self._logger = ru.Logger(name=self._uid, path=path, level="DEBUG")
         self._prof = ru.Profiler(name=self._uid, path=path)
-
+        self._logger.debug(f"Deadline {deadline}")
         self._planner = HeftPlanner(
             sid=self._session_id,
             policy=policy,
@@ -79,7 +79,8 @@ class Bookkeeper(object):
         # )
         self._workflows_to_monitor = list()
         self._est_end_times = dict()
-        self._enactor = RPEnactor(sid=self._session_id)
+        self._enactor = RPEnactor(sid=self._session_id) if not dryrun else DryrunEnactor(sid=self._session_id)
+        self._dryrun = dryrun
         self._enactor.register_state_cb(self.state_update_cb)
         self._enactor.register_state_cb(self.workflowid_update_cb)
 
@@ -169,6 +170,9 @@ class Bookkeeper(object):
         """
         Record the workflow execution data to the performance prediction system
         """
+        if self._dryrun:
+            return
+
         self._logger.debug(
             f"Recording workflow {workflow.id} with execid {self._workflows_execids[workflow.id]}"
         )
@@ -247,7 +251,7 @@ class Bookkeeper(object):
 
             workflow_requirements = self._get_campaign_requirements()
 
-            self._plan, self._plan_graph, _, cores_request = self._planner.plan(
+            self._plan, self._plan_graph, selected_qos, cores_request = self._planner.plan(
                 campaign=self._campaign["campaign"].workflows,
                 execution_schema=self._campaign["campaign"].execution_schema,
                 resource_requirements=workflow_requirements,
@@ -255,7 +259,7 @@ class Bookkeeper(object):
             )
 
         self._prof.prof("planning_ended", uid=self._uid)
-        self._logger.debug("Calculated campaign plan")
+        self._logger.debug(f"Calculated campaign plan with {selected_qos} QOS and requesting {cores_request} cores")
 
         # Update checkpoints and objective.
         self._update_checkpoints()
@@ -375,6 +379,7 @@ class Bookkeeper(object):
                     if self._workflows_state[workflows[i].id] in CFINAL:
                         resource = self._unavail_resources[i]
                         finished.append((workflows[i], resource))
+
                         self._record(workflows[i])
                         self._logger.info(
                             "Workflow %s finished",
