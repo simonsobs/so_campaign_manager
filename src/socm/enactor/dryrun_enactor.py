@@ -16,9 +16,10 @@ from socm.utils.states import States
 
 class DryrunEnactor(Enactor):
     """
-    The Emulated enactor is responsible to execute workflows on emulated
-    resources. The Enactor takes as input a list of tuples <workflow,resource>
-    and executes the workflows on their selected resources.
+    The DryrunEnactor is responsible for simulating the execution of workflows
+    on resources without actually running them. It takes as input a list of
+    tuples <workflow, resource> and emulates the execution of workflows on their
+    selected resources for testing and validation purposes.
     """
 
     def __init__(self, sid: str):
