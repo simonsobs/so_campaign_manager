@@ -49,20 +49,23 @@ class RPEnactor(Enactor):
         self._rp_tmgr = rp.TaskManager(session=self._rp_session)
         self._logger.info("Enactor is ready")
 
-    def setup(self, resource: Resource, walltime: int, cores: int) -> None:
+    def setup(self, resource: Resource, walltime: int, cores: int, execution_schema: str) -> None:
         """
         Sets up the enactor to execute workflows.
         """
         self._resource = resource
+
         pd_init = {
             "resource": f"so.{resource.name}",
             "runtime": walltime,  # pilot runtime (min)
             "exit_on_error": True,
-            "access_schema": "batch",
+            "access_schema": "batch" if execution_schema == "batch" else "local",
             "cores": cores,
+            "project": "simonsobs",
         }
 
         pdesc = rp.PilotDescription(pd_init)
+        self._logger.debug(f"Asking for {pdesc} pilot")
         pilot = self._rp_pmgr.submit_pilots(pdesc)
         self._rp_tmgr.add_pilots(pilot)
 

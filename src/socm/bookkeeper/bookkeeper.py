@@ -283,6 +283,7 @@ class Bookkeeper(object):
             resource=self._resource,
             walltime=self._objective,
             cores=cores_request,
+            execution_schema=self._campaign["campaign"].execution_schema,
         )
 
         with self._exec_state_lock:
