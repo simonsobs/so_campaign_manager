@@ -171,7 +171,7 @@ class Bookkeeper(object):
         Record the workflow execution data to the performance prediction system
         """
         if self._dryrun:
-            pass
+            return
 
         self._logger.debug(
             f"Recording workflow {workflow.id} with execid {self._workflows_execids[workflow.id]}"
