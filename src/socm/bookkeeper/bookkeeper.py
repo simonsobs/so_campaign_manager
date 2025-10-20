@@ -263,7 +263,6 @@ class Bookkeeper(object):
             self._logger.error("Objective cannot be satisfied. Ending execution")
             with self._exec_state_lock:
                 self._campaign["state"] = States.FAILED
-                    # self.terminate()
             sleep(1)
             return
 
