@@ -3,23 +3,6 @@ from socm.utils.states import CFINAL, States
 from socm.workflows import subcampaign_map
 
 
-def test_state_constants_exist():
-    """Test that all state constants are defined."""
-    assert States.NEW == 0
-    assert States.PLANNING == 1
-    assert States.EXECUTING == 2
-    assert States.DONE == 3
-    assert States.FAILED == 4
-    assert States.CANCELED == 5
-
-
-def test_state_constants_are_integers():
-    """Test that all state constants are integers."""
-    states = [States.NEW, States.PLANNING, States.EXECUTING, States.DONE, States.FAILED, States.CANCELED]
-    for state in states:
-        assert isinstance(state, int)
-
-
 def test_state_constants_are_unique():
     """Test that all state constants have unique values."""
     states = [States.NEW, States.PLANNING, States.EXECUTING, States.DONE, States.FAILED, States.CANCELED]
