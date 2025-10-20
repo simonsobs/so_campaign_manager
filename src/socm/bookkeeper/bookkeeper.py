@@ -439,12 +439,10 @@ class Bookkeeper(object):
                     self._workflows_state[workflow.id] = States.NEW
             self._prof.prof("bookkeper_start", uid=self._uid)
             self._logger.info("Starting work thread")
-            self._work_thread = mt.Thread(target=self.work, name="work-thread")
+            self._work_thread = mt.Thread(target=self.work, name=f"bookkeeper-{self._uid}-work")
             self._work_thread.start()
             self._logger.info("Starting monitor thread")
-            self._monitoring_thread = mt.Thread(
-                target=self.monitor, name="monitor-thread"
-            )
+            self._monitoring_thread = mt.Thread(target=self.monitor, name=f"bookkeeper-{self._uid}-monitor")
             self._monitoring_thread.start()
             self._prof.prof("bookkeper_started", uid=self._uid)
 
