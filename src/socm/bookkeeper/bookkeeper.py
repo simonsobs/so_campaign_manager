@@ -7,7 +7,6 @@ from pathlib import Path
 from time import sleep
 from typing import Dict
 
-import numpy as np  # noqa: F401
 import radical.utils as ru
 from slurmise.api import Slurmise
 from slurmise.job_data import JobData
