@@ -72,7 +72,11 @@ class HeftPlanner(Planner):
         """Find QoS policies that can accommodate the campaign deadline."""
         suitable_qos = self._resources.fits_in_qos(self._objective, cores)
         if not suitable_qos:
-            raise ValueError(f"No QoS policy can accommodate deadline of {self._objective} minutes")
+            available_qos = ', '.join(f"{q.name}({q.max_walltime}min)" for q in self._resources.qos)
+            raise ValueError(
+                f"No QoS policy can accommodate deadline of {self._objective} minutes. "
+                f"Available policies: {available_qos}"
+            )
 
         return suitable_qos
 
@@ -145,7 +149,8 @@ class HeftPlanner(Planner):
             return plan, plan_graph, qos_candidate.name, ncores
 
         raise ValueError(
-            f"Could not find resource allocation that meets deadline of {self._objective} minutes"
+            f"Cannot meet {self._objective} min deadline with QoS '{qos_candidate.name}'. "
+            f"Increase deadline or reduce workflow requirements."
         )
 
     def _get_plan_graph(
