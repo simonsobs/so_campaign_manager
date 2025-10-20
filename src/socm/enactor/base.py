@@ -1,8 +1,10 @@
 import os
+from typing import Dict, List
 
 import radical.utils as ru
 
 from socm.core import Resource
+from socm.utils.states import States
 
 
 class Enactor(object):
@@ -70,21 +72,26 @@ class Enactor(object):
 
         raise NotImplementedError("_monitor is not implemented")
 
-    def get_status(self, workflows=None):
+    def get_status(self, workflows: str | List[str] | None = None) -> Dict[str, States]:
         """
-        Get the state of a workflow or workflows
+        Get the state of a workflow or workflows.
+
+        *Parameter*
+        *workflows:* A workflow ID or a list of workflow IDs
+
+        *Returns*
+        *status*: A dictionary with the state of each workflow.
         """
 
-        status = list()
+        status = dict()
         if workflows is None:
-            for workflow, status in self._execution_status.items():
-                status.append((workflow, self._execution_status[workflow]["state"]))
+            for workflow in self._execution_status:
+                status[workflow] = self._execution_status[workflow]["state"]
         elif isinstance(workflows, list):
-            status = list()
             for workflow in workflows:
-                status.append((workflow, self._execution_status[workflow]["state"]))
+                status[workflow] = self._execution_status[workflow]["state"]
         else:
-            status = (workflow, self._execution_status[workflow]["state"])
+            status[workflows] = self._execution_status[workflows]["state"]
 
         return status
 
