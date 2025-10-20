@@ -2,8 +2,15 @@ from collections.abc import Iterable
 from numbers import Number
 from typing import Dict, List, Optional, Union, get_args, get_origin
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from radical.pilot import TaskDescription
+
+
+class QosPolicy(BaseModel):
+    name: str
+    max_walltime: Optional[int] = None  # in minutes
+    max_jobs: Optional[int] = None
+    max_cores: Optional[int] = None
 
 
 class Resource(BaseModel):
@@ -11,8 +18,7 @@ class Resource(BaseModel):
     nodes: int
     cores_per_node: int
     memory_per_node: int
-    default_queue: str = "normal"
-    maximum_walltime: int = 1440
+    qos: List[QosPolicy] = Field(default_factory=list)
 
 
 class Workflow(BaseModel):
@@ -22,7 +28,7 @@ class Workflow(BaseModel):
     subcommand: str = ""
     id: Optional[int] = None
     environment: Optional[Dict[str, str]] = None
-    resources: Optional[Dict[str, int]] = None
+    resources: Optional[Dict[str, int | float]] = None
 
     model_config = {
         "extra": "allow",
@@ -162,4 +168,7 @@ class Campaign(BaseModel):
     id: int
     workflows: List[Workflow]
     deadline: str
-    resource: str = "tiger3"
+    target_resource: str = "tiger3"
+    campaign_policy: str = "time"
+    execution_schema: str = "batch"
+    requested_resources: int = 0

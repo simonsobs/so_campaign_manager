@@ -3,11 +3,10 @@ import os
 import threading as mt
 from copy import deepcopy
 from datetime import datetime
-from typing import Dict, List
+from time import sleep
+from typing import List
 
 # Imports from dependent packages
-import numpy as np
-import radical.pilot as rp
 import radical.utils as ru
 
 from socm.core import Resource, Workflow
@@ -15,15 +14,16 @@ from socm.enactor.base import Enactor
 from socm.utils.states import States
 
 
-class RPEnactor(Enactor):
+class DryrunEnactor(Enactor):
     """
-    The Emulated enactor is responsible to execute workflows on emulated
-    resources. The Enactor takes as input a list of tuples <workflow,resource>
-    and executes the workflows on their selected resources.
+    The DryrunEnactor is responsible for simulating the execution of workflows
+    on resources without actually running them. It takes as input a list of
+    tuples <workflow, resource> and emulates the execution of workflows on their
+    selected resources for testing and validation purposes.
     """
 
     def __init__(self, sid: str):
-        super(RPEnactor, self).__init__(sid=sid)
+        super(DryrunEnactor, self).__init__(sid=sid)
         # List with all the workflows that are executing and require to be
         # monitored. This list is atomic and requires a lock
         self._to_monitor = list()
@@ -44,9 +44,6 @@ class RPEnactor(Enactor):
         self._run = False
         self._resource = None
         self._prof.prof("enactor_started", uid=self._uid)
-        self._rp_session = rp.Session(uid=sid)
-        self._rp_pmgr = rp.PilotManager(session=self._rp_session)
-        self._rp_tmgr = rp.TaskManager(session=self._rp_session)
         self._logger.info("Enactor is ready")
 
     def setup(self, resource: Resource, walltime: int, cores: int, execution_schema: str | None = None) -> None:
@@ -55,22 +52,6 @@ class RPEnactor(Enactor):
         """
         self._resource = resource
 
-        pd_init = {
-            "resource": f"so.{resource.name}",
-            "runtime": walltime,  # pilot runtime (min)
-            "exit_on_error": True,
-            "access_schema": "batch" if execution_schema == "batch" else "local",
-            "cores": cores,
-            "project": "simonsobs",
-        }
-
-        pdesc = rp.PilotDescription(pd_init)
-        self._logger.debug(f"Asking for {pdesc} pilot")
-        pilot = self._rp_pmgr.submit_pilots(pdesc)
-        self._rp_tmgr.add_pilots(pilot)
-
-        pilot.wait(state=rp.PMGR_ACTIVE)
-        self._logger.info("Pilot is ready")
 
     def enact(self, workflows: List[Workflow]) -> None:
         """
@@ -83,7 +64,6 @@ class RPEnactor(Enactor):
         """
 
         self._prof.prof("enacting_start", uid=self._uid)
-        exec_workflows = []
         for workflow in workflows:
             # If the enactor has already received a workflow issue a warning and
             # proceed.
@@ -100,38 +80,10 @@ class RPEnactor(Enactor):
                 # the emulated resources, a workflow is a number of operations
                 # that need to be executed.
 
-                exec_workflow = (
-                    rp.TaskDescription()
-                )  # Use workflow description and resources to create the TaskDescription
-                exec_workflow.uid = f"workflow.{workflow.id}"
-
-                exec_workflow.executable = workflow.executable
-                exec_workflow.arguments = []
-                if workflow.subcommand:
-                    exec_workflow.arguments += [workflow.subcommand]
-                exec_workflow.arguments += workflow.get_arguments()
-                self._logger.debug(
-                    "Workflow %s arguments: %s", workflow.id, exec_workflow.arguments
-                )
-
-                exec_workflow.ranks = workflow.resources["ranks"]
-                exec_workflow.cores_per_rank = workflow.resources["threads"]
-                exec_workflow.threading_type = rp.OpenMP
-                exec_workflow.mem_per_rank = np.ceil(
-                    workflow.resources["memory"] / workflow.resources["ranks"]
-                )  # this translates to memory per rank
-                exec_workflow.post_exec = "echo ${SLURM_JOB_ID}.${SLURM_STEP_ID}"
-                if workflow.environment:
-                    exec_workflow.environment = workflow.environment
-                self._logger.info("Enacting workflow %s", workflow.id)
-                exec_workflows.append(exec_workflow)
-                # Lock the monitoring list and update it, as well as update
-                # the state of the workflow.
                 with self._monitoring_lock:
                     self._to_monitor.append(workflow.id)
                     self._execution_status[workflow.id] = {
                         "state": States.EXECUTING,
-                        "endpoint": exec_workflow,
                         "exec_thread": None,
                         "start_time": datetime.now(),
                         "end_time": None,
@@ -148,16 +100,15 @@ class RPEnactor(Enactor):
                 self._logger.error(f"Workflow {workflow} could not be executed")
                 self._logger.error(f"Exception raised {ex}", exc_info=True)
 
-        self._rp_tmgr.submit_tasks(exec_workflows)
-
         self._prof.prof("enacting_stop", uid=self._uid)
         # If there is no monitoring tasks, start one.
-        if self._monitoring_thread is None:
+        if self._monitoring_thread is None and self._to_monitor:
             self._logger.info("Starting monitor thread")
             self._monitoring_thread = mt.Thread(
                 target=self._monitor, name="monitor-thread"
             )
             self._monitoring_thread.start()
+        sleep(1)
 
     def _monitor(self):
         """
@@ -167,7 +118,7 @@ class RPEnactor(Enactor):
 
         while not self._terminate_monitor.is_set():
             if self._to_monitor:
-                workflows_executing = self._rp_tmgr.list_tasks()
+                workflows_executing = [f"workflow.{workflow_id}" for workflow_id in self._to_monitor]
                 self._prof.prof("workflow_monitor_start", uid=self._uid)
                 # with self._monitoring_lock:
                 # It does not iterate correctly.
@@ -175,28 +126,24 @@ class RPEnactor(Enactor):
                 # self._logger.info("Monitoring workflows %s" % monitoring_list)
                 to_remove_wfs = list()
                 to_remove_sids = list()
-
+                self._logger.debug(f"Executing workflows: {workflows_executing}, monitoring list: {monitoring_list}")
                 for workflow_id in monitoring_list:
                     if f"workflow.{workflow_id}" in workflows_executing:
-                        rp_workflow = self._rp_tmgr.get_tasks(
-                            uids=f"workflow.{workflow_id}"
-                        )
-                        if rp_workflow.state in rp.FINAL:
-                            with self._monitoring_lock:
-                                self._logger.debug(f"workflow.{workflow_id} Done")
-                                self._execution_status[workflow_id]["state"] = States.DONE
-                                self._execution_status[workflow_id][
-                                    "end_time"
-                                ] = datetime.now()
-                                self._logger.debug(
-                                    "Workflow %s finished: %s, step_id: %s",
-                                    workflow_id,
-                                    self._execution_status[workflow_id]["end_time"],
-                                    rp_workflow.stdout.split()[-1],
-                                )
-                                to_remove_wfs.append(workflow_id)
-                                to_remove_sids.append(rp_workflow.stdout.split()[-1])
-                            self._prof.prof("workflow_success", uid=self._uid)
+                        with self._monitoring_lock:
+                            self._logger.debug(f"workflow.{workflow_id} Done")
+                            self._execution_status[workflow_id]["state"] = States.DONE
+                            self._execution_status[workflow_id][
+                                "end_time"
+                            ] = datetime.now()
+                            self._logger.debug(
+                                "Workflow %s finished: %s, step_id: %s",
+                                workflow_id,
+                                self._execution_status[workflow_id]["end_time"],
+                                0,
+                            )
+                            to_remove_wfs.append(workflow_id)
+                            to_remove_sids.append(0)
+                        self._prof.prof("workflow_success", uid=self._uid)
                 if to_remove_wfs:
                     for cb in self._callbacks:
                         self._callbacks[cb](
@@ -209,7 +156,7 @@ class RPEnactor(Enactor):
                             self._to_monitor.remove(wid)
                 self._prof.prof("workflow_monitor_end", uid=self._uid)
 
-    def get_status(self, workflows: str | List[str] | None = None) -> Dict[str, States]:
+    def get_status(self, workflows=None):
         """
         Get the state of a workflow or workflows.
 
@@ -241,7 +188,6 @@ class RPEnactor(Enactor):
             self._logger.warning(
                 "Has not enacted on workflow %s yet.",
                 workflow,
-                self._get_workflow_state(workflow),
             )
         else:
             self._execution_status[workflow]["state"] = new_state
@@ -258,9 +204,6 @@ class RPEnactor(Enactor):
             self._monitoring_thread.join()
             self._prof.prof("monitor_terminated", uid=self._uid)
         self._logger.debug("Monitor thread terminated")
-        # self._rp_tmgr.close()
-        self._rp_pmgr.close(terminate=True)
-        self._rp_session.close(terminate=True)
         self._logger.debug("Enactor thread terminated")
 
     def register_state_cb(self, cb):

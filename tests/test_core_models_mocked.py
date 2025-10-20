@@ -50,42 +50,6 @@ mock_modules["radical.pilot"].TaskDescription = MockTaskDescription
 for module_name, mock_module in mock_modules.items():
     sys.modules[module_name] = mock_module
 
-
-def test_resource_creation():
-    """Test Resource model creation and attributes."""
-    from socm.core.models import Resource
-
-    resource = Resource(
-        name="test_cluster",
-        nodes=8,
-        cores_per_node=128,
-        memory_per_node=256000,
-        default_queue="normal",
-        maximum_walltime=2880,
-    )
-
-    assert resource.name == "test_cluster"
-    assert resource.nodes == 8
-    assert resource.cores_per_node == 128
-    assert resource.memory_per_node == 256000
-    assert resource.default_queue == "normal"
-    assert resource.maximum_walltime == 2880
-
-
-def test_resource_defaults():
-    """Test Resource model with default values."""
-    from socm.core.models import Resource
-
-    resource = Resource(name="minimal_cluster", nodes=1, cores_per_node=4, memory_per_node=8000)
-
-    assert resource.name == "minimal_cluster"
-    assert resource.nodes == 1
-    assert resource.cores_per_node == 4
-    assert resource.memory_per_node == 8000
-    assert resource.default_queue == "normal"  # default value
-    assert resource.maximum_walltime == 1440  # default value
-
-
 def test_workflow_creation():
     """Test Workflow model creation."""
     from socm.core.models import Workflow
@@ -306,14 +270,17 @@ def test_campaign_creation():
     workflow1 = Workflow(name="wf1", executable="exe1", context="ctx1", id=1)
     workflow2 = Workflow(name="wf2", executable="exe2", context="ctx2", id=2)
 
-    campaign = Campaign(id=100, workflows=[workflow1, workflow2], deadline="24h", resource="cluster_name")
+    campaign = Campaign(id=100, workflows=[workflow1, workflow2], deadline="24h", target_resource="cluster_name")
 
     assert campaign.id == 100
     assert len(campaign.workflows) == 2
     assert campaign.workflows[0].name == "wf1"
     assert campaign.workflows[1].name == "wf2"
     assert campaign.deadline == "24h"
-    assert campaign.resource == "cluster_name"
+    assert campaign.target_resource == "cluster_name"
+    assert campaign.campaign_policy == "time"
+    assert campaign.execution_schema == "batch"
+    assert campaign.requested_resources == 0
 
 
 def test_campaign_default_resource():
@@ -327,7 +294,7 @@ def test_campaign_default_resource():
     assert campaign.id == 200
     assert len(campaign.workflows) == 1
     assert campaign.deadline == "12h"
-    assert campaign.resource == "tiger3"  # default value
+    assert campaign.target_resource == "tiger3"  # default value
 
 
 def test_workflow_extra_attributes():

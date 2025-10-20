@@ -4,7 +4,7 @@ import humanfriendly
 import toml
 
 from socm.bookkeeper import Bookkeeper
-from socm.core.models import Campaign, Resource
+from socm.core.models import Campaign
 from socm.utils.misc import get_workflow_entries
 from socm.workflows import registered_workflows, subcampaign_map
 
@@ -19,6 +19,11 @@ def get_parser() -> ArgumentParser:
         required=True,
         help="Path to the configuration file for the workflow.",
     )
+    parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Enable dry run for faster development. This flag does not actually run the campaign.",
+    )
     return parser
 
 
@@ -27,6 +32,7 @@ def main() -> None:
     args = parser.parse_args()
     config = toml.load(args.toml)
     workflows_configs = get_workflow_entries(config, subcampaign_map=subcampaign_map)
+
     workflows = []
     for workflow_type, workflow_config in workflows_configs.items():
         if workflow_type in registered_workflows:
@@ -50,24 +56,18 @@ def main() -> None:
         workflows=workflows,
         campaign_policy="time",
         deadline=config["campaign"]["deadline"],
+        execution_schema=config["campaign"]["execution_schema"],
+        requested_resources=config["campaign"]["requested_resources"],
+        policy=config["campaign"].get("policy","time"),
+        target_resource=config["campaign"].get("resource", "tiger3"),
     )
-
-    # A resource is where the campaign will run.
-    resource = Resource(
-        name="tiger3",
-        nodes=config["campaign"]["resources"]["nodes"],
-        cores_per_node=config["campaign"]["resources"]["cores-per-node"],
-        memory_per_node=humanfriendly.parse_size("1TB") // 1000000,
-        default_queue="tiger-test",
-        maximum_walltime=humanfriendly.parse_timespan("24h") / 60,  # in minutes
-    )
-
     # This main class to execute the campaign to a resource.
     b = Bookkeeper(
         campaign=campaign,
-        resources={"tiger3": resource},
-        policy="time",
-        target_resource="tiger3",
+        policy=config["campaign"].get("policy","time"),
+        target_resource=config["campaign"].get("resource", "tiger3"),
+        deadline=humanfriendly.parse_timespan(config["campaign"]["deadline"]) / 60,
+        dryrun=args.dry_run
     )
 
     b.run()
