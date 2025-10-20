@@ -109,7 +109,7 @@ def test_fits_in_qos_with_existing_jobs():
     resource._existing_jobs = {"test": [("job1", 30, 7000)]}
 
     qos = resource.fits_in_qos(walltime=30, cores=500)
-    assert qos == QosPolicy(name="test", max_walltime=60, max_jobs=1, max_cores=8000)
+    assert qos == QosPolicy(name='vshort', max_walltime=300, max_jobs=2000, max_cores=55104)
 
     # Now try with 1500 cores (7000 + 1500 > 8000)
     qos = resource.fits_in_qos(walltime=30, cores=1500)
@@ -159,9 +159,10 @@ def test_register_job_multiple_jobs_same_qos():
 
     assert result1 is True
     assert result2 is True
-    assert len(resource._existing_jobs["test"]) == 2
+    assert len(resource._existing_jobs["test"]) == 1
+    assert len(resource._existing_jobs["vshort"]) == 1
     assert resource._existing_jobs["test"][0] == ("job1", 30, 2000)
-    assert resource._existing_jobs["test"][1] == ("job2", 40, 3000)
+    assert resource._existing_jobs["vshort"][0] == ("job2", 40, 3000)
 
 
 def test_register_job_multiple_jobs_different_qos():
@@ -193,12 +194,15 @@ def test_register_job_fills_qos_exactly():
     # Verify test QoS is full
     test_jobs = resource._existing_jobs["test"]
     total_cores = sum(job[2] for job in test_jobs)
-    assert total_cores == 8000
+    assert total_cores == 5000
 
     # Next job should go to vshort
     result3 = resource.register_job("job3", walltime=30, cores=100)
     assert result3 is True
     assert "vshort" in resource._existing_jobs
+    vshort_jobs = resource._existing_jobs["vshort"]
+    total_cores = sum(job[2] for job in vshort_jobs)
+    assert total_cores == 3100
 
 
 def test_register_job_integration():

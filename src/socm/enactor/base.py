@@ -2,6 +2,8 @@ import os
 
 import radical.utils as ru
 
+from socm.core import Resource
+
 
 class Enactor(object):
     """
@@ -42,6 +44,13 @@ class Enactor(object):
 
         self._logger = ru.Logger(name=self._uid, path=path, level="DEBUG")
         self._prof = ru.Profiler(name=name, path=path)
+
+    def setup(self, resource: Resource, walltime: int, cores: int, execution_schema: str | None = None) -> None:
+        """
+        Sets up the enactor to execute workflows.
+        """
+        raise NotImplementedError("setup is not implemented")
+
 
     def enact(self, workflows, resources):
         """

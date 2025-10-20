@@ -33,14 +33,14 @@ class TigerResource(Resource):
             cores (int): The requested number of cores.
 
         Returns:
-            str | None: The name of the matching QoS policy or None if no match is found.
+            QosPolicy | None: The name of the matching QoS policy object or None if no match is found.
         """
 
         # What happens when the job does not fit in the best possible QoS?
         for policy in self.qos:
             existing_jobs = self._existing_jobs.get(policy.name, [])
             remaining_cores = policy.max_cores - sum(job[2] for job in existing_jobs)
-            if policy.max_walltime >= walltime and remaining_cores >= cores:
+            if policy.max_walltime >= walltime and remaining_cores >= cores and len(existing_jobs) < policy.max_jobs:
                 return policy
         return None
 

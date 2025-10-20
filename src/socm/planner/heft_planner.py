@@ -68,12 +68,12 @@ class HeftPlanner(Planner):
         """Get the maximum number of cores required by any single workflow."""
         return max(values["req_cpus"] for values in resource_requirements.values())
 
-    def _find_suitable_qos_policies(self, cores:int) -> List[QosPolicy]:
+    def _find_suitable_qos_policies(self, cores:int) -> QosPolicy:
         """Find QoS policies that can accommodate the campaign deadline."""
         suitable_qos = self._resources.fits_in_qos(self._objective, cores)
         if not suitable_qos:
             raise ValueError(f"No QoS policy can accommodate deadline of {self._objective} minutes")
-        # Prefer shorter queues (typically faster scheduling)
+
         return suitable_qos
 
     def _binary_search_resources(
@@ -194,7 +194,7 @@ class HeftPlanner(Planner):
         resource_requirements: Dict[int, Dict[str, float]] | None = None,
         execution_schema: str | None = None,
         requested_resources: int | None = None
-    ) -> Tuple[List[PlanEntry], nx.DiGraph, QosPolicy, int]:
+    ) -> Tuple[List[PlanEntry], nx.DiGraph, QosPolicy | None, int]:
         """Plan campaign execution with resource allocation.
 
         In batch mode, uses the requested resources directly.

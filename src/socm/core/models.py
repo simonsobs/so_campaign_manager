@@ -2,7 +2,7 @@ from collections.abc import Iterable
 from numbers import Number
 from typing import Dict, List, Optional, Union, get_args, get_origin
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from radical.pilot import TaskDescription
 
 
@@ -18,7 +18,7 @@ class Resource(BaseModel):
     nodes: int
     cores_per_node: int
     memory_per_node: int
-    qos: List[QosPolicy] = []
+    qos: List[QosPolicy] = Field(default_factory=list)
 
 
 class Workflow(BaseModel):

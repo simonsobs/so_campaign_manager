@@ -46,7 +46,7 @@ class DryrunEnactor(Enactor):
         self._prof.prof("enactor_started", uid=self._uid)
         self._logger.info("Enactor is ready")
 
-    def setup(self, resource: Resource, walltime: int, cores: int) -> None:
+    def setup(self, resource: Resource, walltime: int, cores: int, execution_schema: str | None = None) -> None:
         """
         Sets up the enactor to execute workflows.
         """

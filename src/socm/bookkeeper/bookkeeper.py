@@ -47,7 +47,7 @@ class Bookkeeper(object):
             "bookkeper.%(counter)04d", mode=ru.ID_CUSTOM, ns=self._session_id
         )
 
-        self._resource = registered_resources[target_resource]
+        self._resource = registered_resources[target_resource]()
         self._checkpoints = None
         self._plan = None
         self._plan_graph = None
@@ -73,10 +73,7 @@ class Bookkeeper(object):
             resources=self._resource,
             objective=deadline
         )
-        # self._plan, self._plan_graph = self._planner.plan()
-        # raise RuntimeError(
-        #     "The Bookkeeper is not ready yet. Please use the new Bookkeeper class."
-        # )
+
         self._workflows_to_monitor = list()
         self._est_end_times = dict()
         self._enactor = RPEnactor(sid=self._session_id) if not dryrun else DryrunEnactor(sid=self._session_id)

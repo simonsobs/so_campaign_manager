@@ -49,7 +49,7 @@ class RPEnactor(Enactor):
         self._rp_tmgr = rp.TaskManager(session=self._rp_session)
         self._logger.info("Enactor is ready")
 
-    def setup(self, resource: Resource, walltime: int, cores: int, execution_schema: str) -> None:
+    def setup(self, resource: Resource, walltime: int, cores: int, execution_schema: str | None = None) -> None:
         """
         Sets up the enactor to execute workflows.
         """
