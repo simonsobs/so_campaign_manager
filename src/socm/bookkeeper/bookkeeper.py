@@ -44,7 +44,7 @@ class Bookkeeper(object):
         self._campaign = {"campaign": campaign, "state": States.NEW}
         self._session_id = ru.generate_id("socm.session", mode=ru.ID_PRIVATE)
         self._uid = ru.generate_id(
-            "bookkeper.%(counter)04d", mode=ru.ID_CUSTOM, ns=self._session_id
+            "bookkeeper.%(counter)04d", mode=ru.ID_CUSTOM, ns=self._session_id
         )
 
         self._resource = registered_resources[target_resource]()
