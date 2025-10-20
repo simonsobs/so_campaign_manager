@@ -100,13 +100,13 @@ class Workflow(BaseModel):
 
     def get_categorical_fields(self, avoid_attributes: List[str] = list()) -> List[str]:
         """
-        Returns a list of field names that are either numeric types
-        or iterable collections of numeric types.
+        Returns a list of field names that are either string types
+        or iterable collections of string types.
 
         Uses Pydantic v2 model_fields for type introspection.
 
         Returns:
-            List[str]: Field names with numeric values
+            List[str]: Field names with categorical (string) values
         """
         categorical_fields = []
 
