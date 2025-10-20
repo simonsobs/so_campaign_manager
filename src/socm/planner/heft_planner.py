@@ -19,9 +19,9 @@ class HeftPlanner(Planner):
         IEEE Transactions on Parallel and Distributed Systems, 13(3), 260-274.
 
     Attributes:
-        _est_tx: List of estimated execution times (walltime) for each workflow
-        _est_cpus: List of estimated CPU requirements for each workflow
-        _est_memory: List of estimated memory requirements for each workflow
+        _estimated_walltime: List of estimated execution times (walltime) for each workflow
+        _estimated_cpus: List of estimated CPU requirements for each workflow
+        _estimated_memory: List of estimated memory requirements for each workflow
     """
 
     def __init__(
@@ -42,9 +42,9 @@ class HeftPlanner(Planner):
             objective=objective
         )
         # Initialize estimation tables (populated during planning)
-        self._est_tx: List[float] = []
-        self._est_cpus: List[int] = []
-        self._est_memory: List[float] = []
+        self._estimated_walltime: List[float] = []
+        self._estimated_cpus: List[int] = []
+        self._estimated_memory: List[float] = []
 
     def _get_free_memory(self, start_time: float, num_nodes: float) -> float:
         """Calculate available memory at a given time.
@@ -248,14 +248,14 @@ class HeftPlanner(Planner):
         self, resource_requirements: Dict[int, Dict[str, float]]
     ) -> None:
         """Extract and store resource requirement estimates from workflows."""
-        self._est_tx = []
-        self._est_cpus = []
-        self._est_memory = []
+        self._estimated_walltime = []
+        self._estimated_cpus = []
+        self._estimated_memory = []
 
         for resource_req in resource_requirements.values():
-            self._est_tx.append(resource_req["req_walltime"])
-            self._est_cpus.append(resource_req["req_cpus"])
-            self._est_memory.append(resource_req["req_memory"])
+            self._estimated_walltime.append(resource_req["req_walltime"])
+            self._estimated_cpus.append(resource_req["req_cpus"])
+            self._estimated_memory.append(resource_req["req_memory"])
 
     def _get_sorted_workflow_indices(self) -> List[int]:
         """Get workflow indices sorted by execution time (longest first).
@@ -265,7 +265,7 @@ class HeftPlanner(Planner):
         """
         return [
             idx for idx, _ in sorted(
-                enumerate(self._est_tx),
+                enumerate(self._estimated_walltime),
                 key=lambda x: x[1],
                 reverse=True
             )
@@ -306,9 +306,9 @@ class HeftPlanner(Planner):
         Returns:
             Tuple of (best_core_index, earliest_start_time)
         """
-        walltime = self._est_tx[workflow_idx]
-        memory_required = self._est_memory[workflow_idx]
-        cpus_required = self._est_cpus[workflow_idx]
+        walltime = self._estimated_walltime[workflow_idx]
+        memory_required = self._estimated_memory[workflow_idx]
+        cpus_required = self._estimated_cpus[workflow_idx]
 
         min_end_time = float("inf")
         best_core_idx = 0
@@ -385,9 +385,9 @@ class HeftPlanner(Planner):
                 workflow_idx, cores, resource_free
             )
 
-            cpus_required = self._est_cpus[workflow_idx]
-            walltime = self._est_tx[workflow_idx]
-            memory_required = self._est_memory[workflow_idx]
+            cpus_required = self._estimated_cpus[workflow_idx]
+            walltime = self._estimated_walltime[workflow_idx]
+            memory_required = self._estimated_memory[workflow_idx]
             core_slice = slice(best_core_idx, best_core_idx + cpus_required)
 
             # Create plan entry
