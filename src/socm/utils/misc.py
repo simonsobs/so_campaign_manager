@@ -1,4 +1,7 @@
-def get_workflow_entries(campaign_dict: dict, subcampaign_map: dict | None = None):
+from typing import Dict
+
+
+def get_workflow_entries(campaign_dict: dict, subcampaign_map: Dict[str, list] | None = None) -> Dict[str, dict]:
     """
     Extract workflow entries from a campaign dictionary using a predefined mapping.
 

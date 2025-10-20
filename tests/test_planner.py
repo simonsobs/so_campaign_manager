@@ -45,7 +45,7 @@ def test_plan(mocked_init):
     ]
     planner = HeftPlanner(None, None, None)
     planner._logger = ru.Logger("dummy")
-    planner._est_memory = list()
+    planner._estimated_memory = list()
 
     planner._resource_requirements = {
         "W1": {"req_cpus": 64, "req_memory": 2000, "req_walltime": 45},
@@ -115,7 +115,7 @@ def test_failing_plan(mocked_init):
 
     planner = HeftPlanner(None, None, None)
     planner._logger = ru.Logger("dummy")
-    planner._est_memory = list()
+    planner._estimated_memory = list()
 
     planner._resource_requirements = {
         1: {"req_cpus": 7168, "req_memory": 64000000, "req_walltime": 13200.000000000002},
@@ -178,16 +178,16 @@ def test_initialize_resource_estimates(mocked_init):
 
     planner._initialize_resource_estimates(resource_requirements)
 
-    assert planner._est_tx == [45, 25]
-    assert planner._est_cpus == [64, 16]
-    assert planner._est_memory == [2000, 15000]
+    assert planner._estimated_walltime == [45, 25]
+    assert planner._estimated_cpus == [64, 16]
+    assert planner._estimated_memory == [2000, 15000]
 
 
 @mock.patch.object(HeftPlanner, "__init__", return_value=None)
 def test_get_sorted_workflow_indices(mocked_init):
     """Test that workflows are sorted by execution time (longest first)."""
     planner = HeftPlanner(None, None, None)
-    planner._est_tx = [45, 25, 560, 140, 145]
+    planner._estimated_walltime = [45, 25, 560, 140, 145]
 
     sorted_indices = planner._get_sorted_workflow_indices()
 

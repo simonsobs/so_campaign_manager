@@ -40,7 +40,7 @@ class Workflow(BaseModel):
     def get_arguments(self, **kargs) -> str:
         raise NotImplementedError("This method should be implemented in subclasses")
 
-    def get_numeric_fields(self, avoid_attributes: List[str] = list()) -> List[str]:
+    def get_numeric_fields(self, avoid_attributes: List[str] | None = None) -> List[str]:
         """
         Returns a list of field names that are either numeric types
         or iterable collections of numeric types.
@@ -50,6 +50,9 @@ class Workflow(BaseModel):
         Returns:
             List[str]: Field names with numeric values
         """
+        if avoid_attributes is None:
+            avoid_attributes = []
+
         numeric_fields = []
 
         # Get field information from Pydantic v2 model_fields
@@ -98,16 +101,18 @@ class Workflow(BaseModel):
 
         return numeric_fields
 
-    def get_categorical_fields(self, avoid_attributes: List[str] = list()) -> List[str]:
+    def get_categorical_fields(self, avoid_attributes: List[str] | None = None) -> List[str]:
         """
-        Returns a list of field names that are either numeric types
-        or iterable collections of numeric types.
+        Returns a list of field names that are either string types
+        or iterable collections of string types.
 
         Uses Pydantic v2 model_fields for type introspection.
 
         Returns:
-            List[str]: Field names with numeric values
+            List[str]: Field names with categorical (string) values
         """
+        if avoid_attributes is None:
+            avoid_attributes = []
         categorical_fields = []
 
         # Get field information from Pydantic v2 model_fields

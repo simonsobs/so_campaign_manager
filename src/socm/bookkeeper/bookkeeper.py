@@ -1,13 +1,11 @@
 import os
 import threading as mt
-from copy import deepcopy
 from importlib.resources import files
 from math import ceil, floor
 from pathlib import Path
 from time import sleep
 from typing import Dict
 
-import numpy as np  # noqa: F401
 import radical.utils as ru
 from slurmise.api import Slurmise
 from slurmise.job_data import JobData
@@ -44,7 +42,7 @@ class Bookkeeper(object):
         self._campaign = {"campaign": campaign, "state": States.NEW}
         self._session_id = ru.generate_id("socm.session", mode=ru.ID_PRIVATE)
         self._uid = ru.generate_id(
-            "bookkeper.%(counter)04d", mode=ru.ID_CUSTOM, ns=self._session_id
+            "bookkeeper.%(counter)04d", mode=ru.ID_CUSTOM, ns=self._session_id
         )
 
         self._resource = registered_resources[target_resource]()
@@ -264,7 +262,6 @@ class Bookkeeper(object):
             self._logger.error("Objective cannot be satisfied. Ending execution")
             with self._exec_state_lock:
                 self._campaign["state"] = States.FAILED
-                    # self.terminate()
             sleep(1)
             return
 
@@ -370,18 +367,18 @@ class Bookkeeper(object):
         while not self._terminate_event.is_set():
             while self._workflows_to_monitor:
                 self._prof.prof("workflow_monitor", uid=self._uid)
-                workflows = deepcopy(self._workflows_to_monitor)
+                with self._monitor_lock:
+                    workflows_snapshot = list(self._workflows_to_monitor)
                 finished = list()
-                # tmp_start_times = list()
-                for i in range(len(workflows)):
-                    if self._workflows_state[workflows[i].id] in CFINAL:
+                for i in range(len(workflows_snapshot)):
+                    if self._workflows_state[workflows_snapshot[i].id] in CFINAL:
                         resource = self._unavail_resources[i]
-                        finished.append((workflows[i], resource))
+                        finished.append((workflows_snapshot[i], resource))
 
-                        self._record(workflows[i])
+                        self._record(workflows_snapshot[i])
                         self._logger.info(
                             "Workflow %s finished",
-                            workflows[i].id,
+                            workflows_snapshot[i].id,
                         )
 
                 if finished:
@@ -441,12 +438,10 @@ class Bookkeeper(object):
                     self._workflows_state[workflow.id] = States.NEW
             self._prof.prof("bookkeper_start", uid=self._uid)
             self._logger.info("Starting work thread")
-            self._work_thread = mt.Thread(target=self.work, name="work-thread")
+            self._work_thread = mt.Thread(target=self.work, name=f"bookkeeper-{self._uid}-work")
             self._work_thread.start()
             self._logger.info("Starting monitor thread")
-            self._monitoring_thread = mt.Thread(
-                target=self.monitor, name="monitor-thread"
-            )
+            self._monitoring_thread = mt.Thread(target=self.monitor, name=f"bookkeeper-{self._uid}-monitor")
             self._monitoring_thread.start()
             self._prof.prof("bookkeper_started", uid=self._uid)
 

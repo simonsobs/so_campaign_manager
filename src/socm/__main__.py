@@ -50,22 +50,23 @@ def main() -> None:
                 workflow.id = len(workflows) + 1  # Assign a unique ID to each workflow
                 workflows.append(workflow)
 
+    policy  = config["campaign"].get("policy","time")
+    target_resource = config["campaign"].get("resource","tiger3")
     # pprint(workflows)
     campaign = Campaign(
         id=1,
         workflows=workflows,
-        campaign_policy="time",
+        campaign_policy=policy,
         deadline=config["campaign"]["deadline"],
         execution_schema=config["campaign"]["execution_schema"],
         requested_resources=config["campaign"]["requested_resources"],
-        policy=config["campaign"].get("policy","time"),
-        target_resource=config["campaign"].get("resource", "tiger3"),
+        target_resource=target_resource,
     )
     # This main class to execute the campaign to a resource.
     b = Bookkeeper(
         campaign=campaign,
-        policy=config["campaign"].get("policy","time"),
-        target_resource=config["campaign"].get("resource", "tiger3"),
+        policy=policy,
+        target_resource=target_resource,
         deadline=humanfriendly.parse_timespan(config["campaign"]["deadline"]) / 60,
         dryrun=args.dry_run
     )
