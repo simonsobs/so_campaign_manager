@@ -1,3 +1,4 @@
+from functools import lru_cache
 from pathlib import Path
 from typing import Any, List, Optional, Union
 
@@ -6,6 +7,10 @@ from sotodlib.core import Context
 from socm.core import Workflow
 from socm.utils.misc import get_query_from_file
 
+
+@lru_cache(maxsize=10)
+def _load_context(ctx_path: str) -> Context:
+    return Context(Path(ctx_path))
 
 class MLMapmakingWorkflow(Workflow):
     """
@@ -34,7 +39,7 @@ class MLMapmakingWorkflow(Workflow):
         Post-initialization to set the context for the workflow.
         """
         ctx_file = Path(self.context.split("file://")[-1]).absolute()
-        ctx = Context(ctx_file)
+        ctx = _load_context(str(ctx_file))
 
         final_query = self.query
         if self.query.startswith("file://"):

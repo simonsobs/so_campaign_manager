@@ -1,6 +1,5 @@
 import os
 import threading as mt
-from copy import deepcopy
 from importlib.resources import files
 from math import ceil, floor
 from pathlib import Path
@@ -368,18 +367,18 @@ class Bookkeeper(object):
         while not self._terminate_event.is_set():
             while self._workflows_to_monitor:
                 self._prof.prof("workflow_monitor", uid=self._uid)
-                workflows = deepcopy(self._workflows_to_monitor)
+                with self._monitor_lock:
+                    workflows_snapshot = list(self._workflows_to_monitor)
                 finished = list()
-                # tmp_start_times = list()
-                for i in range(len(workflows)):
-                    if self._workflows_state[workflows[i].id] in CFINAL:
+                for i in range(len(workflows_snapshot)):
+                    if self._workflows_state[workflows_snapshot[i].id] in CFINAL:
                         resource = self._unavail_resources[i]
-                        finished.append((workflows[i], resource))
+                        finished.append((workflows_snapshot[i], resource))
 
-                        self._record(workflows[i])
+                        self._record(workflows_snapshot[i])
                         self._logger.info(
                             "Workflow %s finished",
-                            workflows[i].id,
+                            workflows_snapshot[i].id,
                         )
 
                 if finished:
