@@ -119,6 +119,9 @@ def simple_config():
     config = {
         "campaign": {
             "deadline": "2d",
+            "resource": "tiger3",
+            "execution_schema": "batch",
+            "requested_resources": 1119,
             "resources": {"nodes": 4, "cores-per-node": 112},
             "ml-mapmaking": {
                 "context": "context.yaml",
@@ -129,6 +132,7 @@ def simple_config():
                 "comps": "TQU",
                 "maxiter": 10,
                 "query": "obs_id='1575600533.1575611468.ar5_1'",
+                "preprocess_config": "preprocess.yaml",
                 "tiled": 1,
                 "site": "act",
                 "resources": {
@@ -154,6 +158,7 @@ def simple_config():
                 "context": "context.yaml",
                 "area": "so_geometry_v20250306_lat_f090.fits",
                 "output_dir": "output/null_tests",
+                "preprocess_config": "preprocess.yaml",
                 "bands": "f090",
                 "wafer": "ws0",
                 "comps": "TQU",
@@ -180,6 +185,7 @@ def lite_config():
         "campaign": {
             "ml-mapmaking": {
                 "context": "context.yaml",
+                "preprocess_config": "preprocess.yaml",
                 "area": "so_geometry_v20250306_lat_f090.fits",
                 "output_dir": "output",
                 "query": "obs_id='1575600533.1575611468.ar5_1'",

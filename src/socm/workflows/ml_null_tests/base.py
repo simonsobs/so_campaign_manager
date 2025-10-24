@@ -43,7 +43,7 @@ class NullTestWorkflow(MLMapmakingWorkflow):
                 "tube_slot": obs_id.get("tube_slot", "st1"),
                 "az_center": obs_id["az_center"],
                 "el_center": obs_id["el_center"],
-                "pwv": obs_id["pwv"],
+                "pwv": obs_id.get("pwv", 0),
             }
         # Ensure obs_ids are sorted by their timestamp
         # Order the obs_ids based on their timestamp it is in the obs_meta.obs_info.timestamp
@@ -96,12 +96,16 @@ class NullTestWorkflow(MLMapmakingWorkflow):
         """
         area = Path(self.area.split("file://")[-1])
         query = Path(self.query.split("file://")[-1])
-        arguments = [f"{query.absolute()}", f"{area.absolute()}", self.output_dir]
+        preprocess_config = Path(self.preprocess_config.split("file://")[-1])
+
+        arguments = [f"{query.absolute()}", f"{area.absolute()}", self.output_dir, f"{preprocess_config.absolute()}"]
         sorted_workflow = dict(sorted(self.model_dump(exclude_unset=True).items()))
 
         for k, v in sorted_workflow.items():
             if isinstance(v, str) and v.startswith("file://"):
                 v = Path(v.split("file://")[-1]).absolute()
+            elif isinstance(v, list):
+                v = ",".join([str(item) for item in v])
             if k not in [
                 "area",
                 "output_dir",
@@ -117,6 +121,7 @@ class NullTestWorkflow(MLMapmakingWorkflow):
                 "subcommand",
                 "name",
                 "chunk_duration",
+                "preprocess_config"
             ]:
                 arguments.append(f"--{k}={v}")
         return arguments

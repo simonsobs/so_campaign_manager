@@ -1,5 +1,15 @@
-from typing import Dict
+import ast
+from typing import Dict, List
 
+
+def parse_comma_separated_fields(config: dict, fields_to_parse: List[str]) -> dict:
+    """Convert comma-separated string values to lists."""
+    for key, value in config.items():
+        if isinstance(value, dict):
+            parse_comma_separated_fields(value, fields_to_parse)
+        elif key in fields_to_parse and isinstance(value, str) and ',' in value:
+            config[key] = [ast.literal_eval(item.strip()) for item in value.split(',')]
+    return config
 
 def get_workflow_entries(campaign_dict: dict, subcampaign_map: Dict[str, list] | None = None) -> Dict[str, dict]:
     """
@@ -22,26 +32,26 @@ def get_workflow_entries(campaign_dict: dict, subcampaign_map: Dict[str, list] |
     # Collect all workflows (direct and from subcampaigns)
     workflows = {}
 
-    for key, value in campaign_data.items():
+    for workflow_key, workflow_value in campaign_data.items():
         # Skip non-dictionary values
-        if not isinstance(value, dict):
+        if not isinstance(workflow_value, dict):
             continue
 
         # Check if this is a known subcampaign
-        if key in subcampaign_map:
+        if workflow_key in subcampaign_map:
             # Process known workflows for this subcampaign
-            subcampaign_name = key
-            subcampaign_workflows = subcampaign_map[key]
+            subcampaign_name = workflow_key
+            subcampaign_workflows = subcampaign_map[workflow_key]
 
             # Create a copy of the subcampaign config without its workflows
             subcampaign_common_config = {
-                k: v for k, v in value.items() if k not in subcampaign_workflows
+                k: v for k, v in workflow_value.items() if k not in subcampaign_workflows
             }
 
             for workflow_name in subcampaign_workflows:
-                if workflow_name in value:
+                if workflow_name in workflow_value:
                     # Start with the workflow's own config
-                    workflow_config = value[workflow_name].copy()
+                    workflow_config = workflow_value[workflow_name].copy()
 
                     # Update with common subcampaign config
                     workflow_config.update(subcampaign_common_config)
@@ -53,7 +63,7 @@ def get_workflow_entries(campaign_dict: dict, subcampaign_map: Dict[str, list] |
                         )
         else:
             # Treat as regular workflow
-            workflows[key] = value
+            workflows[workflow_key] = workflow_value
 
     return workflows
 

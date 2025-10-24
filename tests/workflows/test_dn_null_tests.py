@@ -60,6 +60,7 @@ def test_get_arguments(mock_context_act, simple_config):
             str(Path(f"output/null_tests/night_split_{idx + 1}/query.txt").absolute()),
             str(Path("so_geometry_v20250306_lat_f090.fits").absolute()),
             f"output/null_tests/night_split_{idx + 1}",
+            str(Path("preprocess.yaml").absolute()),
             "--bands=f090",
             "--comps=TQU",
             "--context=context.yaml",

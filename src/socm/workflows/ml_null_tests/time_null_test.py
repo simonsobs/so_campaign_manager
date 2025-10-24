@@ -40,7 +40,7 @@ class TimeNullTestWorkflow(NullTestWorkflow):
         num_chunks = (
             len(sorted_ids) + self.chunk_nobs - 1
         ) // self.chunk_nobs  # Ceiling division
-        obs_lists = np.array_split(sorted_ids, num_chunks)
+        obs_lists = np.array_split(sorted_ids, num_chunks) if num_chunks > 0 else []
         splits = [[] for _ in range(self.nsplits)]
         for i, obs_list in enumerate(obs_lists):
             splits[i % self.nsplits] += obs_list.tolist()

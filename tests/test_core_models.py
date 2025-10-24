@@ -162,7 +162,8 @@ def test_workflow_get_categorical_fields():
         name="test",
         executable="exe",
         context="ctx",
-        subcommand="sub"
+        subcommand="sub",
+        downsample=[4, 2]
     )
 
     # Add some additional string attributes
@@ -177,6 +178,7 @@ def test_workflow_get_categorical_fields():
     assert "context" not in categorical_fields
     assert "subcommand" not in categorical_fields
     assert "numeric_field" not in categorical_fields
+    assert "downsample" not in categorical_fields
 
 
 @patch('socm.core.models.BaseModel', MockBaseModel)

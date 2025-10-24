@@ -19,6 +19,7 @@ class MLMapmakingWorkflow(Workflow):
 
     area: str
     output_dir: str
+    preprocess_config: str
     query: str = "1"
     name: str = "ml_mapmaking_workflow"
     executable: str = "so-site-pipeline"
@@ -67,12 +68,16 @@ class MLMapmakingWorkflow(Workflow):
         if self.query.startswith("file://"):
             final_query = Path(self.query.split("file://")[-1]).absolute()
             final_query = f"{final_query.absolute()}"
-        arguments = [final_query, f"{area.absolute()}", self.output_dir]
+        preprocess_config = Path(self.preprocess_config.split("file://")[-1])
+
+        arguments = [final_query, f"{area.absolute()}", self.output_dir, f"{preprocess_config.absolute()}"]
         sorted_workflow = dict(sorted(self.model_dump(exclude_unset=True).items()))
 
         for k, v in sorted_workflow.items():
             if isinstance(v, str) and v.startswith("file://"):
                 v = Path(v.split("file://")[-1]).absolute()
+            elif isinstance(v, list):
+                v = ",".join([str(item) for item in v])
             if k not in [
                 "area",
                 "output_dir",
@@ -83,6 +88,7 @@ class MLMapmakingWorkflow(Workflow):
                 "environment",
                 "resources",
                 "datasize",
+                "preprocess_config"
             ]:
                 arguments.append(f"--{k}={v}")
         return arguments
