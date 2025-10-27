@@ -12,7 +12,7 @@ dependencies = [
     "networkx",
     "toml",
     "click",
-    "sotodlib @ git+https://github.com/simonsobs/sotodlib.git",
+    "sotodlib",
     "astral",
     "slurmise",
     "humanfriendly",
