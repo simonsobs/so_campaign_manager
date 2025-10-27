@@ -64,3 +64,29 @@ def test_get_arguments(mock_context_act, simple_config):
             "--tiled=1",
             "--wafer=ws0",
         ]
+
+def test_pwv_null_test_empty_pwv_group(mock_context_act, simple_config, monkeypatch):
+    """
+    Test that _get_splits handles num_chunks=0 correctly when a PWV group is empty.
+    This directly tests the conditional on line 72:
+    `obs_lists = np.array_split(sorted_ids, num_chunks) if num_chunks > 0 else []`
+    """
+    config = simple_config["campaign"]["ml-null-tests.mission-tests"].copy()
+    workflow = PWVNullTestWorkflow(**config)
+
+    # Create a scenario with empty low PWV observations
+    ctx = None  # Mock context not needed for this unit test
+    obs_info = {
+        "obs1": {"pwv": 3.0, "start_time": 1000},  # High PWV
+        "obs2": {"pwv": 3.5, "start_time": 2000},  # High PWV
+    }
+
+    splits = workflow._get_splits(ctx, obs_info)
+
+    # Should have high PWV splits
+    assert "high" in splits
+    assert len(splits["high"]) == workflow.nsplits
+
+    # Low PWV should either be absent or have empty splits
+    # (the code skips empty pwv_obs_info with 'continue' on line 65)
+    assert "low" not in splits

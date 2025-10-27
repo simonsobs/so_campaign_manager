@@ -3,7 +3,6 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional, Union
 
 from sotodlib.core import Context
-from sotodlib.core.metadata.loader import LoaderError
 
 from socm.utils.misc import get_query_from_file
 from socm.workflows import MLMapmakingWorkflow
@@ -72,29 +71,14 @@ class NullTestWorkflow(MLMapmakingWorkflow):
     @classmethod
     def get_workflows(cls, desc: Dict[str, Any]) -> List["NullTestWorkflow"]:
         """
-        Create a list of NullTestWorkflows instances from the provided descriptions.
+        Distribute the observations across splits based on the context and observation IDs.
         """
-        workflows = []
-        try:
-            for split in desc["_splits"]:
-                desc_copy = desc.copy()
-                desc_copy["output_dir"] = (
-                    f"{desc['output_dir']}/mission_split_{len(workflows) + 1}"
-                )
-                query_file = Path(desc_copy["output_dir"]) / "query.txt"
-                query_file.parent.mkdir(parents=True, exist_ok=True)
-                with open(query_file, "w") as f:
-                    for oid in split:
-                        f.write(f"{oid}\n")
-                desc_copy["query"] = f"file://{str(query_file)}"
-                desc_copy["chunk_nobs"] = 1
-                workflow = cls(**desc_copy)
-                workflows.append(workflow)
-        except LoaderError as e:
-            print(f"Error loading context: {e}")
-            raise
-
-        return workflows
+        if cls.__name__ != "NullTestWorkflow":
+            raise NotImplementedError(
+                "This method should be implemented in subclasses."
+            )
+        else:
+            pass
 
     def get_arguments(self) -> List[str]:
         """
