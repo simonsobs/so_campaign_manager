@@ -50,6 +50,12 @@ class NullTestWorkflow(MLMapmakingWorkflow):
 
         self._splits = self._get_splits(ctx, obs_info)
 
+    def _get_num_chunks(self, num_obs: int) -> int:
+        num_chunks = (
+            num_obs + self.chunk_nobs - 1
+        ) // self.chunk_nobs  # Ceiling division
+        return num_chunks
+
     def _get_splits(
         self, ctx: Context, obs_info: Dict[str, Dict[str, Union[float, str]]]
     ) -> List[List[str]]:

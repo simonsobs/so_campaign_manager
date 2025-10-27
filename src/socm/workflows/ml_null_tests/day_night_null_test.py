@@ -82,7 +82,8 @@ class DayNightNullTestWorkflow(NullTestWorkflow):
             sorted_ids = sorted(obs_infos, key=lambda k: obs_info[k]["start_time"])
 
             # Group in chunks based on chunk_nobs
-            obs_lists = np.array_split(sorted_ids, self.chunk_nobs)
+            num_chunks = self._get_num_chunks(len(sorted_ids))
+            obs_lists = np.array_split(sorted_ids, num_chunks) if num_chunks > 0 else []
 
             # Create nsplits (=2) time-interleaved splits
             splits = [[] for _ in range(self.nsplits)]

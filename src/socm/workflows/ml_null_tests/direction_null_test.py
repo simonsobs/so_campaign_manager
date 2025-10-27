@@ -84,10 +84,8 @@ class DirectionNullTestWorkflow(NullTestWorkflow):
             )
 
             # Group in chunks based on chunk_nobs
-            num_chunks = (
-                len(sorted_ids) + self.chunk_nobs - 1
-            ) // self.chunk_nobs  # Ceiling division
-            obs_lists = np.array_split(sorted_ids, num_chunks)
+            num_chunks = self._get_num_chunks(len(sorted_ids))
+            obs_lists = np.array_split(sorted_ids, num_chunks) if num_chunks > 0 else []
 
             # Create nsplits (=2) time-interleaved splits
             splits = [[] for _ in range(self.nsplits)]
