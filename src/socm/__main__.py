@@ -5,7 +5,7 @@ import toml
 
 from socm.bookkeeper import Bookkeeper
 from socm.core.models import Campaign
-from socm.utils.misc import get_workflow_entries
+from socm.utils.misc import get_workflow_entries, parse_comma_separated_fields
 from socm.workflows import registered_workflows, subcampaign_map
 
 
@@ -31,6 +31,7 @@ def main() -> None:
     parser = get_parser()
     args = parser.parse_args()
     config = toml.load(args.toml)
+    config = parse_comma_separated_fields(config=config, fields_to_parse=["maxiter", "downsample"])
     workflows_configs = get_workflow_entries(config, subcampaign_map=subcampaign_map)
 
     workflows = []

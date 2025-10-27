@@ -34,6 +34,7 @@ def test_get_arguments(mock_context, simple_config):
         "obs_id='1575600533.1575611468.ar5_1'",
         str(Path("so_geometry_v20250306_lat_f090.fits").absolute()),
         "output",
+        str(Path("preprocess.yaml").absolute()),
         "--bands=f090",
         "--comps=TQU",
         "--context=context.yaml",
@@ -47,7 +48,7 @@ def test_get_arguments(mock_context, simple_config):
 def test_get_command(mock_context, lite_config):
     workflow = MLMapmakingWorkflow(**lite_config["campaign"]["ml-mapmaking"])
     command = workflow.get_command()
-    expected = f"srun --cpu_bind=cores --export=ALL --ntasks-per-node=8 --cpus-per-task=1 so-site-pipeline make-ml-map obs_id='1575600533.1575611468.ar5_1' {Path('so_geometry_v20250306_lat_f090.fits').absolute()} output --context=context.yaml --site=act"
+    expected = f"srun --cpu_bind=cores --export=ALL --ntasks-per-node=8 --cpus-per-task=1 so-site-pipeline make-ml-map obs_id='1575600533.1575611468.ar5_1' {Path('so_geometry_v20250306_lat_f090.fits').absolute()} output {Path('preprocess.yaml').absolute()} --context=context.yaml --site=act"
     assert command == expected
 
     workflow = SATSimWorkflow(**lite_config["campaign"]["sat-sims"])
@@ -57,8 +58,8 @@ def test_get_command(mock_context, lite_config):
 
 
 @given(
-    maxiter=st.one_of(st.integers(), st.lists(st.integers())),
-    downsample=st.one_of(st.integers(), st.lists(st.integers())),
+    maxiter=st.one_of(st.integers(), st.lists(st.integers(), min_size=1)),
+    downsample=st.one_of(st.integers(), st.lists(st.integers(), min_size=1)),
     tiled=st.integers(),
     datasize=st.integers(),
 )
@@ -71,6 +72,7 @@ def test_get_fields(mock_context, maxiter, downsample, tiled, datasize):
     config = {
         "context": "context.yaml",
         "area": "area.fits",
+        "preprocess_config": "preprocess.yaml",
         "output_dir": "output",
         "maxiter": maxiter,
         "downsample": downsample,
@@ -100,3 +102,5 @@ def test_get_fields(mock_context, maxiter, downsample, tiled, datasize):
     assert "executable" not in categorical_fields
     assert "name" not in categorical_fields
     assert "context" not in categorical_fields
+    assert "maxiter" not in categorical_fields
+    assert "downsample" not in categorical_fields

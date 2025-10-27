@@ -54,6 +54,38 @@ class WaferNullTestWorkflow(NullTestWorkflow):
                 "i6:ws1",
                 "i6:ws2",
             ],
+            "so_sat": [
+                "st1:ws0",
+                "st1:ws1",
+                "st1:ws2",
+                "st1:ws3",
+                "st1:ws4",
+                "st1:ws5",
+                "st1:ws6",
+            ],
+            "so_lat": [
+                "c1:ws0",
+                "c1:ws1",
+                "c1:ws2",
+                "i1:ws0",
+                "i1:ws1",
+                "i1:ws2",
+                "i2:ws0",
+                "i2:ws1",
+                "i2:ws2",
+                "i3:ws0",
+                "i3:ws1",
+                "i3:ws2",
+                "i4:ws0",
+                "i4:ws1",
+                "i4:ws2",
+                "i5:ws0",
+                "i5:ws1",
+                "i5:ws2",
+                "i6:ws0",
+                "i6:ws1",
+                "i6:ws2",
+            ],
         }
     )
 
@@ -77,7 +109,7 @@ class WaferNullTestWorkflow(NullTestWorkflow):
             )
 
         tube_slots = set([v["tube_slot"] for v in obs_info.values()])
-        if len(tube_slots) != 1:
+        if len(tube_slots) > 1:
             raise ValueError(
                 f"All observations must be from the same tube slot. Found: {tube_slots}"
             )
@@ -95,14 +127,13 @@ class WaferNullTestWorkflow(NullTestWorkflow):
                     wafer_obs_info[k] = v
             if not wafer_obs_info:
                 continue
+
             sorted_ids = sorted(
                 wafer_obs_info, key=lambda k: wafer_obs_info[k]["start_time"]
             )
-            # Group in chunks of size self.chunk_nobs observations.
-            num_chunks = (
-                len(sorted_ids) + self.chunk_nobs - 1
-            ) // self.chunk_nobs  # Ceiling division
-            obs_lists = np.array_split(sorted_ids, num_chunks)
+
+            num_chunks = self._get_num_chunks(len(sorted_ids))
+            obs_lists = np.array_split(sorted_ids, num_chunks) if num_chunks > 0 else []
             splits = [[] for _ in range(self.nsplits)]
             for i, obs_list in enumerate(obs_lists):
                 splits[i % self.nsplits] += obs_list.tolist()

@@ -3,7 +3,6 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional, Union
 
 from sotodlib.core import Context
-from sotodlib.core.metadata.loader import LoaderError
 
 from socm.utils.misc import get_query_from_file
 from socm.workflows import MLMapmakingWorkflow
@@ -43,12 +42,18 @@ class NullTestWorkflow(MLMapmakingWorkflow):
                 "tube_slot": obs_id.get("tube_slot", "st1"),
                 "az_center": obs_id["az_center"],
                 "el_center": obs_id["el_center"],
-                "pwv": obs_id["pwv"],
+                "pwv": obs_id.get("pwv", 0),
             }
         # Ensure obs_ids are sorted by their timestamp
         # Order the obs_ids based on their timestamp it is in the obs_meta.obs_info.timestamp
 
         self._splits = self._get_splits(ctx, obs_info)
+
+    def _get_num_chunks(self, num_obs: int) -> int:
+        num_chunks = (
+            num_obs + self.chunk_nobs - 1
+        ) // self.chunk_nobs  # Ceiling division
+        return num_chunks
 
     def _get_splits(
         self, ctx: Context, obs_info: Dict[str, Dict[str, Union[float, str]]]
@@ -66,29 +71,14 @@ class NullTestWorkflow(MLMapmakingWorkflow):
     @classmethod
     def get_workflows(cls, desc: Dict[str, Any]) -> List["NullTestWorkflow"]:
         """
-        Create a list of NullTestWorkflows instances from the provided descriptions.
+        Distribute the observations across splits based on the context and observation IDs.
         """
-        workflows = []
-        try:
-            for split in desc["_splits"]:
-                desc_copy = desc.copy()
-                desc_copy["output_dir"] = (
-                    f"{desc['output_dir']}/mission_split_{len(workflows) + 1}"
-                )
-                query_file = Path(desc_copy["output_dir"]) / "query.txt"
-                query_file.parent.mkdir(parents=True, exist_ok=True)
-                with open(query_file, "w") as f:
-                    for oid in split:
-                        f.write(f"{oid}\n")
-                desc_copy["query"] = f"file://{str(query_file)}"
-                desc_copy["chunk_nobs"] = 1
-                workflow = cls(**desc_copy)
-                workflows.append(workflow)
-        except LoaderError as e:
-            print(f"Error loading context: {e}")
-            raise
-
-        return workflows
+        if cls.__name__ != "NullTestWorkflow":
+            raise NotImplementedError(
+                "This method should be implemented in subclasses."
+            )
+        else:
+            pass
 
     def get_arguments(self) -> List[str]:
         """
@@ -96,12 +86,16 @@ class NullTestWorkflow(MLMapmakingWorkflow):
         """
         area = Path(self.area.split("file://")[-1])
         query = Path(self.query.split("file://")[-1])
-        arguments = [f"{query.absolute()}", f"{area.absolute()}", self.output_dir]
+        preprocess_config = Path(self.preprocess_config.split("file://")[-1])
+
+        arguments = [f"{query.absolute()}", f"{area.absolute()}", self.output_dir, f"{preprocess_config.absolute()}"]
         sorted_workflow = dict(sorted(self.model_dump(exclude_unset=True).items()))
 
         for k, v in sorted_workflow.items():
             if isinstance(v, str) and v.startswith("file://"):
                 v = Path(v.split("file://")[-1]).absolute()
+            elif isinstance(v, list):
+                v = ",".join([str(item) for item in v])
             if k not in [
                 "area",
                 "output_dir",
@@ -117,6 +111,7 @@ class NullTestWorkflow(MLMapmakingWorkflow):
                 "subcommand",
                 "name",
                 "chunk_duration",
+                "preprocess_config"
             ]:
                 arguments.append(f"--{k}={v}")
         return arguments
