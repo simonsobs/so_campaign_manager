@@ -165,10 +165,10 @@ class RPEnactor(Enactor):
                      data structure up to date.
         """
 
+        self._prof.prof("workflow_monitor_start", uid=self._uid)
         while not self._terminate_monitor.is_set():
             if self._to_monitor:
                 workflows_executing = self._rp_tmgr.list_tasks()
-                self._prof.prof("workflow_monitor_start", uid=self._uid)
                 # with self._monitoring_lock:
                 # It does not iterate correctly.
                 monitoring_list = deepcopy(self._to_monitor)
@@ -207,7 +207,7 @@ class RPEnactor(Enactor):
                     with self._monitoring_lock:
                         for wid in to_remove_wfs:
                             self._to_monitor.remove(wid)
-                self._prof.prof("workflow_monitor_end", uid=self._uid)
+        self._prof.prof("workflow_monitor_end", uid=self._uid)
 
     def get_status(self, workflows: str | List[str] | None = None) -> Dict[str, States]:
         """
