@@ -1,0 +1,74 @@
+/* Custom CSS for SO Campaign Manager Documentation */
+
+/* Footer styling */
+.rst-footer-buttons {
+    margin-top: 2em;
+}
+
+/* Add custom footer at the bottom of each page */
+.custom-footer {
+    margin-top: 2em;
+    padding-top: 1em;
+    border-top: 1px solid #e1e4e5;
+    font-size: 0.9em;
+    color: #666;
+    text-align: center;
+}
+
+.custom-footer a {
+    color: #2980b9;
+    text-decoration: none;
+}
+
+.custom-footer a:hover {
+    text-decoration: underline;
+}
+
+/* Improve code block styling */
+.highlight {
+    border-radius: 4px;
+}
+
+/* Better table styling */
+.rst-content table.docutils {
+    border: none;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.rst-content table.docutils th {
+    background-color: #f8f9fa;
+    font-weight: 600;
+}
+
+/* Admonition styling improvements */
+.rst-content .note,
+.rst-content .warning,
+.rst-content .tip {
+    border-left-width: 4px;
+}
+
+/* Version badge */
+.version-badge {
+    display: inline-block;
+    padding: 4px 8px;
+    background-color: #2980b9;
+    color: white;
+    border-radius: 3px;
+    font-size: 0.9em;
+    font-weight: 500;
+}
+
+/* Improved heading anchors */
+.headerlink {
+    opacity: 0;
+    transition: opacity 0.2s;
+}
+
+h1:hover .headerlink,
+h2:hover .headerlink,
+h3:hover .headerlink,
+h4:hover .headerlink,
+h5:hover .headerlink,
+h6:hover .headerlink {
+    opacity: 1;
+}
