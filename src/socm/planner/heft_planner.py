@@ -68,9 +68,9 @@ class HeftPlanner(Planner):
         """Get the maximum number of cores required by any single workflow."""
         return max(values["req_cpus"] for values in resource_requirements.values())
 
-    def _find_suitable_qos_policies(self, cores:int) -> QosPolicy:
+    def _find_suitable_qos_policies(self, requested_cores: int) -> QosPolicy:
         """Find QoS policies that can accommodate the campaign deadline."""
-        suitable_qos = self._resources.fits_in_qos(self._objective, cores)
+        suitable_qos = self._resources.fits_in_qos(self._objective, cores=requested_cores)
         if not suitable_qos:
             available_qos = ', '.join(f"{q.name}({q.max_walltime}min)" for q in self._resources.qos)
             raise ValueError(
@@ -124,7 +124,8 @@ class HeftPlanner(Planner):
     def _plan_with_qos_optimization(
         self,
         campaign: List[Workflow],
-        resource_requirements: Dict[int, Dict[str, float]]
+        resource_requirements: Dict[int, Dict[str, float]],
+        requested_resources: int,
     ) -> Tuple[List[PlanEntry], nx.DiGraph, str, int]:
         """Find optimal QoS and resource allocation for the campaign.
 
@@ -132,12 +133,7 @@ class HeftPlanner(Planner):
             Tuple of (plan, graph, qos_name, ncores).
         """
         max_workflow_resources = self._get_max_ncores(resource_requirements)
-        qos_candidate = self._find_suitable_qos_policies(cores=max_workflow_resources)
-
-        # Try each suitable QoS until we find one that works
-
-        # Start with min(2x max workflow resources, QoS max cores)
-        upper_bound = min(max_workflow_resources * 2, qos_candidate.max_cores)
+        upper_bound = requested_resources
         lower_bound = max_workflow_resources
 
         result = self._binary_search_resources(
@@ -146,12 +142,14 @@ class HeftPlanner(Planner):
 
         if result is not None:
             ncores, plan, plan_graph = result
+            qos_candidate = self._find_suitable_qos_policies(requested_cores=ncores)
+            self._logger.info(f"Plan to execute {plan} with {ncores} cores")
             return plan, plan_graph, qos_candidate.name, ncores
-
-        raise ValueError(
-            f"Cannot meet {self._objective} min deadline with QoS '{qos_candidate.name}'. "
-            f"Increase deadline or reduce workflow requirements."
-        )
+        else:
+            raise ValueError(
+                f"Cannot meet {self._objective} min deadline with {requested_resources} cores. "
+                f"Please increase deadline or increase requested cores."
+            )
 
     def _get_plan_graph(
         self, plan: List[PlanEntry], resources: range
@@ -215,7 +213,7 @@ class HeftPlanner(Planner):
         execution_schema : str | None
             'batch' for fixed resources, 'remote' for optimized allocation
         requested_resources : int | None
-            Number of cores (batch mode only)
+            Number of cores
 
         Returns
         -------
@@ -228,7 +226,7 @@ class HeftPlanner(Planner):
         if execution_schema == "batch":
             return self._plan_batch_mode(campaign, resource_requirements, requested_resources)
         else:
-            return self._plan_with_qos_optimization(campaign, resource_requirements)
+            return self._plan_with_qos_optimization(campaign, resource_requirements, requested_resources)
 
     def _plan_batch_mode(
         self,
@@ -242,6 +240,7 @@ class HeftPlanner(Planner):
             resources=range(requested_resources),
             resource_requirements=resource_requirements
         )
+        self._logger.info(f"Plan to execute {plan} with {requested_resources} cores")
         return plan, plan_graph, None, requested_resources
 
     def _initialize_resource_estimates(
@@ -408,7 +407,7 @@ class HeftPlanner(Planner):
 
         # Sort plan by workflow ID for consistent ordering
         self._plan = sorted(self._plan, key=lambda entry: entry.workflow.id)
-        self._logger.info("Sorted plan %s", self._plan)
+        self._logger.debug("Potential plan %s", self._plan)
 
         return self._plan, plan_graph
 

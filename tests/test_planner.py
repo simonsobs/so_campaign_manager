@@ -267,13 +267,13 @@ def test_find_suitable_qos_policies_basic(mocked_init):
             QosPolicy(name="long", max_walltime=240, max_jobs=10, max_cores=400),
         ]
 
-    suitable = planner._find_suitable_qos_policies(cores=10)
+    suitable = planner._find_suitable_qos_policies(requested_cores=10)
     assert suitable == QosPolicy(name="vshort", max_walltime=30, max_jobs=10, max_cores=100)
-    suitable = planner._find_suitable_qos_policies(cores=110)
+    suitable = planner._find_suitable_qos_policies(requested_cores=110)
     assert suitable == QosPolicy(name="short", max_walltime=60, max_jobs=20, max_cores=200)
-    suitable = planner._find_suitable_qos_policies(cores=210)
+    suitable = planner._find_suitable_qos_policies(requested_cores=210)
     assert suitable == QosPolicy(name="medium", max_walltime=120, max_jobs=15, max_cores=300)
-    suitable = planner._find_suitable_qos_policies(cores=310)
+    suitable = planner._find_suitable_qos_policies(requested_cores=310)
     assert suitable == QosPolicy(name="long", max_walltime=240, max_jobs=10, max_cores=400)
     with pytest.raises(ValueError):
-        suitable = planner._find_suitable_qos_policies(cores=410)
+        suitable = planner._find_suitable_qos_policies(requested_cores=410)
