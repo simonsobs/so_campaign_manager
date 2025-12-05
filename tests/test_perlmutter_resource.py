@@ -165,17 +165,19 @@ def test_register_job_multiple_jobs_different_qos():
     """Test registering jobs across different QoS policies."""
     resource = PerlmutterResource()
 
+    # First job fits in "regular" QoS
     result1 = resource.register_job("job1", walltime=20, cores=500)
-    result2 = resource.register_job("job2", walltime=200, cores=300)
+    # Second job fits only in "debug" QoS (exceeds interactive/shared_interactive max_cores, but fits in debug)
+    result2 = resource.register_job("job2", walltime=20, cores=1024)
 
     assert result1 is True
     assert result2 is True
     assert "regular" in resource._existing_jobs
-    assert len(resource._existing_jobs["regular"]) == 2
+    assert "debug" in resource._existing_jobs
+    assert len(resource._existing_jobs["regular"]) == 1
+    assert len(resource._existing_jobs["debug"]) == 1
     assert resource._existing_jobs["regular"][0] == ("job1", 20, 500)
-    assert resource._existing_jobs["regular"][1] == ("job2", 200, 300)
-
-
+    assert resource._existing_jobs["debug"][0] == ("job2", 20, 1024)
 def test_register_job_fills_qos_exactly():
     """Test registering jobs until a QoS is completely full."""
     resource = PerlmutterResource()
