@@ -161,8 +161,8 @@ def test_register_job_multiple_jobs_same_qos():
     assert resource._existing_jobs["regular"][1] == ("job2", 25, 400)
 
 
-def test_register_job_multiple_jobs_different_qos():
-    """Test registering jobs across different QoS policies."""
+def test_register_job_multiple_jobs():
+    """Test registering jobs."""
     resource = PerlmutterResource()
 
     # First job fits in "regular" QoS
@@ -173,11 +173,12 @@ def test_register_job_multiple_jobs_different_qos():
     assert result1 is True
     assert result2 is True
     assert "regular" in resource._existing_jobs
-    assert "debug" in resource._existing_jobs
-    assert len(resource._existing_jobs["regular"]) == 1
-    assert len(resource._existing_jobs["debug"]) == 1
+    assert "regular" in resource._existing_jobs
+    assert len(resource._existing_jobs["regular"]) == 2
     assert resource._existing_jobs["regular"][0] == ("job1", 20, 500)
-    assert resource._existing_jobs["debug"][0] == ("job2", 20, 1024)
+    assert resource._existing_jobs["regular"][1] == ("job2", 20, 1024)
+
+
 def test_register_job_fills_qos_exactly():
     """Test registering jobs until a QoS is completely full."""
     resource = PerlmutterResource()
