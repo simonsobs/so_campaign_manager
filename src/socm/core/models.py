@@ -1,8 +1,8 @@
 from collections.abc import Iterable
 from numbers import Number
-from typing import Dict, List, Optional, Union, get_args, get_origin
+from typing import Dict, List, Optional, Tuple, Union, get_args, get_origin
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, PrivateAttr
 from radical.pilot import TaskDescription
 
 
@@ -19,7 +19,48 @@ class Resource(BaseModel):
     cores_per_node: int
     memory_per_node: int
     qos: List[QosPolicy] = Field(default_factory=list)
+    _existing_jobs: Dict[str, List[Tuple[str, int, int]]] = PrivateAttr(default_factory=dict)
 
+    def fits_in_qos(self, walltime: int, cores: int) -> QosPolicy | None:
+        """
+        Check if the given walltime and cores fit within the specified QoS policy.
+
+        Args:
+            walltime (int): The requested walltime in minutes.
+            cores (int): The requested number of cores.
+
+        Returns:
+            QosPolicy | None: The name of the matching QoS policy object or None if no match is found.
+        """
+
+        # What happens when the job does not fit in the best possible QoS?
+        for policy in self.qos:
+            existing_jobs = self._existing_jobs.get(policy.name, [])
+            remaining_cores = policy.max_cores - sum(job[2] for job in existing_jobs)
+            if policy.max_walltime >= walltime and remaining_cores >= cores and len(existing_jobs) < policy.max_jobs:
+                return policy
+        return None
+
+    def register_job(self, job_id: str, walltime: int, cores: int) -> bool:
+        """
+        Register a job with the resource if it fits within the QoS policies.
+
+        Args:
+            job_id (str): The unique identifier for the job.
+            walltime (int): The requested walltime in minutes.
+            cores (int): The requested number of cores.
+
+        Returns:
+            bool: True if the job was registered successfully, False otherwise.
+        """
+        qos_policy = self.fits_in_qos(walltime, cores)
+        if qos_policy:
+            qos_name = qos_policy.name
+            existing_jobs = self._existing_jobs.get(qos_name, [])
+            existing_jobs.append((job_id, walltime, cores))
+            self._existing_jobs[qos_name] = existing_jobs
+            return True
+        return False
 
 class Workflow(BaseModel):
     name: str
