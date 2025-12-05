@@ -30,7 +30,7 @@ class Resource(BaseModel):
             cores (int): The requested number of cores.
 
         Returns:
-            QosPolicy | None: The name of the matching QoS policy object or None if no match is found.
+            QosPolicy | None: The matching QoS policy object or None if no match is found.
         """
 
         # What happens when the job does not fit in the best possible QoS?
