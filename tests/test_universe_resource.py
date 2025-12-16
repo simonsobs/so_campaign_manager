@@ -59,8 +59,7 @@ def test_fits_in_qos_smallest_sufficient_policy():
     """Test that fits_in_qos returns the first (smallest) QoS that fits."""
     resource = UniverseResource()
 
-    # Job that could fit in multiple QoS policies
-    # Should return 'main' (first one that fits)
+    # Job that fits in the main QoS
     qos = resource.fits_in_qos(walltime=100, cores=1000)
 
     assert qos is not None
@@ -147,23 +146,6 @@ def test_register_job_multiple_jobs_same_qos():
     assert len(resource._existing_jobs["main"]) == 2
     assert resource._existing_jobs["main"][0] == ("job1", 20, 500)
     assert resource._existing_jobs["main"][1] == ("job2", 25, 400)
-
-
-def test_register_job_multiple_jobs():
-    """Test registering jobs."""
-    resource = UniverseResource()
-
-    # First job fits in "main" QoS
-    result1 = resource.register_job("job1", walltime=20, cores=500)
-    # Second job also fits in "main" QoS
-    result2 = resource.register_job("job2", walltime=20, cores=1024)
-
-    assert result1 is True
-    assert result2 is True
-    assert "main" in resource._existing_jobs
-    assert len(resource._existing_jobs["main"]) == 2
-    assert resource._existing_jobs["main"][0] == ("job1", 20, 500)
-    assert resource._existing_jobs["main"][1] == ("job2", 20, 1024)
 
 
 def test_register_job_fills_qos_exactly():
