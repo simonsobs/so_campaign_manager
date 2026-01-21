@@ -8,13 +8,13 @@ authors = [{ name = 'Giannis Paraskevakos', email = 'iparask@princeton.edu' }]
 dependencies = [
     "numpy",
     "pydantic>=2.0",
-    "radical.pilot",
+    "radical.pilot; sys_platform != 'darwin'",
     "networkx",
     "toml",
     "click",
     "sotodlib",
     "astral",
-    "slurmise",
+    "slurmise; sys_platform != 'darwin'",
     "humanfriendly",
 ]
 
