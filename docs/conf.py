@@ -23,7 +23,7 @@ class Mock(MagicMock):
 MOCK_MODULES = [
     'sotodlib', 'sotodlib.core', 'sotodlib.core.Context',
     'radical', 'radical.utils', 'radical.pilot',
-    'slurmise', 
+    'slurmise',
     'networkx',
 ]
 sys.modules.update((mod_name, Mock()) for mod_name in MOCK_MODULES)
@@ -132,7 +132,7 @@ def skip_private(app, what, name, obj, skip, options):
     """Skip private members (starting with _) except in complete API reference."""
     # Get the current document being processed
     docname = getattr(app.env, 'docname', '')
-    
+
     # Skip private members in main API documentation, but not in complete reference
     if name.startswith('_') and name != '__init__' and 'api_complete' not in docname:
         return True

@@ -85,14 +85,14 @@ For detailed examples and configuration options, see the [documentation](docs/).
   * branch of `main`, naming convention: `fix/issue_1234` (reference github issue). `hotfix/issue_1234` if it is a major issue that needs resolution as soon as possible.
   * fix in that branch, and test
   * create pull request toward `main`
-  * code review, then merge  
-* major development activities go into feature branches 
+  * code review, then merge
+* major development activities go into feature branches
   * branch `main` into `feature/feature_name`
   * work on that feature branch
   * on completion, merge `main` into the feature branch.
   * test the feature branch
   * create a pull request for merging the feature branch into `main` (that should be a fast-forward now)
-  * merging of feature branches into `main` should be only after code review 
+  * merging of feature branches into `main` should be only after code review
 * documentation changes are handled like fix or feature branches, depending on size and impact, similar to code changes
 
 #### Branch Naming
@@ -108,12 +108,12 @@ For the latter: assume you want to test how `feature/a` works in combination wit
  * `git checkout feature/a`
  * `git checkout -b test/a_b`
  * `git merge feature/b`
- * do tests  
+ * do tests
 
 #### Branching Policies
 
 All branches are short living. To support this, only a limited number of branches should be open at any point in time. Only `N` branches for fixes and `M << N` branches for features should be open for each developer - other features / issues have to wait.
- 
+
 
 ### Ensure PEP8 compliance (mandatory) and format your code with Darker (optional)
 
@@ -135,4 +135,3 @@ You are free to skip the diffs and then manually fix the PEP8 faults.
 Or if you're ok with the suggested formatting changes, just apply the suggested fixes: ::
 
     darker -r origin/develop package/scr -L flake8
-

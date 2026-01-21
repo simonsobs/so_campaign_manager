@@ -1,6 +1,6 @@
 """Tests for socm.core.models module."""
 
-from unittest.mock import Mock, patch
+from unittest.mock import patch
 
 import pytest
 
@@ -31,7 +31,6 @@ def test_qos_creation():
     assert qos.max_cores == 5
 
 @patch('socm.core.models.BaseModel', MockBaseModel)
-@patch('socm.core.models.TaskDescription', Mock)
 def test_resource_creation():
     """Test Resource model creation."""
     from socm.core.models import Resource
@@ -51,7 +50,6 @@ def test_resource_creation():
 
 
 @patch('socm.core.models.BaseModel', MockBaseModel)
-@patch('socm.core.models.TaskDescription', Mock)
 def test_workflow_creation():
     """Test Workflow model creation."""
     from socm.core.models import Workflow
@@ -76,7 +74,6 @@ def test_workflow_creation():
 
 
 @patch('socm.core.models.BaseModel', MockBaseModel)
-@patch('socm.core.models.TaskDescription', Mock)
 def test_workflow_abstract_methods():
     """Test that abstract methods raise NotImplementedError."""
     from socm.core.models import Workflow
@@ -99,7 +96,6 @@ def test_workflow_abstract_methods():
 
 
 @patch('socm.core.models.BaseModel', MockBaseModel)
-@patch('socm.core.models.TaskDescription', Mock)
 def test_workflow_get_numeric_fields():
     """Test get_numeric_fields method."""
     from socm.core.models import Workflow
@@ -131,7 +127,6 @@ def test_workflow_get_numeric_fields():
 
 
 @patch('socm.core.models.BaseModel', MockBaseModel)
-@patch('socm.core.models.TaskDescription', Mock)
 def test_workflow_get_numeric_fields_with_none_values():
     """Test get_numeric_fields handles None values correctly."""
     from socm.core.models import Workflow
@@ -153,7 +148,6 @@ def test_workflow_get_numeric_fields_with_none_values():
 
 
 @patch('socm.core.models.BaseModel', MockBaseModel)
-@patch('socm.core.models.TaskDescription', Mock)
 def test_workflow_get_categorical_fields():
     """Test get_categorical_fields method."""
     from socm.core.models import Workflow
@@ -182,7 +176,6 @@ def test_workflow_get_categorical_fields():
 
 
 @patch('socm.core.models.BaseModel', MockBaseModel)
-@patch('socm.core.models.TaskDescription', Mock)
 def test_workflow_get_categorical_fields_with_none_values():
     """Test get_categorical_fields handles None values correctly."""
     from socm.core.models import Workflow
@@ -202,7 +195,6 @@ def test_workflow_get_categorical_fields_with_none_values():
 
 
 @patch('socm.core.models.BaseModel', MockBaseModel)
-@patch('socm.core.models.TaskDescription', Mock)
 def test_campaign_creation():
     """Test Campaign model creation."""
     from socm.core.models import Campaign, Workflow
@@ -227,7 +219,6 @@ def test_campaign_creation():
 
 
 @patch('socm.core.models.BaseModel', MockBaseModel)
-@patch('socm.core.models.TaskDescription', Mock)
 def test_workflow_extra_attributes():
     """Test that Workflow allows extra attributes due to model_config."""
     from socm.core.models import Workflow

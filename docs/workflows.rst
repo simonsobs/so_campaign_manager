@@ -160,7 +160,7 @@ Configuration via subcampaigns allows complex workflow graphs:
 
    [campaign.preprocessing]
    # First stage workflow
-   
+
    [campaign.mapmaking]
    # Second stage that depends on preprocessing
    depends_on = ["preprocessing"]

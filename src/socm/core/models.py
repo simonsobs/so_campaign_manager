@@ -1,9 +1,11 @@
 from collections.abc import Iterable
 from numbers import Number
-from typing import Dict, List, Optional, Tuple, Union, get_args, get_origin
+from typing import TYPE_CHECKING, Dict, List, Optional, Tuple, Union, get_args, get_origin
 
 from pydantic import BaseModel, Field, PrivateAttr
-from radical.pilot import TaskDescription
+
+if TYPE_CHECKING:
+    from radical.pilot import TaskDescription
 
 
 class QosPolicy(BaseModel):
@@ -202,7 +204,7 @@ class Workflow(BaseModel):
 
         return categorical_fields
 
-    def get_tasks(self) -> List[TaskDescription]:
+    def get_tasks(self) -> List["TaskDescription"]:
         """
         Returns a list of TaskDescription objects for the workflow.
         This is a placeholder method and should be implemented in subclasses.
