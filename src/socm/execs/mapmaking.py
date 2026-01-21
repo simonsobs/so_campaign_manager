@@ -1,4 +1,4 @@
-from argparse import ArgumentParser
+from argparse import ArgumentParser, Namespace
 
 import humanfriendly
 import toml
@@ -24,11 +24,10 @@ def get_parser(parser: ArgumentParser) -> ArgumentParser:
     )
     return parser
 
-def _main(parser: ArgumentParser) -> None:
+def _main(args: Namespace) -> None:
     # Import here to avoid loading radical.pilot at CLI startup (not available on macOS)
     from socm.bookkeeper import Bookkeeper
 
-    args = parser.parse_args()
     config = toml.load(args.toml)
     config = parse_comma_separated_fields(config=config, fields_to_parse=["maxiter", "downsample"])
     workflows_configs = get_workflow_entries(config, subcampaign_map=subcampaign_map)
@@ -50,8 +49,8 @@ def _main(parser: ArgumentParser) -> None:
                 workflow.id = len(workflows) + 1  # Assign a unique ID to each workflow
                 workflows.append(workflow)
 
-    policy  = config["campaign"].get("policy","time")
-    target_resource = config["campaign"].get("resource","tiger3")
+    policy = config["campaign"].get("policy", "time")
+    target_resource = config["campaign"].get("resource", "tiger3")
     # pprint(workflows)
     campaign = Campaign(
         id=1,

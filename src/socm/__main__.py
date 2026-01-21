@@ -9,7 +9,7 @@ def get_parser() -> ArgumentParser:
     # Make sure all args here are redirected to vars starting with
     # '_'.  We are going to clean those off before passing to the
     # subcommand.
-    sps = parser.add_subparsers(dest='_pipemod')
+    sps = parser.add_subparsers(dest='_pipemod', required=True)
 
     for name, module in SUBCOMMANDS.items():
         sp = sps.add_parser(name)
@@ -25,10 +25,11 @@ def main() -> None:
     # Extract top-level args ...
     top_args = {k: v for k, v in vars(args).items()
                 if k[0] == '_'}
-    [delattr(args, k) for k in top_args]
+    for k in top_args:
+        delattr(args, k)
     top_args = Namespace(**top_args)
 
     module = SUBCOMMANDS[top_args._pipemod]
     _main = getattr(module, '_main', None)
     if _main is not None:
-        _main(**vars(args))
+        _main(args)
