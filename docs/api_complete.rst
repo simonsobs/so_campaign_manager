@@ -4,7 +4,7 @@ Complete API Reference
 This section provides comprehensive API documentation including all methods, including private and internal methods that may be useful for developers extending the codebase.
 
 .. note::
-   This section includes private methods (starting with `_`) that are implementation details. 
+   This section includes private methods (starting with `_`) that are implementation details.
    These may change between versions without notice. For stable public API, see :doc:`api`.
 
 Core Modules

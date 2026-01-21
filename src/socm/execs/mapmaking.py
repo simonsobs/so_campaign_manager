@@ -10,7 +10,7 @@ from socm.workflows import registered_workflows, subcampaign_map
 
 def get_parser(parser: ArgumentParser) -> ArgumentParser:
     """Create and return a sub-argument parser for the LAT mapmaking campaign."""
-    parser.add_argument( 
+    parser.add_argument(
         "--toml",
         "-t",
         type=str,

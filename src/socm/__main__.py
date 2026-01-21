@@ -21,7 +21,7 @@ def get_parser() -> ArgumentParser:
 def main() -> None:
     parser = get_parser()
     args = parser.parse_args()
-    
+
     # Extract top-level args ...
     top_args = {k: v for k, v in vars(args).items()
                 if k[0] == '_'}
