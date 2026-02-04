@@ -123,5 +123,5 @@ You can also use SO Campaign Manager programmatically:
        policy="time",
        target_resource="tiger3"
    )
-   
+
    bookkeeper.run()

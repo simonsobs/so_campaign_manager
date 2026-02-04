@@ -230,10 +230,10 @@ To add a new workflow type:
 
    class MyWorkflow(Workflow):
        special_param: str
-       
+
        def get_command(self, **kwargs) -> str:
            return f"{self.executable} {self.subcommand}"
-       
+
        def get_arguments(self, **kwargs) -> str:
            return f"--special {self.special_param}"
 

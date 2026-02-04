@@ -277,3 +277,4 @@ def test_find_suitable_qos_policies_basic(mocked_init):
     assert suitable == QosPolicy(name="long", max_walltime=240, max_jobs=10, max_cores=400)
     with pytest.raises(ValueError):
         suitable = planner._find_suitable_qos_policies(requested_cores=410)
+
