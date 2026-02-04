@@ -1,5 +1,5 @@
 [project]
-version = "0.0.3"
+dynamic = ["version"]
 name = "so_campaign_manager"
 description = "A campaign manager to execute SO mapmaking campaign"
 readme = 'README.md'
@@ -28,6 +28,13 @@ dev = [
     "coveralls>=1.5",
     "pytest>=4.6",
     "hypothesis",
+    "pre-commit",
+    "mypy>=1.0.0",
+    "taskipy",
+    "types-networkx",
+    "types-pytz",
+    "types-toml",
+    "types-mock",
 ]
 docs = [
     "sphinx",
@@ -38,16 +45,16 @@ docs = [
 ]
 
 [build-system]
-requires = ["setuptools", "versioneer[toml]"]
+requires = ["setuptools>=61", "setuptools-scm>=8"]
 build-backend = "setuptools.build_meta"
 
-[tool.versioneer]
-VCS = "git"
-style = "pep440"
-versionfile_source = "src/socm/_version.py"
-versionfile_build = "socm/_version.py"
-tag_prefix = "v"
-parentdir_prefix = "socm-"
+[tool.setuptools_scm]
+version_file = "src/socm/__about__.py"
+
+[tool.taskipy.tasks]
+check = "mypy --install-types --non-interactive src/socm tests"
+test = "pytest --cov=socm --random-order"
+fmt-check = "ruff format --check . && ruff check ."
 
 [tool.setuptools]
 include-package-data = true
@@ -82,3 +89,20 @@ skip = ["docs", ".github", ".vscode", "container", "env", "env311", "build"]
 [tool.ruff]
 line-length = 120
 exclude = ["docs", ".github", ".vscode", "container", "env", "env311", "build"]
+
+[tool.mypy]
+python_version = "3.11"
+warn_return_any = true
+warn_unused_configs = true
+ignore_missing_imports = false
+
+# Third-party libraries without stubs
+[[tool.mypy.overrides]]
+module = [
+    "radical.*",
+    "slurmise.*",
+    "sotodlib.*",
+    "astropy.*",
+    "humanfriendly",
+]
+ignore_missing_imports = true

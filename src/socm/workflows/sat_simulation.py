@@ -1,5 +1,5 @@
 from pathlib import Path
-from typing import Dict, Optional
+from typing import Any, Dict, Optional
 
 from pydantic import PrivateAttr
 
@@ -37,16 +37,18 @@ class SATSimWorkflow(Workflow):
         }
     )
 
-    def get_command(self) -> str:
+    def get_command(self, **kargs: Any) -> str:
         """
         Get the command to run the ML mapmaking workflow.
         """
+        if self.resources is None:
+            raise ValueError("Resources must be set before calling get_command")
         command = f"srun --cpu_bind=cores --export=ALL --ntasks-per-node={self.resources['ranks']} --cpus-per-task={self.resources['threads']} {self.executable} {self.subcommand} --job_group_size={self.resources['ranks']} "
         command += self.get_arguments()
 
         return command.strip()
 
-    def get_arguments(self) -> str:
+    def get_arguments(self, **kargs: Any) -> str:
         """
         Get the command to run the ML mapmaking workflow.
         """

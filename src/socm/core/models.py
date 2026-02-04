@@ -38,9 +38,22 @@ class Resource(BaseModel):
         # What happens when the job does not fit in the best possible QoS?
         for policy in self.qos:
             existing_jobs = self._existing_jobs.get(policy.name, [])
-            remaining_cores = policy.max_cores - sum(job[2] for job in existing_jobs)
-            if policy.max_walltime >= walltime and remaining_cores >= cores and len(existing_jobs) < policy.max_jobs:
-                return policy
+
+            # Check walltime constraint (None means unlimited)
+            if policy.max_walltime is not None and policy.max_walltime < walltime:
+                continue
+
+            # Check cores constraint (None means unlimited)
+            if policy.max_cores is not None:
+                remaining_cores = policy.max_cores - sum(job[2] for job in existing_jobs)
+                if remaining_cores < cores:
+                    continue
+
+            # Check max jobs constraint (None means unlimited)
+            if policy.max_jobs is not None and len(existing_jobs) >= policy.max_jobs:
+                continue
+
+            return policy
         return None
 
     def register_job(self, job_id: str, walltime: int, cores: int) -> bool:
