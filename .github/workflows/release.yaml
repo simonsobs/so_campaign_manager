@@ -10,9 +10,6 @@ jobs:
     environment: release
     permissions:
       id-token: write
-    strategy:
-      matrix:
-        python-version: ["3.11", "3.12"]
 
     steps:
       - name: Checkout repository
@@ -22,7 +19,7 @@ jobs:
         uses: astral-sh/setup-uv@v5
 
       - name: Set up Python
-        run: uv python install ${{ matrix.python-version }}
+        run: uv python install 3.11
 
       - name: Build package
         run: uv build
