@@ -4,7 +4,7 @@ from typing import Dict, List, NamedTuple, Tuple
 import networkx as nx
 import radical.utils as ru
 
-from ..core import Campaign, Resource, Workflow
+from ..core import DAG, Campaign, Resource, Workflow
 
 
 class PlanEntry(NamedTuple):
@@ -51,7 +51,7 @@ class Planner(object):
 
     def plan(
         self,
-        campaign: List[Workflow] | None = None,
+        campaign: DAG | None = None,
         resources: range | None = None,
         resource_requirements: Dict[int, Dict[str, float]] | None = None,
         start_time: int = 0,
@@ -65,7 +65,7 @@ class Planner(object):
 
     def replan(
         self,
-        campaign: List[Workflow] | None = None,
+        campaign: DAG | None = None,
         resources: range | None = None,
         resource_requirements: Dict[int, Dict[str, float]] | None = None,
         start_time: int = 0,

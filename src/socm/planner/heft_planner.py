@@ -3,7 +3,7 @@ from typing import Dict, List, Tuple
 import networkx as nx
 import numpy as np
 
-from ..core import Campaign, QosPolicy, Resource, Workflow
+from ..core import DAG, Campaign, QosPolicy, Resource
 from .base import PlanEntry, Planner
 
 
@@ -82,7 +82,7 @@ class HeftPlanner(Planner):
 
     def _binary_search_resources(
         self,
-        campaign: List[Workflow],
+        campaign: DAG,
         resource_requirements: Dict[int, Dict[str, float]],
         lower_bound: int,
         upper_bound: int
@@ -123,7 +123,7 @@ class HeftPlanner(Planner):
 
     def _plan_with_qos_optimization(
         self,
-        campaign: List[Workflow],
+        campaign: DAG,
         resource_requirements: Dict[int, Dict[str, float]],
         requested_resources: int,
     ) -> Tuple[List[PlanEntry], nx.DiGraph, str, int]:
@@ -193,7 +193,7 @@ class HeftPlanner(Planner):
 
     def plan(
         self,
-        campaign: List[Workflow] | None = None,
+        campaign: DAG | None = None,
         resource_requirements: Dict[int, Dict[str, float]] | None = None,
         execution_schema: str | None = None,
         requested_resources: int | None = None
@@ -230,7 +230,7 @@ class HeftPlanner(Planner):
 
     def _plan_batch_mode(
         self,
-        campaign: List[Workflow],
+        campaign: DAG,
         resource_requirements: Dict[int, Dict[str, float]],
         requested_resources: int
     ) -> Tuple[List[PlanEntry], nx.DiGraph, None, int]:
@@ -341,11 +341,11 @@ class HeftPlanner(Planner):
 
     def _calculate_plan(
         self,
-        campaign: List[Workflow] | None = None,
+        campaign: DAG | None = None,
         resources: range | None = None,
         resource_requirements: Dict[int, Dict[str, float]] | None = None,
         start_time: float = 0.0,
-    ) -> Tuple[List[PlanEntry], nx.DiGraph]:
+    ) -> Tuple[List[PlanEntry]]:
         """Implement the core HEFT scheduling algorithm.
 
         Args:
@@ -413,7 +413,7 @@ class HeftPlanner(Planner):
 
     def replan(
         self,
-        campaign: List[Workflow] | None = None,
+        campaign: DAG | None = None,
         resources: range | None = None,
         resource_requirements: Dict[int, Dict[str, float]] | None = None,
         start_time: float = 0.0,

@@ -5,6 +5,11 @@ description = "A campaign manager to execute SO mapmaking campaign"
 readme = 'README.md'
 requires-python = '>=3.11,<3.13'
 authors = [{ name = 'Giannis Paraskevakos', email = 'iparask@princeton.edu' }]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+]
 dependencies = [
     "numpy",
     "pydantic>=2.0",
@@ -16,32 +21,6 @@ dependencies = [
     "astral",
     "slurmise; sys_platform != 'darwin'",
     "humanfriendly",
-]
-
-[project.optional-dependencies]
-dev = [
-    "ruff",
-    "darker",
-    "flake8",
-    "isort",
-    "pytest-cov>=2.6",
-    "coveralls>=1.5",
-    "pytest>=4.6",
-    "hypothesis",
-    "pre-commit",
-    "mypy>=1.0.0",
-    "taskipy",
-    "types-networkx",
-    "types-pytz",
-    "types-toml",
-    "types-mock",
-]
-docs = [
-    "sphinx",
-    "sphinx_rtd_theme",
-    "sphinxcontrib-napoleon",
-    "sphinx-autodoc-typehints",
-    "myst-parser",
 ]
 
 [build-system]
@@ -106,3 +85,31 @@ module = [
     "humanfriendly",
 ]
 ignore_missing_imports = true
+
+[dependency-groups]
+dev = [
+    "ruff",
+    "darker",
+    "flake8",
+    "isort",
+    "pytest-cov>=2.6",
+    "coveralls>=1.5",
+    "pytest>=4.6",
+    "hypothesis",
+    "pre-commit",
+    "mypy>=1.0.0",
+    "taskipy",
+    "types-networkx",
+    "types-pytz",
+    "types-toml",
+    "types-mock",
+    "ipython",
+    "pygraphviz"
+]
+docs = [
+    "sphinx",
+    "sphinx_rtd_theme",
+    "sphinxcontrib-napoleon",
+    "sphinx-autodoc-typehints",
+    "myst-parser",
+]

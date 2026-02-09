@@ -1,0 +1,91 @@
+paramfile: &paramfile PSpipe/project/SO/pISO/paramfiles/dr6xdeep56_20251119.dict
+
+stages:
+  extract_act:
+    exec: python -u
+    script: PSpipe/project/SO/pISO/python/act/extract_act.py
+    script-args:
+      - *paramfile
+    depends: null
+
+  get_gaussian_beams:
+    exec: python -u
+    script: PSpipe/project/SO/pISO/python/beams/get_gaussian_beams.py
+    script-args:
+      - *paramfile
+    depends: null
+
+  get_xtra_mask:
+    exec: python -u
+    script: PSpipe/project/SO/pISO/python/masks/get_xtra_mask.py
+    script-args:
+      - *paramfile
+    sbatch:
+      mem: 48G
+      cpus-per-task: 4
+      time: 10:00
+    depends: null
+
+  get_windows:
+    exec: python -u
+    script: PSpipe/project/SO/pISO/python/masks/get_windows.py
+    script-args:
+    - *paramfile
+    sbatch:
+      mem: 72G
+      cpus-per-task: 10
+      time: 10:00
+    depends:
+      - get_xtra_mask
+
+  get_best_fit_mflike:
+    exec: python -u
+    script: PSpipe/project/SO/pISO/python/get_best_fit_mflike.py
+    script-args:
+    - *paramfile
+    depends: null
+
+  get_mcm_bbl_and_pseudosignal:
+    exec: python -u
+    script: PSpipe/project/SO/pISO python/get_mcm_bbl_and_pseudosignal.py
+    script-args:
+    - *paramfile
+    sbatch:
+      ntasks: 14
+      cpus-per-task: 8
+      mem-per-cpu: 8G
+      time: 10:00
+    depends:
+    - get_windows
+    - get_best_fit_mflike
+
+  get_pseudo2datavec:
+    exec: python -u
+    script: PSpipe/project/SO/pISO/python/get_pseudo2datavec.py
+    script-args:
+    - *paramfile
+    sbatch:
+      cpus-per-task: 2
+      mem-per-cpu: 8G
+      time: 15:00
+    depends:
+    - get_mcm_bbl_and_pseudosignal
+
+  get_spectra_from_maps:
+    exec: python -u
+    script: PSpipe/project/SO/pISO/python/get_spectra_from_maps.py
+    script-args:
+    - *paramfile
+    script-kwargs:
+      start: 0
+      stop: 10
+    script-flags:
+    - simulate-syst
+    - simulate-lens
+    sbatch:
+      ntasks: 17
+      mem: 600G
+      cpus-per-task: 4
+      time: 15:00
+    depends:
+    - get_pseudo2datavec

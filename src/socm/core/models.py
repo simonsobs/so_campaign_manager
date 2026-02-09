@@ -2,7 +2,8 @@ from collections.abc import Iterable
 from numbers import Number
 from typing import TYPE_CHECKING, Dict, List, Optional, Tuple, Union, get_args, get_origin
 
-from pydantic import BaseModel, Field, PrivateAttr
+import networkx as nx
+from pydantic import BaseModel, ConfigDict, Field, PrivateAttr, field_validator
 
 if TYPE_CHECKING:
     from radical.pilot import TaskDescription
@@ -79,16 +80,24 @@ class Resource(BaseModel):
 
 class Workflow(BaseModel):
     name: str
-    executable: str
-    context: str
+    executable: str = ""
+    context: str = ""
     subcommand: str = ""
     id: Optional[int] = None
     environment: Optional[Dict[str, str]] = None
     resources: Optional[Dict[str, int | float]] = None
-
+    depends: Optional[List[str]] = None
     model_config = {
         "extra": "allow",
     }
+
+    def __hash__(self):
+        return hash(self.id)
+
+    def __eq__(self, other):
+        if isinstance(other, Workflow):
+            return self.id == other.id
+        return NotImplemented
 
     def get_command(self, **kargs) -> str:
         raise NotImplementedError("This method should be implemented in subclasses")
@@ -225,11 +234,53 @@ class Workflow(BaseModel):
         raise NotImplementedError("This method should be implemented in subclasses")
 
 
+class DAG(BaseModel):
+    model_config = ConfigDict(arbitrary_types_allowed=True)
+    graph: nx.DiGraph = Field(default_factory=nx.DiGraph)
+
+    def add_workflow(self, workflow: Workflow):
+        self.graph.add_node(workflow.id, workflow=workflow)
+
+    def add_dependency(self, parent_id: int, child_id: int):
+        self.graph.add_edge(parent_id, child_id)
+
+    @property
+    def workflows(self) -> List[Workflow]:
+        """Return workflows in topological order."""
+        return [self.graph.nodes[n]["workflow"] for n in nx.topological_sort(self.graph)]
+
+    def __iter__(self):
+        return iter(self.workflows)
+
+    def __len__(self):
+        return self.graph.number_of_nodes()
+
+    def __getitem__(self, idx):
+        return self.workflows[idx]
+
+
 class Campaign(BaseModel):
+    model_config = ConfigDict(arbitrary_types_allowed=True)
     id: int
-    workflows: List[Workflow]
+    workflows: DAG
     deadline: str
     target_resource: str = "tiger3"
     campaign_policy: str = "time"
     execution_schema: str = "batch"
     requested_resources: int = 0
+
+    @field_validator("workflows", mode="before")
+    @classmethod
+    def validate_workflows(cls, v):
+        if isinstance(v, list):
+            dag = DAG()
+            for w in v:
+                dag.add_workflow(w)
+            name_to_id = {w.name: w.id for w in v}
+            for w in v:
+                if w.depends:
+                    for dep_name in w.depends:
+                        if dep_name in name_to_id:
+                            dag.add_dependency(name_to_id[dep_name], w.id)
+            return dag
+        return v
