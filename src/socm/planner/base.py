@@ -17,16 +17,15 @@ class PlanEntry(NamedTuple):
 
 class Planner(object):
     """
-    The planner receives a campaign, a set of resources, and an execution time
-    estimation for each workflow per resource, and calculates a plan. The plan is
-    a list of tuples. Each tuple defines at least:
-    Workflow: A workflow member of the campaign
-    Resource: The resource on which the workflow will be executed.
+    Base planner that computes an execution plan for a campaign.
 
-    Each planning class should always implement a plan method. This method
-    should calculate and return the execution plan. Each class can overleoad the
-    basic tuple with additional information based on what the planner is supposed
-    to do.
+    The planner receives a campaign, a set of resources, and execution time
+    estimates for each workflow, then calculates a scheduling plan. The plan
+    is a list of PlanEntry tuples mapping each workflow to a core range,
+    memory allocation, and time window.
+
+    Each planning subclass must implement the ``plan`` method. Subclasses
+    can override the basic plan with additional scheduling logic.
     """
 
     def __init__(
@@ -43,7 +42,7 @@ class Planner(object):
         self._resource_requirements = resource_requirements
         self._policy = policy
         self._objective = objective
-        self._plan = list()
+        self._plan: List[PlanEntry] = []
         self._uid = ru.generate_id("planner.%(counter)04d", mode=ru.ID_CUSTOM, ns=sid)
         sid = sid if sid is not None else ru.generate_id("planner.%(counter)04d", mode=ru.ID_CUSTOM)
         path = os.getcwd() + "/" + sid
@@ -56,9 +55,29 @@ class Planner(object):
         resource_requirements: Dict[int, Dict[str, float]] | None = None,
         start_time: int = 0,
         **kargs,
-    ) -> Tuple[List[Tuple[Workflow, range, float, float]], nx.DiGraph]:
+    ) -> Tuple[List[PlanEntry], nx.DiGraph]:
         """
-        The planning method
+        Calculate an execution plan for the given campaign and resources.
+
+        Parameters
+        ----------
+        campaign : DAG or None, optional
+            The campaign DAG containing workflows and dependencies.
+        resources : range or None, optional
+            The available core range for scheduling.
+        resource_requirements : dict or None, optional
+            A mapping of workflow IDs to their resource requirements.
+        start_time : int, optional
+            The start time offset for the plan.
+        **kargs
+            Additional keyword arguments for subclass implementations.
+
+        Returns
+        -------
+        tuple[list[PlanEntry], nx.DiGraph]
+            A tuple of (plan_entries, dependency_graph) where plan_entries
+            is a list of PlanEntry named tuples and dependency_graph is a
+            NetworkX DiGraph.
         """
 
         raise NotImplementedError("Plan method is not implemented")
@@ -69,9 +88,27 @@ class Planner(object):
         resources: range | None = None,
         resource_requirements: Dict[int, Dict[str, float]] | None = None,
         start_time: int = 0,
-    ) -> Tuple[List[Tuple[Workflow, range, float, float]], nx.DiGraph]:
+    ) -> Tuple[List[PlanEntry], nx.DiGraph]:
         """
-        The planning method
+        Recalculate the execution plan, typically after workflow completion.
+
+        Delegates to ``plan()`` if all required arguments are provided.
+
+        Parameters
+        ----------
+        campaign : DAG or None, optional
+            The updated campaign DAG.
+        resources : range or None, optional
+            The available core range for scheduling.
+        resource_requirements : dict or None, optional
+            A mapping of workflow IDs to their resource requirements.
+        start_time : int, optional
+            The start time offset for the replan.
+
+        Returns
+        -------
+        tuple
+            A tuple of (plan_entries, dependency_graph).
         """
         if campaign and resources and resource_requirements:
             self._logger.debug("Replanning")

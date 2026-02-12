@@ -9,7 +9,19 @@ from socm.workflows import registered_workflows, subcampaign_map
 
 
 def get_parser(parser: ArgumentParser) -> ArgumentParser:
-    """Create and return a sub-argument parser for the LAT mapmaking campaign."""
+    """
+    Add mapmaking subcommand arguments to the given parser.
+
+    Parameters
+    ----------
+    parser : ArgumentParser
+        The subparser to configure with mapmaking-specific arguments.
+
+    Returns
+    -------
+    ArgumentParser
+        The configured argument parser.
+    """
     parser.add_argument(
         "--toml",
         "-t",
@@ -25,15 +37,26 @@ def get_parser(parser: ArgumentParser) -> ArgumentParser:
     return parser
 
 def _main(args: Namespace) -> None:
+    """
+    Execute the mapmaking campaign from a TOML configuration.
+
+    Parses the TOML config, creates workflow instances, builds a campaign
+    DAG, and runs the campaign through the Bookkeeper.
+
+    Parameters
+    ----------
+    args : Namespace
+        Parsed command-line arguments containing ``toml`` and ``dry_run``.
+    """
     # Import here to avoid loading radical.pilot at CLI startup (not available on macOS)
-    # from socm.bookkeeper import Bookkeeper
+    from socm.bookkeeper import Bookkeeper
 
     config = toml.load(args.toml)
     config = parse_comma_separated_fields(config=config, fields_to_parse=["maxiter", "downsample"])
     workflows_configs = get_workflow_entries(config, subcampaign_map=subcampaign_map)
 
     campaign_dag = DAG()
-    last_workflow_id = 0
+    last_workflow_id = 1
     for workflow_type, workflow_config in workflows_configs.items():
         if workflow_type in registered_workflows:
             workflow_config["resources"]["memory"] = (
@@ -64,14 +87,15 @@ def _main(args: Namespace) -> None:
         requested_resources=config["campaign"]["requested_resources"],
         target_resource=target_resource,
     )
-    print(campaign)
+    # breakpoint()
+    # print(campaign)
     # This main class to execute the campaign to a resource.
-    # b = Bookkeeper(
-    #     campaign=campaign,
-    #     policy=policy,
-    #     target_resource=target_resource,
-    #     deadline=humanfriendly.parse_timespan(config["campaign"]["deadline"]) / 60,
-    #     dryrun=args.dry_run
-    # )
+    b = Bookkeeper(
+        campaign=campaign,
+        policy=policy,
+        target_resource=target_resource,
+        deadline=humanfriendly.parse_timespan(config["campaign"]["deadline"]) / 60,
+        dryrun=args.dry_run
+    )
 
-    # b.run()
+    b.run()

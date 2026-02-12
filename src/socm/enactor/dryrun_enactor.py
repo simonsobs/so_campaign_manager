@@ -48,19 +48,30 @@ class DryrunEnactor(Enactor):
 
     def setup(self, resource: Resource, walltime: int, cores: int, execution_schema: str | None = None) -> None:
         """
-        Sets up the enactor to execute workflows.
+        Set up the dry-run enactor with resource configuration.
+
+        Parameters
+        ----------
+        resource : Resource
+            The HPC resource definition.
+        walltime : int
+            Maximum walltime in minutes (unused in dry run).
+        cores : int
+            Number of cores (unused in dry run).
+        execution_schema : str or None, optional
+            The access schema (unused in dry run).
         """
         self._resource = resource
 
 
     def enact(self, workflows: List[Workflow]) -> None:
         """
-        Method enact receives a set workflows and resources. It is responsible to
-        start the execution of the workflow and set a endpoint to the WMF that
-        executes the workflow
+        Simulate the submission of workflows for execution.
 
-        *workflows:* A workflows that will execute on a resource
-        *resources:* The resource that will be used.
+        Parameters
+        ----------
+        workflows : list of Workflow
+            The workflows to simulate execution for.
         """
 
         self._prof.prof("enacting_start", uid=self._uid)
@@ -112,8 +123,10 @@ class DryrunEnactor(Enactor):
 
     def _monitor(self):
         """
-        **Purpose**: Thread in the master process to monitor the campaign execution
-                     data structure up to date.
+        Monitor simulated workflow execution in a background thread.
+
+        Immediately marks all submitted workflows as DONE and invokes
+        registered callbacks.
         """
 
         while not self._terminate_monitor.is_set():
@@ -158,13 +171,17 @@ class DryrunEnactor(Enactor):
 
     def get_status(self, workflows: str | List[str] | None = None) -> Dict[str, States]:
         """
-        Get the state of a workflow or workflows.
+        Get the execution state of one or more workflows.
 
-        *Parameter*
-        *workflows:* A workflow ID or a list of workflow IDs
+        Parameters
+        ----------
+        workflows : str, list of str, or None, optional
+            A workflow ID, a list of workflow IDs, or None to get all.
 
-        *Returns*
-        *status*: A dictionary with the state of each workflow.
+        Returns
+        -------
+        dict
+            A dictionary mapping workflow IDs to their current state.
         """
 
         status = dict()
@@ -181,7 +198,14 @@ class DryrunEnactor(Enactor):
 
     def update_status(self, workflow, new_state):
         """
-        Update the state of a workflow that is executing
+        Update the execution state of a workflow.
+
+        Parameters
+        ----------
+        workflow : str
+            The workflow ID to update.
+        new_state : States
+            The new state to set for the workflow.
         """
 
         if workflow not in self._execution_status:
@@ -193,9 +217,7 @@ class DryrunEnactor(Enactor):
             self._execution_status[workflow]["state"] = new_state
 
     def terminate(self):
-        """
-        Public method to terminate the Enactor
-        """
+        """Terminate the dry-run Enactor and stop the monitor thread."""
         self._logger.info("Start terminating procedure")
         self._prof.prof("str_terminating", uid=self._uid)
         if self._monitoring_thread:
@@ -208,7 +230,12 @@ class DryrunEnactor(Enactor):
 
     def register_state_cb(self, cb):
         """
-        Registers a new state update callback function with the Enactor.
+        Register a callback function for workflow state updates.
+
+        Parameters
+        ----------
+        cb : callable
+            A callback function invoked when workflow states change.
         """
 
         with self._cb_lock:

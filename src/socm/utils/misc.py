@@ -1,6 +1,10 @@
 import ast
 from typing import Dict, List
 
+import matplotlib.pyplot as plt
+import networkx as nx
+from networkx.drawing.nx_pydot import graphviz_layout
+
 
 def parse_comma_separated_fields(config: dict, fields_to_parse: List[str]) -> dict:
     """Convert comma-separated string values to lists."""
@@ -15,13 +19,18 @@ def get_workflow_entries(campaign_dict: dict, subcampaign_map: Dict[str, list] |
     """
     Extract workflow entries from a campaign dictionary using a predefined mapping.
 
-    Args:
-        campaign_dict: A dictionary containing campaign configuration
-        subcampaign_map: A dictionary mapping subcampaign names to lists of their workflow names
-                         E.g., {"ml-null-test": ["mission-tests", "wafer-tests"]}
+    Parameters
+    ----------
+    campaign_dict : dict
+        A dictionary containing campaign configuration.
+    subcampaign_map : dict or None, optional
+        A mapping of subcampaign names to lists of their workflow names.
+        E.g., {"ml-null-test": ["mission-tests", "wafer-tests"]}.
 
-    Returns:
-        Dictionary containing workflow entries
+    Returns
+    -------
+    dict
+        A dictionary containing workflow entries keyed by workflow name.
     """
     campaign_data = campaign_dict.get("campaign", {})
 
@@ -70,13 +79,20 @@ def get_workflow_entries(campaign_dict: dict, subcampaign_map: Dict[str, list] |
 
 def get_query_from_file(file_path: str) -> str:
     """
-    Extract a SQL query from a file.
+    Build an observation ID filter query from a file of obs IDs.
 
-    Args:
-        file_path: The path to the file containing the SQL query.
+    Reads a file containing one observation ID per line and constructs
+    an ``obs_id IN (...)`` query string for use with sotodlib's obsdb.
 
-    Returns:
-        The SQL query as a string.
+    Parameters
+    ----------
+    file_path : str
+        Path to a text file with one observation ID per line.
+
+    Returns
+    -------
+    str
+        A query string of the form ``obs_id IN ('id1','id2',...)``.
     """
     query = "obs_id IN ("
     with open(file_path, "r") as file:
@@ -88,3 +104,10 @@ def get_query_from_file(file_path: str) -> str:
     query += ")"
 
     return query
+
+
+def print_plan(graph: nx.DiGraph) -> None:
+    pos = graphviz_layout(graph, prog='dot')
+    plt.figure(figsize=(12, 8))
+    nx.draw(graph, pos, with_labels=True, node_color='lightblue', arrows=True, node_size=500)
+    plt.savefig("graph.png", dpi=300, bbox_inches='tight')

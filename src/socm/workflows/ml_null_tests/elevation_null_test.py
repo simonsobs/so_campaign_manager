@@ -26,18 +26,22 @@ class ElevationNullTestWorkflow(NullTestWorkflow):
         self, ctx: Context, obs_info: Dict[str, Dict[str, Union[float, str]]]
     ) -> Dict[str, List[List[str]]]:
         """
-        Distribute the observations across splits based on elevation angles.
+        Split observations based on elevation angle (low/high).
 
-        Groups observations by their elevation angles and then creates time-interleaved
-        splits for each with nsplits=2.
+        Groups observations by whether their elevation is below or above
+        the threshold, then creates time-interleaved splits for each group.
 
-        Args:
-            ctx: Context object
-            obs_info: Dictionary mapping obs_id to observation metadata
+        Parameters
+        ----------
+        ctx : Context
+            The sotodlib Context object.
+        obs_info : dict
+            A mapping of observation IDs to their metadata.
 
-        Returns:
-            Dict mapping 'day' and 'night' to list of splits, where each split is a list
-            of obs_ids
+        Returns
+        -------
+        dict
+            A mapping of 'low' and 'high' to lists of observation splits.
         """
         if self.chunk_nobs is None and self.chunk_duration is None:
             raise ValueError("Either chunk_nobs or duration must be set.")
@@ -83,10 +87,18 @@ class ElevationNullTestWorkflow(NullTestWorkflow):
     @classmethod
     def get_workflows(cls, desc=None) -> List[NullTestWorkflow]:
         """
-        Create a list of NullTestWorkflows instances from the provided descriptions.
+        Create NullTestWorkflow instances for each elevation split.
 
-        Creates separate workflows for each direction split following the naming
-        convention: {setname} = direction_[rising,setting,middle]
+        Parameters
+        ----------
+        desc : dict, optional
+            The workflow configuration dictionary.
+
+        Returns
+        -------
+        list of NullTestWorkflow
+            One workflow per elevation-split combination, following the naming
+            convention: elevation_{low,high}_split_{idx}_null_test_workflow.
         """
         elevation_workflow = cls(**desc)
 

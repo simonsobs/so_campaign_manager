@@ -39,7 +39,12 @@ class SATSimWorkflow(Workflow):
 
     def get_command(self, **kargs: Any) -> str:
         """
-        Get the command to run the ML mapmaking workflow.
+        Get the full shell command to run the SAT simulation workflow.
+
+        Returns
+        -------
+        str
+            The complete srun command string with arguments.
         """
         if self.resources is None:
             raise ValueError("Resources must be set before calling get_command")
@@ -50,7 +55,12 @@ class SATSimWorkflow(Workflow):
 
     def get_arguments(self, **kargs: Any) -> str:
         """
-        Get the command to run the ML mapmaking workflow.
+        Get the command-line arguments for the SAT simulation workflow.
+
+        Returns
+        -------
+        str
+            The argument string for the workflow command.
         """
         arguments = f"--out {self.output_dir} "
         sorted_workflow = dict(sorted(self.model_dump().items()))

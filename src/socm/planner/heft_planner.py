@@ -206,10 +206,10 @@ class HeftPlanner(Planner):
 
         Parameters
         ----------
-        campaign : List[Workflow] | None
-            The campaign workflows to plan
+        campaign : DAG | None
+            The campaign DAG to plan
         resource_requirements : Dict[int, Dict[str, float]] | None
-            Resource requirements for each workflow
+            Per-workflow resource requirements keyed by workflow ID.
         execution_schema : str | None
             'batch' for fixed resources, 'remote' for optimized allocation
         requested_resources : int | None
@@ -345,11 +345,11 @@ class HeftPlanner(Planner):
         resources: range | None = None,
         resource_requirements: Dict[int, Dict[str, float]] | None = None,
         start_time: float = 0.0,
-    ) -> Tuple[List[PlanEntry]]:
+    ) -> Tuple[List[PlanEntry], nx.DiGraph]:
         """Implement the core HEFT scheduling algorithm.
 
         Args:
-            campaign: List of workflows to schedule
+            campaign: DAG of workflows to schedule
             resources: Available resource cores
             resource_requirements: Resource needs for each workflow
             start_time: Initial time or per-core availability times
@@ -358,7 +358,7 @@ class HeftPlanner(Planner):
             Tuple of (execution_plan, dependency_graph)
         """
         # Use provided parameters or fall back to instance attributes
-        workflows = campaign if campaign else self._campaign
+        workflows = campaign if campaign else self._campaign.workflows
         cores = (
             resources
             if resources

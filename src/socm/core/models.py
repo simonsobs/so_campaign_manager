@@ -10,6 +10,8 @@ if TYPE_CHECKING:
 
 
 class QosPolicy(BaseModel):
+    """SLURM Quality of Service policy defining job limits."""
+
     name: str
     max_walltime: Optional[int] = None  # in minutes
     max_jobs: Optional[int] = None
@@ -17,6 +19,8 @@ class QosPolicy(BaseModel):
 
 
 class Resource(BaseModel):
+    """HPC resource definition with node/core/memory specs and QoS policies."""
+
     name: str
     nodes: int
     cores_per_node: int
@@ -79,6 +83,13 @@ class Resource(BaseModel):
         return False
 
 class Workflow(BaseModel):
+    """
+    Base class for all workflow types.
+
+    Subclasses must implement ``get_command()`` and ``get_arguments()``
+    and be registered in ``registered_workflows`` to be usable in campaigns.
+    """
+
     name: str
     executable: str = ""
     context: str = ""
@@ -100,9 +111,11 @@ class Workflow(BaseModel):
         return NotImplemented
 
     def get_command(self, **kargs) -> str:
+        """Return the full shell command to execute this workflow."""
         raise NotImplementedError("This method should be implemented in subclasses")
 
     def get_arguments(self, **kargs) -> str:
+        """Return the command-line arguments for this workflow."""
         raise NotImplementedError("This method should be implemented in subclasses")
 
     def get_numeric_fields(self, avoid_attributes: List[str] | None = None) -> List[str]:
@@ -235,13 +248,17 @@ class Workflow(BaseModel):
 
 
 class DAG(BaseModel):
+    """Directed acyclic graph of workflows with dependency edges."""
+
     model_config = ConfigDict(arbitrary_types_allowed=True)
     graph: nx.DiGraph = Field(default_factory=nx.DiGraph)
 
     def add_workflow(self, workflow: Workflow):
+        """Add a workflow as a node in the DAG."""
         self.graph.add_node(workflow.id, workflow=workflow)
 
     def add_dependency(self, parent_id: int, child_id: int):
+        """Add a dependency edge from parent workflow to child workflow."""
         self.graph.add_edge(parent_id, child_id)
 
     @property
@@ -258,8 +275,18 @@ class DAG(BaseModel):
     def __getitem__(self, idx):
         return self.workflows[idx]
 
+    def __repr__(self):
+        return f"DAG({self.workflows})"
+
 
 class Campaign(BaseModel):
+    """
+    A collection of workflows to be executed as a single campaign.
+
+    Contains the workflow DAG, scheduling policy, target resource,
+    and deadline constraints.
+    """
+
     model_config = ConfigDict(arbitrary_types_allowed=True)
     id: int
     workflows: DAG

@@ -23,8 +23,7 @@ class NullTestWorkflow(MLMapmakingWorkflow):
 
     def model_post_init(self, __context: Any) -> None:
         """
-        Post-initialization to set the context for the workflow and distribute the
-        observations across splits.
+        Post-initialization to load observation context and compute splits.
         """
         ctx_file = Path(self.context.split("file://")[-1]).absolute()
         ctx = Context(ctx_file)
@@ -59,7 +58,22 @@ class NullTestWorkflow(MLMapmakingWorkflow):
         self, ctx: Context, obs_info: Dict[str, Dict[str, Union[float, str]]]
     ) -> List[List[str]]:
         """
-        Distribute the observations across splits based on the context and observation IDs.
+        Compute observation splits for the null test.
+
+        Must be implemented by subclasses to define how observations are
+        divided into splits based on the specific null test criterion.
+
+        Parameters
+        ----------
+        ctx : Context
+            The sotodlib Context object.
+        obs_info : dict
+            A mapping of observation IDs to their metadata.
+
+        Returns
+        -------
+        list or dict
+            The observation splits, structure depends on the subclass.
         """
         if self.__class__.__name__ != "NullTestWorkflow":
             raise NotImplementedError(
@@ -71,7 +85,20 @@ class NullTestWorkflow(MLMapmakingWorkflow):
     @classmethod
     def get_workflows(cls, desc: Dict[str, Any]) -> List["NullTestWorkflow"]:
         """
-        Distribute the observations across splits based on the context and observation IDs.
+        Create NullTestWorkflow instances from a configuration description.
+
+        Must be implemented by subclasses to define how workflow instances
+        are created from the computed splits.
+
+        Parameters
+        ----------
+        desc : dict
+            The workflow configuration dictionary.
+
+        Returns
+        -------
+        list of NullTestWorkflow
+            The instantiated workflow objects.
         """
         if cls.__name__ != "NullTestWorkflow":
             raise NotImplementedError(
@@ -82,7 +109,12 @@ class NullTestWorkflow(MLMapmakingWorkflow):
 
     def get_arguments(self) -> List[str]:
         """
-        Get the command to run the ML mapmaking workflow.
+        Get the list of command-line arguments for the null test workflow.
+
+        Returns
+        -------
+        list of str
+            The positional and keyword arguments for the workflow command.
         """
         area = Path(self.area.split("file://")[-1])
         query = Path(self.query.split("file://")[-1])

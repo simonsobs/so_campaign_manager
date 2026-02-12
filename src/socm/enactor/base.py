@@ -9,20 +9,21 @@ from socm.utils.states import States
 
 class Enactor(object):
     """
-    The Enactor is responsible to execute workflows on resources. The Enactor
-    takes as input a list of tuples <workflow,resource> and executes the
-    workflows on their selected resources.
+    The Enactor is responsible for executing workflows on resources.
 
-    The Enactor offers a set of methods to execute and monitor workflows.
+    The Enactor takes as input a list of workflows and executes them on
+    their selected resources. It offers methods to execute and monitor
+    workflow execution.
 
-    *Parameters:*
-
-    *workflows*: A list with the workflow IDs that are executing.
-
-    *execution_status*: a hash table table that holds the state, and
-                      execution status.
-
-    *logger*: a logging object.
+    Attributes
+    ----------
+    _worflows : list
+        A list with the workflow IDs that are executing.
+    _execution_status : dict
+        A hash table that holds the state and execution status of each
+        workflow.
+    _logger : ru.Logger
+        A logging object.
     """
 
     def __init__(self, sid=None):
@@ -49,38 +50,52 @@ class Enactor(object):
 
     def setup(self, resource: Resource, walltime: int, cores: int, execution_schema: str | None = None) -> None:
         """
-        Sets up the enactor to execute workflows.
+        Set up the enactor with resource configuration for workflow execution.
+
+        Parameters
+        ----------
+        resource : Resource
+            The HPC resource to execute workflows on.
+        walltime : int
+            Maximum walltime in minutes for the pilot job.
+        cores : int
+            Number of cores to request.
+        execution_schema : str or None, optional
+            The access schema (e.g., 'batch' or 'local').
         """
         raise NotImplementedError("setup is not implemented")
 
-
     def enact(self, workflows, resources):
         """
-        Method enact receives a set workflows and resources. It is responsible to
-        start the execution of the workflow and set a endpoint to the WMF that
-        executes the workflow
+        Submit workflows for execution.
 
-        *workflows:* A workflows that will execute on a resource
-        *resources:* The resource that will be used.
+        Parameters
+        ----------
+        workflows : list
+            A list of workflows to execute.
+        resources : Resource
+            The resource to execute the workflows on.
         """
         raise NotImplementedError("enact is not implemented")
 
     def _monitor(self):
-        """
-        This method monitors the execution of workflows
-        """
+        """Monitor the execution status of submitted workflows."""
 
         raise NotImplementedError("_monitor is not implemented")
 
     def get_status(self, workflows: str | List[str] | None = None) -> Dict[str, States]:
         """
-        Get the state of a workflow or workflows.
+        Get the execution state of one or more workflows.
 
-        *Parameter*
-        *workflows:* A workflow ID or a list of workflow IDs
+        Parameters
+        ----------
+        workflows : str, list of str, or None, optional
+            A workflow ID, a list of workflow IDs, or None to get all.
 
-        *Returns*
-        *status*: A dictionary with the state of each workflow.
+        Returns
+        -------
+        dict
+            A dictionary mapping workflow IDs to their current state.
         """
 
         status = dict()
@@ -97,7 +112,14 @@ class Enactor(object):
 
     def update_status_cb(self, workflow, new_state):
         """
-        Update the state of a workflow that is executing
+        Update the execution state of a workflow via callback.
+
+        Parameters
+        ----------
+        workflow : str
+            The workflow ID to update.
+        new_state : States
+            The new state to set for the workflow.
         """
 
         if workflow not in self._execution_status:
@@ -111,13 +133,21 @@ class Enactor(object):
 
     def _get_workflow_state(self, workflow):
         """
-        Get a workflow's update
+        Get the current state of a workflow.
+
+        Parameters
+        ----------
+        workflow : str
+            The workflow ID.
+
+        Returns
+        -------
+        States
+            The current state of the workflow.
         """
 
         return self._execution_status[workflow]["state"]
 
     def terminate(self):
-        """
-        Public method to terminate the Enactor
-        """
+        """Terminate the Enactor and clean up resources."""
         raise NotImplementedError("terminate is not implemented")

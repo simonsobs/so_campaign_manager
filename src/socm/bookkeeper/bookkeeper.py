@@ -21,14 +21,27 @@ from ..utils.states import CFINAL, States
 
 class Bookkeeper(object):
     """
-    This is the Bookkeeping class. It gets the campaign and the resources, calls
-    the planner and enacts to the plan.
+    Main orchestrator for campaign execution on HPC systems.
 
-    *Parameters:*
+    Coordinates the full lifecycle of a campaign: planning workflow
+    schedules via the HEFT planner, submitting workflows to SLURM
+    through an enactor (RADICAL-Pilot or dryrun), and monitoring
+    their execution state. Uses Slurmise for job prediction and
+    recording execution metadata.
 
-    *campaign:* The campaign that needs to be executed.
-    *resources:* A set of resources.
-    *objective:* The campaign's objective
+    Parameters
+    ----------
+    campaign : Campaign
+        The campaign containing workflows to execute.
+    policy : str
+        Scheduling policy passed to the HEFT planner.
+    target_resource : str
+        Name of the HPC resource (must be in ``registered_resources``).
+    deadline : int
+        Maximum walltime (in minutes) for the entire campaign.
+    dryrun : bool, optional
+        If True, use a dry-run enactor instead of RADICAL-Pilot.
+        Defaults to False.
     """
 
     def __init__(
@@ -85,7 +98,20 @@ class Bookkeeper(object):
         self._work_thread = None  # Private attribute that will hold the thread
         self._monitoring_thread = None  # Private attribute that will hold the thread
 
-    def _get_campaign_requirements(self) -> Dict[str, Dict[str, float | int]]:
+    def _get_campaign_requirements(self) -> Dict[int, Dict[str, float]]:
+        """
+        Compute resource requirements for each workflow in the campaign.
+
+        Attempts to predict resource needs via Slurmise. Falls back to
+        user-specified workflow resources (with a 10% runtime buffer)
+        when predictions are unavailable or produce warnings.
+
+        Returns
+        -------
+        dict[int, dict[str, float]]
+            Mapping of workflow ID to resource requirements containing
+            ``req_cpus``, ``req_memory``, and ``req_walltime``.
+        """
         workflow_requirements = dict()
         total_cores = 1 # self._resource.nodes * self._resource.cores_per_node
         # total_memory = self._resource.nodes * self._resource.memory_per_node
@@ -163,7 +189,16 @@ class Bookkeeper(object):
 
     def _record(self, workflow: Workflow) -> None:
         """
-        Record the workflow execution data to the performance prediction system
+        Record workflow execution data to Slurmise for future predictions.
+
+        Parses SLURM job metadata (runtime, memory) and combines it with
+        workflow-specific numerical and categorical fields to build a
+        ``JobData`` record. Skipped during dry-run mode.
+
+        Parameters
+        ----------
+        workflow : Workflow
+            The completed workflow whose execution data should be recorded.
         """
         if self._dryrun:
             return
@@ -215,7 +250,14 @@ class Bookkeeper(object):
 
     def state_update_cb(self, workflow_ids, new_state, **kargs):
         """
-        This is a state update callback. This callback is passed to the enactor.
+        Callback invoked by the enactor when workflow states change.
+
+        Parameters
+        ----------
+        workflow_ids : list[str]
+            IDs of the workflows whose state changed.
+        new_state : States
+            The new execution state for the workflows.
         """
         self._logger.debug("Workflow %s to state %s", workflow_ids, new_state.name)
         with self._exec_state_lock:
@@ -224,7 +266,14 @@ class Bookkeeper(object):
 
     def workflowid_update_cb(self, workflow_ids, step_ids, **kargs):
         """
-        This is a state update callback. This callback is passed to the enactor.
+        Callback invoked by the enactor to map workflow IDs to SLURM step IDs.
+
+        Parameters
+        ----------
+        workflow_ids : list[str]
+            IDs of the workflows.
+        step_ids : list[str]
+            Corresponding SLURM job/step IDs (format: ``slurm_id.step_id``).
         """
         self._logger.debug("Workflow %s with slurmid %s", workflow_ids, step_ids)
         with self._exec_state_lock:
@@ -233,7 +282,13 @@ class Bookkeeper(object):
 
     def work(self):
         """
-        This method is responsible to execute the campaign.
+        Execute the campaign by planning and submitting workflows.
+
+        Runs in a dedicated thread. Computes the execution plan via the
+        HEFT planner, verifies the campaign can meet its deadline, sets up
+        the enactor with the required resources, and continuously submits
+        workflows whose dependencies have been satisfied. Respects the
+        DAG dependency order from the plan graph.
         """
 
         # There is no need to check since I know there is no plan.
@@ -298,6 +353,7 @@ class Bookkeeper(object):
                 memory = list()  # The memory per workflow
 
                 for wf_id in self._plan_graph.nodes():
+
                     predecessors_states = set()
                     for predecessor in self._plan_graph.predecessors(wf_id):
                         predecessors_states.add(self._workflows_state[predecessor])
@@ -359,9 +415,12 @@ class Bookkeeper(object):
 
     def monitor(self):
         """
-        This method monitors the state of the workflows. If the state is one of
-        the final states, it removes the workflow from the monitoring list, and
-        releases the resource. Otherwise if appends it to the end.
+        Monitor running workflows and release resources upon completion.
+
+        Runs in a dedicated thread. Continuously checks workflow states
+        and, for any that have reached a final state, records their
+        execution data via Slurmise and removes them from the active
+        monitoring list along with their allocated resources.
         """
         self._logger.info("Monitor thread started")
         while not self._terminate_event.is_set():
@@ -394,8 +453,13 @@ class Bookkeeper(object):
 
     def get_makespan(self):
         """
-        Returns the makespan of the campaign based on the current state of
-        execution
+        Return the estimated makespan of the campaign.
+
+        Returns
+        -------
+        float
+            The latest checkpoint time, representing the expected
+            completion time of the entire campaign (in minutes).
         """
 
         self._update_checkpoints()
@@ -403,6 +467,12 @@ class Bookkeeper(object):
         return self._checkpoints[-1]
 
     def terminate(self):
+        """
+        Gracefully shut down the bookkeeper and all managed threads.
+
+        Terminates the enactor, signals the work and monitor threads
+        to stop, and waits for them to join.
+        """
         self._logger.info("Start terminating procedure")
         self._prof.prof("str_bookkeper_terminating", uid=self._uid)
 
@@ -428,8 +498,11 @@ class Bookkeeper(object):
 
     def run(self):
         """
-        This method starts two threads for executing the campaign. The first
-        thread starts the work method. The second thread the monitoring thread.
+        Run the campaign to completion.
+
+        Initializes workflow states, spawns the work and monitor threads,
+        then blocks until all workflows reach a final state (DONE or
+        FAILED). Calls ``terminate()`` on exit regardless of outcome.
         """
         try:
             # Populate the execution status dictionary with workflows
@@ -478,9 +551,18 @@ class Bookkeeper(object):
             self.terminate()
 
     def get_campaign_state(self):
+        """Return the current state of the campaign."""
         return self._campaign["state"]
 
     def get_workflows_state(self):
+        """
+        Return the current state of every workflow in the campaign.
+
+        Returns
+        -------
+        dict[str, States]
+            Mapping of workflow ID to its current execution state.
+        """
         states = dict()
         for workflow in self._campaign["campaign"].workflows:
             states[workflow.id] = self._workflows_state[workflow.id]
