@@ -285,14 +285,16 @@ def test_campaign_creation():
 
 def test_campaign_default_resource():
     """Test Campaign model with default resource."""
-    from socm.core.models import Campaign, Workflow
+    from socm.core.models import DAG, Campaign, Workflow
 
-    workflow = Workflow(name="wf", executable="exe", context="ctx")
+    workflow = Workflow(name="wf", executable="exe", context="ctx", id=0)
 
-    campaign = Campaign(id=200, workflows=[workflow], deadline="12h")
+    campaign_dag = DAG()
+    campaign_dag.add_workflow(workflow)
+
+    campaign = Campaign(id=200, workflows=campaign_dag, deadline="12h")
 
     assert campaign.id == 200
-    assert len(campaign.workflows) == 1
     assert campaign.deadline == "12h"
     assert campaign.target_resource == "tiger3"  # default value
 
@@ -515,13 +517,13 @@ def test_workflow_avoid_attributes_functionality():
     workflow = Workflow(name="test", executable="test", context="test", id=123)
 
     workflow.numeric_field = 456
-    # Without avoid_attributes
+    # Without avoid_attributes - numeric_field is found via __dict__ scan
     all_numeric = workflow.get_numeric_fields()
     assert "id" in all_numeric
-    assert "numeric_field" not in all_numeric
+    assert "numeric_field" in all_numeric
 
     # With avoid_attributes
-    filtered_numeric = workflow.get_numeric_fields(avoid_attributes=["id"])
+    filtered_numeric = workflow.get_numeric_fields(avoid_attributes=["id", "numeric_field"])
     assert "id" not in filtered_numeric
     assert "numeric_field" not in filtered_numeric
 

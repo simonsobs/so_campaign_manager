@@ -199,8 +199,8 @@ def test_campaign_creation():
     """Test Campaign model creation."""
     from socm.core.models import Campaign, Workflow
 
-    workflow1 = Workflow(name="w1", executable="exe1", context="ctx1")
-    workflow2 = Workflow(name="w2", executable="exe2", context="ctx2")
+    workflow1 = Workflow(name="w1", executable="exe1", context="ctx1", id=0)
+    workflow2 = Workflow(name="w2", executable="exe2", context="ctx2", id=1)
 
     campaign = Campaign(
         id=1,

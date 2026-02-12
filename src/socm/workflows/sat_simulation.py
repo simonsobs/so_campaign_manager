@@ -75,6 +75,7 @@ class SATSimWorkflow(Workflow):
                 "id",
                 "environment",
                 "resources",
+                "depends",
             ]:
                 if isinstance(v, bool):
                     if v:
