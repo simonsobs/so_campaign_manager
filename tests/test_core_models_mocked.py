@@ -1,7 +1,7 @@
 """Tests for socm.core.models module with comprehensive mocking."""
 
 import sys
-from unittest.mock import Mock
+from unittest.mock import Mock, patch
 
 import pytest
 
@@ -353,11 +353,7 @@ def test_workflow_get_numeric_fields_with_model_fields():
         def __init__(self, annotation):
             self.annotation = annotation
 
-    # Set up model_fields to test annotation-based detection
-    workflow = Workflow(name="test", executable="test", context="test")
-
-    # Mock the model_fields to test annotation checking paths
-    workflow.__class__.model_fields = {
+    fake_fields = {
         "id": MockFieldInfo(Optional[int]),
         "count": MockFieldInfo(int),
         "rate": MockFieldInfo(float),
@@ -368,31 +364,32 @@ def test_workflow_get_numeric_fields_with_model_fields():
         "numeric_union": MockFieldInfo(Union[int, float]),
     }
 
-    # Set some actual values
-    workflow.id = 123
-    workflow.count = 456
-    workflow.rate = 3.14
-    workflow.name = "test_name"
-    workflow.tags = ["tag1", "tag2"]
-    workflow.scores = [10, 20, 30]
-    workflow.mixed_union = "string_value"
-    workflow.numeric_union = 42
+    # Set up model_fields to test annotation-based detection
+    workflow = Workflow(name="test", executable="test", context="test")
 
-    numeric_fields = workflow.get_numeric_fields()
+    with patch.object(Workflow, 'model_fields', fake_fields):
+        # Set some actual values
+        workflow.id = 123
+        workflow.count = 456
+        workflow.rate = 3.14
+        workflow.name = "test_name"
+        workflow.tags = ["tag1", "tag2"]
+        workflow.scores = [10, 20, 30]
+        workflow.mixed_union = "string_value"
+        workflow.numeric_union = 42
 
-    # Should detect fields based on annotations
-    assert "id" in numeric_fields  # Optional[int]
-    assert "count" in numeric_fields  # int
-    assert "rate" in numeric_fields  # float
-    assert "scores" in numeric_fields  # List[int]
-    assert "numeric_union" in numeric_fields  # Union[int, float]
+        numeric_fields = workflow.get_numeric_fields()
 
-    # Should not detect non-numeric fields
-    assert "name" not in numeric_fields  # str
-    assert "tags" not in numeric_fields  # List[str]
+        # Should detect fields based on annotations
+        assert "id" in numeric_fields  # Optional[int]
+        assert "count" in numeric_fields  # int
+        assert "rate" in numeric_fields  # float
+        assert "scores" in numeric_fields  # List[int]
+        assert "numeric_union" in numeric_fields  # Union[int, float]
 
-    # Clean up
-    workflow.__class__.model_fields = {}
+        # Should not detect non-numeric fields
+        assert "name" not in numeric_fields  # str
+        assert "tags" not in numeric_fields  # List[str]
 
 
 def test_workflow_get_categorical_fields_with_model_fields():
@@ -405,10 +402,7 @@ def test_workflow_get_categorical_fields_with_model_fields():
         def __init__(self, annotation):
             self.annotation = annotation
 
-    workflow = Workflow(name="test", executable="test", context="test")
-
-    # Mock the model_fields to test annotation checking paths
-    workflow.__class__.model_fields = {
+    fake_fields = {
         "name": MockFieldInfo(str),
         "status": MockFieldInfo(Optional[str]),
         "tags": MockFieldInfo(List[str]),
@@ -418,29 +412,29 @@ def test_workflow_get_categorical_fields_with_model_fields():
         "string_union": MockFieldInfo(Union[str, bool]),
     }
 
-    # Set actual values
-    workflow.name = "test_workflow"
-    workflow.status = "active"
-    workflow.tags = ["tag1", "tag2"]
-    workflow.count = 123
-    workflow.numbers = [1, 2, 3]
-    workflow.mixed_union = "string_value"
-    workflow.string_union = "text"
+    workflow = Workflow(name="test", executable="test", context="test")
 
-    categorical_fields = workflow.get_categorical_fields()
+    with patch.object(Workflow, 'model_fields', fake_fields):
+        # Set actual values
+        workflow.name = "test_workflow"
+        workflow.status = "active"
+        workflow.tags = ["tag1", "tag2"]
+        workflow.count = 123
+        workflow.numbers = [1, 2, 3]
+        workflow.mixed_union = "string_value"
+        workflow.string_union = "text"
 
-    # Should detect string-based fields
-    assert "name" in categorical_fields  # str
-    assert "status" in categorical_fields  # Optional[str]
-    assert "tags" in categorical_fields  # List[str]
-    assert "string_union" in categorical_fields  # Union[str, bool]
+        categorical_fields = workflow.get_categorical_fields()
 
-    # Should not detect numeric fields
-    assert "count" not in categorical_fields  # int
-    assert "numbers" not in categorical_fields  # List[int]
+        # Should detect string-based fields
+        assert "name" in categorical_fields  # str
+        assert "status" in categorical_fields  # Optional[str]
+        assert "tags" in categorical_fields  # List[str]
+        assert "string_union" in categorical_fields  # Union[str, bool]
 
-    # Clean up
-    workflow.__class__.model_fields = {}
+        # Should not detect numeric fields
+        assert "count" not in categorical_fields  # int
+        assert "numbers" not in categorical_fields  # List[int]
 
 
 def test_workflow_get_fields_with_none_values_in_model():
@@ -453,26 +447,24 @@ def test_workflow_get_fields_with_none_values_in_model():
         def __init__(self, annotation):
             self.annotation = annotation
 
-    workflow = Workflow(name="test", executable="test", context="test")
-
-    workflow.__class__.model_fields = {
+    fake_fields = {
         "optional_int": MockFieldInfo(Optional[int]),
         "optional_str": MockFieldInfo(Optional[str]),
     }
 
-    # Set values to None
-    workflow.optional_int = None
-    workflow.optional_str = None
+    workflow = Workflow(name="test", executable="test", context="test")
 
-    numeric_fields = workflow.get_numeric_fields()
-    categorical_fields = workflow.get_categorical_fields()
+    with patch.object(Workflow, 'model_fields', fake_fields):
+        # Set values to None
+        workflow.optional_int = None
+        workflow.optional_str = None
 
-    # Should not include None values even if type annotations suggest they could be numeric/categorical
-    assert "optional_int" not in numeric_fields
-    assert "optional_str" not in categorical_fields
+        numeric_fields = workflow.get_numeric_fields()
+        categorical_fields = workflow.get_categorical_fields()
 
-    # Clean up
-    workflow.__class__.model_fields = {}
+        # Should not include None values even if type annotations suggest they could be numeric/categorical
+        assert "optional_int" not in numeric_fields
+        assert "optional_str" not in categorical_fields
 
 
 def test_workflow_get_fields_type_checking_edge_cases():
@@ -485,29 +477,26 @@ def test_workflow_get_fields_type_checking_edge_cases():
         def __init__(self, annotation):
             self.annotation = annotation
 
-    workflow = Workflow(name="test", executable="test", context="test")
-
-    # Test various edge cases in type checking
-    workflow.__class__.model_fields = {
+    fake_fields = {
         "simple_list": MockFieldInfo(list),  # Non-parameterized list
         "empty_args": MockFieldInfo(List),  # List without type args
         "complex_nested": MockFieldInfo(List[List[int]]),  # Nested generic
         "non_iterable_origin": MockFieldInfo(Union[int, str]),  # Union is not iterable
     }
 
-    workflow.simple_list = [1, 2, 3]
-    workflow.empty_args = ["a", "b"]
-    workflow.complex_nested = [[1, 2], [3, 4]]
-    workflow.non_iterable_origin = 42
+    workflow = Workflow(name="test", executable="test", context="test")
 
-    _ = workflow.get_numeric_fields()
-    _ = workflow.get_categorical_fields()
+    with patch.object(Workflow, 'model_fields', fake_fields):
+        workflow.simple_list = [1, 2, 3]
+        workflow.empty_args = ["a", "b"]
+        workflow.complex_nested = [[1, 2], [3, 4]]
+        workflow.non_iterable_origin = 42
 
-    # These should be handled gracefully without errors
-    # Exact behavior depends on implementation details
+        _ = workflow.get_numeric_fields()
+        _ = workflow.get_categorical_fields()
 
-    # Clean up
-    workflow.__class__.model_fields = {}
+        # These should be handled gracefully without errors
+        # Exact behavior depends on implementation details
 
 
 def test_workflow_avoid_attributes_functionality():

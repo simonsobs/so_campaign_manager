@@ -358,7 +358,7 @@ class HeftPlanner(Planner):
             Tuple of (execution_plan, dependency_graph)
         """
         # Use provided parameters or fall back to instance attributes
-        workflows = campaign if campaign else self._campaign.workflows
+        workflows = campaign.workflows if campaign else self._campaign.workflows
         cores = (
             resources
             if resources

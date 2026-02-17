@@ -165,7 +165,10 @@ class Workflow(BaseModel):
                             numeric_fields.append(field_name)
 
         # Also check actual instance values for numeric fields not captured by annotations
-        for field_name, value in self.__dict__.items():
+        # Include model_extra for Pydantic v2 extra="allow" fields
+        extra = getattr(self, 'model_extra', None) or {}
+        all_attrs = {**self.__dict__, **extra}
+        for field_name, value in all_attrs.items():
             if field_name not in numeric_fields and field_name not in avoid_attributes:
                 if isinstance(value, Number):
                     numeric_fields.append(field_name)
@@ -224,13 +227,16 @@ class Workflow(BaseModel):
                         if isinstance(element_type, type) and issubclass(element_type, str):
                             categorical_fields.append(field_name)
 
-        # Also check actual instance values for numeric fields not captured by annotations
-        for field_name, value in self.__dict__.items():
+        # Also check actual instance values for categorical fields not captured by annotations
+        # Include model_extra for Pydantic v2 extra="allow" fields
+        extra = getattr(self, 'model_extra', None) or {}
+        all_attrs = {**self.__dict__, **extra}
+        for field_name, value in all_attrs.items():
             if field_name not in categorical_fields and field_name not in avoid_attributes:
                 if isinstance(value, str):
                     categorical_fields.append(field_name)
                 elif isinstance(value, Iterable) and not isinstance(value, (Number, bytes, dict)):
-                    # Check if all elements are numbers
+                    # Check if all elements are strings
                     try:
                         if all(isinstance(item, str) for item in value):
                             categorical_fields.append(field_name)
