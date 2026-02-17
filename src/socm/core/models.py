@@ -267,6 +267,14 @@ class DAG(BaseModel):
         """Add a dependency edge from parent workflow to child workflow."""
         self.graph.add_edge(parent_id, child_id)
 
+    def get_id_by_name(self, workflow_name: str) -> int | None:
+        """Get the name of a Workflow based on its name"""
+        for workflow in self.workflows:
+            if workflow.name == workflow_name:
+                return workflow.id
+
+        return None
+
     @property
     def workflows(self) -> List[Workflow]:
         """Return workflows in topological order."""
