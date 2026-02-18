@@ -97,7 +97,7 @@ class Workflow(BaseModel):
     id: Optional[int] = None
     environment: Optional[Dict[str, str]] = None
     resources: Optional[Dict[str, int | float]] = None
-    depends: Optional[List[str]] = None
+    depends: List[str] = []
     model_config = {
         "extra": "allow",
     }
@@ -267,6 +267,15 @@ class DAG(BaseModel):
         """Add a dependency edge from parent workflow to child workflow."""
         self.graph.add_edge(parent_id, child_id)
 
+    @property
+    def workflows(self) -> List[Workflow]:
+        """Return workflows in topological order."""
+        return [self.graph.nodes[n]["workflow"] for n in nx.topological_sort(self.graph)]
+
+
+    def __iter__(self):
+        return iter(self.workflows)
+
     def get_id_by_name(self, workflow_name: str) -> int | None:
         """Get the name of a Workflow based on its name"""
         for workflow in self.workflows:
@@ -274,14 +283,6 @@ class DAG(BaseModel):
                 return workflow.id
 
         return None
-
-    @property
-    def workflows(self) -> List[Workflow]:
-        """Return workflows in topological order."""
-        return [self.graph.nodes[n]["workflow"] for n in nx.topological_sort(self.graph)]
-
-    def __iter__(self):
-        return iter(self.workflows)
 
     def __len__(self):
         return self.graph.number_of_nodes()

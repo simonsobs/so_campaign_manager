@@ -47,7 +47,7 @@ def _main(args: Namespace) -> None:
         Parsed command-line arguments containing ``yaml`` and ``dry_run``.
     """
     # Import here to avoid loading radical.pilot at CLI startup (not available on macOS)
-    # from socm.bookkeeper import Bookkeeper
+    from socm.bookkeeper import Bookkeeper
 
     with open('examples/dag.yml') as f:
         config = yaml.safe_load(f)
@@ -67,24 +67,25 @@ def _main(args: Namespace) -> None:
                          "id": last_workflow_id,
                          "executable": workflow_config['executable'],
                          "subcommand": workflow_config['script'],
-                         "depends": workflow_config['depends'],
+                         "depends": workflow_config['depends'] if workflow_config['depends'] else [],
                          "resources": workflow_config["resources"],
                          }
-
-        for arg_name, arg_value in workflow_config['script-kargs'].items():
+        for arg_name, arg_value in workflow_config.get('script-kwargs', {}).items():
             workflow_dict[arg_name] = arg_value
 
         workflow = Workflow(**workflow_dict)
 
         campaign_dag.add_workflow(workflow)
-        if workflow.depends:
-            for parent_workflow in workflow.depends:
-                parent_id = campaign_dag.get_id_by_name(workflow_name=parent_workflow)
-                campaign_dag.add_dependency(child_id=last_workflow_id, parent_id=parent_id)
+        last_workflow_id += 2
+
+    for workflow in campaign_dag.workflows:
+        for parent_workflow in workflow.depends:
+            parent_id = campaign_dag.get_id_by_name(workflow_name=parent_workflow)
+            campaign_dag.add_dependency(child_id=workflow.id, parent_id=parent_id)
 
     policy = config["campaign"].get("policy", "time")
     target_resource = config["campaign"].get("resource", "tiger3")
-    # pprint(workflows)
+
     campaign = Campaign(
         id=1,
         workflows=campaign_dag,
@@ -94,15 +95,14 @@ def _main(args: Namespace) -> None:
         requested_resources=config["campaign"]["requested_resources"],
         target_resource=target_resource,
     )
-    # breakpoint()
-    print(campaign)
-    # This main class to execute the campaign to a resource.
-    # b = Bookkeeper(
-    #     campaign=campaign,
-    #     policy=policy,
-    #     target_resource=target_resource,
-    #     deadline=humanfriendly.parse_timespan(config["campaign"]["deadline"]) / 60,
-    #     dryrun=args.dry_run
-    # )
 
-    # b.run()
+    # This main class to execute the campaign to a resource.
+    b = Bookkeeper(
+        campaign=campaign,
+        policy=policy,
+        target_resource=target_resource,
+        deadline=humanfriendly.parse_timespan(config["campaign"]["deadline"]) / 60,
+        dryrun=args.dry_run
+    )
+
+    b.run()
