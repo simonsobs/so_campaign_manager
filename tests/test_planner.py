@@ -151,6 +151,54 @@ def test_failing_plan(mocked_init):
 
 # New test cases for helper methods
 @mock.patch.object(HeftPlanner, "__init__", return_value=None)
+def test_plan_with_dag_dependencies(mocked_init):
+    """Test that the planner schedules dependent workflows after their predecessors."""
+    dag = DAG()
+    for w in [
+        Workflow(name="W1", executable="exe", context="ctx", subcommand="sub", id=1),
+        Workflow(name="W2", executable="exe", context="ctx", subcommand="sub", id=2),
+        Workflow(name="W3", executable="exe", context="ctx", subcommand="sub", id=3),
+        Workflow(name="W4", executable="exe", context="ctx", subcommand="sub", id=4),
+    ]:
+        dag.add_workflow(w)
+    dag.add_dependency(parent_id=1, child_id=2)
+    dag.add_dependency(parent_id=1, child_id=3)
+
+    campaign = Campaign(id=0, workflows=dag, deadline="50d")
+
+
+    actual_plan = [
+        PlanEntry(workflow=Workflow(name="W1", executable="exe", context="ctx", subcommand="sub", id=1), cores=range(0, 224), memory=2000, start_time=0, end_time=45),
+        PlanEntry(workflow=Workflow(name="W2", executable="exe", context="ctx", subcommand="sub", id=2), cores=range(112, 224), memory=2000, start_time=45, end_time=75),
+        PlanEntry(workflow=Workflow(name="W3", executable="exe", context="ctx", subcommand="sub", id=3), cores=range(0, 112), memory=2000, start_time=70, end_time=90),
+        PlanEntry(workflow=Workflow(name="W4", executable="exe", context="ctx", subcommand="sub", id=4), cores=range(0, 112), memory=2000, start_time=45, end_time=70),
+    ]
+
+    planner = HeftPlanner(None, None, None)
+    planner._logger = MagicMock()
+    planner._estimated_memory = list
+
+    planner._resource_requirements = {
+        1: {"req_cpus": 224, "req_memory": 2000, "req_walltime": 45},
+        2: {"req_cpus": 112, "req_memory": 2000, "req_walltime": 30},
+        3: {"req_cpus": 112, "req_memory": 2000, "req_walltime": 20},
+        4: {"req_cpus": 112, "req_memory": 2000, "req_walltime": 25},
+    }
+
+    planner._campaign = campaign
+    planner._resources = Resource(
+        name="tiger3",
+        nodes=2,
+        cores_per_node=112,
+        memory_per_node=64 * 1024,  # in MB
+    )
+    planner._num_oper = [1, 2, 3, 4]
+    est_plan, _ = planner._calculate_plan()
+
+    assert est_plan == actual_plan
+
+
+@mock.patch.object(HeftPlanner, "__init__", return_value=None)
 def test_get_max_ncores(mocked_init):
     """Test that _get_max_ncores returns the maximum CPU requirement."""
     planner = HeftPlanner(None, None, None)
