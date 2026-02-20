@@ -11,7 +11,10 @@ from socm.workflows.ml_null_tests import NullTestWorkflow
 
 class WaferNullTestWorkflow(NullTestWorkflow):
     """
-    A workflow for time null tests.
+    A workflow for wafer null tests.
+
+    Splits observations by wafer slot and creates time-interleaved splits
+    for each wafer.
     """
 
     chunk_nobs: Optional[int] = None
@@ -93,7 +96,19 @@ class WaferNullTestWorkflow(NullTestWorkflow):
         self, ctx: Context, obs_info: Dict[str, Dict[str, Union[float, str]]]
     ) -> Dict[str, List[str]]:
         """
-        Distribute the observations across splits based on the context and observation IDs.
+        Split observations by wafer slot with time-interleaved chunks.
+
+        Parameters
+        ----------
+        ctx : Context
+            The sotodlib Context object.
+        obs_info : dict
+            A mapping of observation IDs to their metadata.
+
+        Returns
+        -------
+        dict
+            A mapping of wafer slot names to lists of observation splits.
         """
         # Find the obs with the most wafers.
         # For each wafer do the same as the time null test.
@@ -144,7 +159,18 @@ class WaferNullTestWorkflow(NullTestWorkflow):
     @classmethod
     def get_workflows(cls, desc=None) -> List[NullTestWorkflow]:
         """
-        Create a list of NullTestWorkflows instances from the provided descriptions.
+        Create NullTestWorkflow instances for each wafer and split.
+
+        Parameters
+        ----------
+        desc : dict, optional
+            The workflow configuration dictionary.
+
+        Returns
+        -------
+        list of NullTestWorkflow
+            One workflow per wafer-split combination, following the naming
+            convention: wafer_{wafer}_split_{idx}_null_test_workflow.
         """
 
         wafer_workflow = cls(**desc)

@@ -4,7 +4,14 @@ from socm.execs import SUBCOMMANDS
 
 
 def get_parser() -> ArgumentParser:
-    """Create and return the argument parser for the SO campaign."""
+    """
+    Create the top-level argument parser for the SO campaign manager CLI.
+
+    Returns
+    -------
+    ArgumentParser
+        The configured argument parser with registered subcommands.
+    """
     parser = ArgumentParser(description="Run the SO campaign.")
     # Make sure all args here are redirected to vars starting with
     # '_'.  We are going to clean those off before passing to the
@@ -19,6 +26,7 @@ def get_parser() -> ArgumentParser:
 
 
 def main() -> None:
+    """Parse CLI arguments and dispatch to the appropriate subcommand."""
     parser = get_parser()
     args = parser.parse_args()
 

@@ -1,16 +1,14 @@
+from unittest import mock
+from unittest.mock import MagicMock
+
 import humanfriendly
 import numpy as np
 import pytest
-import radical.utils as ru
 
-from socm.core import QosPolicy, Resource, Workflow
+from socm.core import DAG, Campaign, QosPolicy, Resource, Workflow
 from socm.planner import HeftPlanner, PlanEntry
 from socm.resources import TigerResource
 
-try:
-    import mock
-except ImportError:
-    from unittest import mock
 
 def compare_entries(expected_entry: PlanEntry, test_entry: PlanEntry) -> bool:
     assert expected_entry.workflow == test_entry.workflow
@@ -24,15 +22,12 @@ def compare_entries(expected_entry: PlanEntry, test_entry: PlanEntry) -> bool:
 @mock.patch.object(HeftPlanner, "__init__", return_value=None)
 def test_plan(mocked_init):
     # Create Workflow objects for the campaign
-    workflows = [
-        Workflow(
+    dag = DAG()
+    for i in range(8):
+        dag.add_workflow(Workflow(
             name=f"W{i+1}", executable="exe", context="ctx", subcommand="sub", id=i + 1
-        )
-        for i in range(10)
-    ]
-    # Map workflow names to objects for easy lookup
-    {wf.name: wf for wf in workflows}
-
+        ))
+    campaign = Campaign(id=0, workflows=dag, deadline= "50d")
     actual_plan = [
         PlanEntry(workflow=Workflow(name="W1", executable="exe", context="ctx", subcommand="sub", id=1, environment=None, resources=None), cores=range(64, 128), memory=2000, start_time=0, end_time=45),
         PlanEntry(workflow=Workflow(name="W2", executable="exe", context="ctx", subcommand="sub", id=2, environment=None, resources=None), cores=range(128, 144), memory=15000, start_time=0, end_time=25),
@@ -44,28 +39,28 @@ def test_plan(mocked_init):
         PlanEntry(workflow=Workflow(name="W8", executable="exe", context="ctx", subcommand="sub", id=8, environment=None, resources=None), cores=range(32, 64), memory=1000, start_time=0, end_time=30),
     ]
     planner = HeftPlanner(None, None, None)
-    planner._logger = ru.Logger("dummy")
+    planner._logger = MagicMock()
     planner._estimated_memory = list()
 
     planner._resource_requirements = {
-        "W1": {"req_cpus": 64, "req_memory": 2000, "req_walltime": 45},
-        "W2": {"req_cpus": 16, "req_memory": 15000, "req_walltime": 25},
-        "W3": {"req_cpus": 1, "req_memory": 2000, "req_walltime": 560},
-        "W4": {"req_cpus": 8, "req_memory": 32000, "req_walltime": 140},
-        "W5": {"req_cpus": 8, "req_memory": 1000, "req_walltime": 145},
-        "W6": {"req_cpus": 112, "req_memory": 20000, "req_walltime": 10},
-        "W7": {"req_cpus": 56, "req_memory": 6000, "req_walltime": 20},
-        "W8": {"req_cpus": 32, "req_memory": 1000, "req_walltime": 30},
+        1: {"req_cpus": 64, "req_memory": 2000, "req_walltime": 45},
+        2: {"req_cpus": 16, "req_memory": 15000, "req_walltime": 25},
+        3: {"req_cpus": 1, "req_memory": 2000, "req_walltime": 560},
+        4: {"req_cpus": 8, "req_memory": 32000, "req_walltime": 140},
+        5: {"req_cpus": 8, "req_memory": 1000, "req_walltime": 145},
+        6: {"req_cpus": 112, "req_memory": 20000, "req_walltime": 10},
+        7: {"req_cpus": 56, "req_memory": 6000, "req_walltime": 20},
+        8: {"req_cpus": 32, "req_memory": 1000, "req_walltime": 30},
     }
 
-    planner._campaign = workflows
+    planner._campaign = campaign
     planner._resources = Resource(
         name="tiger3",
         nodes=2,
         cores_per_node=112,
         memory_per_node=64 * 1024,  # in MB
     )
-    planner._num_oper = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+    planner._num_oper = [1, 2, 3, 4, 5, 6, 7, 8]
     est_plan, _ = planner._calculate_plan()
 
     assert est_plan == actual_plan
@@ -93,6 +88,10 @@ def test_failing_plan(mocked_init):
         Workflow(name="direction_setting_split_4_null_test_workflow", executable="so-site-pipeline", context="file:///context.yaml", subcommand="make-ml-map", id=17, environment={}, resources={"ranks": 224, "threads": 8, "memory": 16000000, "runtime": 12000}, area="file:///geometry.fits", output_dir="/direction_setting_split_4", query="file://query.txt", datasize=616619872, comps="TQU", wafers=None, bands="f090", nmat="corr", max_dets=None, site="act", downsample=1, maxiter=100, tiled=1, chunk_nobs=1, chunk_duration=None, nsplits=4, wafer="ws0"),
     ]
 
+    dag = DAG()
+    for workflow in workflows:
+        dag.add_workflow(workflow)
+    campaign = Campaign(id=0, workflows=dag, deadline= "50d")
     actual_plan = [
         PlanEntry(workflow=Workflow( name="ml_mapmaking_workflow", executable="so-site-pipeline", context="file:///context.yaml", subcommand="make-ml-map", id=1, environment={}, resources={"ranks": 896,"threads": 8,"memory": 64000000,"runtime": 12000,}, area="file:///geometry.fits", output_dir="/output", query="file://obslist_balanced.txt", datasize=5230991388, comps="TQU", wafers=None, bands="f090", nmat="corr", max_dets=None, site="act", downsample=1, maxiter=100, tiled=1, wafer="ws0", ), cores=range(0, 7168), memory=64000000, start_time=0, end_time=13200,),
         PlanEntry(workflow=Workflow( name="mission_split_1_null_test_workflow", executable="so-site-pipeline", context="file:///context.yaml", subcommand="make-ml-map", id=2, environment={}, resources={ "ranks": 224, "threads": 8, "memory": 16000000, "runtime": 12000, }, area="file:///geometry.fits", output_dir="/mission_split_1", query="file://query.txt", datasize=1311130012, comps="TQU", wafers=None, bands="f090", nmat="corr", max_dets=None, site="act", downsample=1, maxiter=100, tiled=1, chunk_nobs=1, chunk_duration=None, nsplits=4, wafer="ws0", ), cores=range(0, 1792), memory=16000000, start_time=13200, end_time=26400),
@@ -114,7 +113,7 @@ def test_failing_plan(mocked_init):
     ]
 
     planner = HeftPlanner(None, None, None)
-    planner._logger = ru.Logger("dummy")
+    planner._logger = MagicMock()
     planner._estimated_memory = list()
 
     planner._resource_requirements = {
@@ -137,7 +136,7 @@ def test_failing_plan(mocked_init):
         17: {"req_cpus": 1792, "req_memory": 16000000, "req_walltime": 13200.000000000002},
     }
 
-    planner._campaign = workflows
+    planner._campaign = campaign
     planner._resources = Resource(
         name="tiger3",
         nodes=64,
@@ -151,6 +150,54 @@ def test_failing_plan(mocked_init):
 
 
 # New test cases for helper methods
+@mock.patch.object(HeftPlanner, "__init__", return_value=None)
+def test_plan_with_dag_dependencies(mocked_init):
+    """Test that the planner schedules dependent workflows after their predecessors."""
+    dag = DAG()
+    for w in [
+        Workflow(name="W1", executable="exe", context="ctx", subcommand="sub", id=1),
+        Workflow(name="W2", executable="exe", context="ctx", subcommand="sub", id=2),
+        Workflow(name="W3", executable="exe", context="ctx", subcommand="sub", id=3),
+        Workflow(name="W4", executable="exe", context="ctx", subcommand="sub", id=4),
+    ]:
+        dag.add_workflow(w)
+    dag.add_dependency(parent_id=1, child_id=2)
+    dag.add_dependency(parent_id=1, child_id=3)
+
+    campaign = Campaign(id=0, workflows=dag, deadline="50d")
+
+
+    actual_plan = [
+        PlanEntry(workflow=Workflow(name="W1", executable="exe", context="ctx", subcommand="sub", id=1), cores=range(0, 224), memory=2000, start_time=0, end_time=45),
+        PlanEntry(workflow=Workflow(name="W2", executable="exe", context="ctx", subcommand="sub", id=2), cores=range(112, 224), memory=2000, start_time=45, end_time=75),
+        PlanEntry(workflow=Workflow(name="W3", executable="exe", context="ctx", subcommand="sub", id=3), cores=range(0, 112), memory=2000, start_time=70, end_time=90),
+        PlanEntry(workflow=Workflow(name="W4", executable="exe", context="ctx", subcommand="sub", id=4), cores=range(0, 112), memory=2000, start_time=45, end_time=70),
+    ]
+
+    planner = HeftPlanner(None, None, None)
+    planner._logger = MagicMock()
+    planner._estimated_memory = list
+
+    planner._resource_requirements = {
+        1: {"req_cpus": 224, "req_memory": 2000, "req_walltime": 45},
+        2: {"req_cpus": 112, "req_memory": 2000, "req_walltime": 30},
+        3: {"req_cpus": 112, "req_memory": 2000, "req_walltime": 20},
+        4: {"req_cpus": 112, "req_memory": 2000, "req_walltime": 25},
+    }
+
+    planner._campaign = campaign
+    planner._resources = Resource(
+        name="tiger3",
+        nodes=2,
+        cores_per_node=112,
+        memory_per_node=64 * 1024,  # in MB
+    )
+    planner._num_oper = [1, 2, 3, 4]
+    est_plan, _ = planner._calculate_plan()
+
+    assert est_plan == actual_plan
+
+
 @mock.patch.object(HeftPlanner, "__init__", return_value=None)
 def test_get_max_ncores(mocked_init):
     """Test that _get_max_ncores returns the maximum CPU requirement."""
@@ -176,11 +223,11 @@ def test_initialize_resource_estimates(mocked_init):
         2: {"req_cpus": 16, "req_memory": 15000, "req_walltime": 25},
     }
 
-    planner._initialize_resource_estimates(resource_requirements)
+    requirements = planner._initialize_resource_estimates(resource_requirements, widxs=[1,2])
 
-    assert planner._estimated_walltime == [45, 25]
-    assert planner._estimated_cpus == [64, 16]
-    assert planner._estimated_memory == [2000, 15000]
+    assert requirements["estimated_walltime"] == [45, 25]
+    assert requirements["estimated_cpus"] == [64, 16]
+    assert requirements["estimated_memory"] == [2000, 15000]
 
 
 @mock.patch.object(HeftPlanner, "__init__", return_value=None)
@@ -189,7 +236,7 @@ def test_get_sorted_workflow_indices(mocked_init):
     planner = HeftPlanner(None, None, None)
     planner._estimated_walltime = [45, 25, 560, 140, 145]
 
-    sorted_indices = planner._get_sorted_workflow_indices()
+    sorted_indices = planner._get_sorted_workflow_indices(planner._estimated_walltime)
 
     # Should be sorted in descending order: 560, 145, 140, 45, 25
     assert sorted_indices == [2, 4, 3, 0, 1]
@@ -277,4 +324,3 @@ def test_find_suitable_qos_policies_basic(mocked_init):
     assert suitable == QosPolicy(name="long", max_walltime=240, max_jobs=10, max_cores=400)
     with pytest.raises(ValueError):
         planner._find_suitable_qos_policies(requested_cores=410)
-

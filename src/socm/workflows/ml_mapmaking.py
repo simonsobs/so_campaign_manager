@@ -37,7 +37,7 @@ class MLMapmakingWorkflow(Workflow):
 
     def model_post_init(self, __context: Any) -> None:
         """
-        Post-initialization to set the context for the workflow.
+        Post-initialization to load observation context and compute total data size.
         """
         ctx_file = Path(self.context.split("file://")[-1]).absolute()
         ctx = _load_context(str(ctx_file))
@@ -52,7 +52,12 @@ class MLMapmakingWorkflow(Workflow):
 
     def get_command(self) -> str:
         """
-        Get the command to run the ML mapmaking workflow.
+        Get the full shell command to run the ML mapmaking workflow.
+
+        Returns
+        -------
+        str
+            The complete srun command string with arguments.
         """
         command = f"srun --cpu_bind=cores --export=ALL --ntasks-per-node={self.resources['ranks']} --cpus-per-task={self.resources['threads']} {self.executable} {self.subcommand} "
         command += " ".join(self.get_arguments())
@@ -61,7 +66,12 @@ class MLMapmakingWorkflow(Workflow):
 
     def get_arguments(self) -> List[str]:
         """
-        Get the command to run the ML mapmaking workflow.
+        Get the list of command-line arguments for the ML mapmaking workflow.
+
+        Returns
+        -------
+        list of str
+            The positional and keyword arguments for the workflow command.
         """
         area = Path(self.area.split("file://")[-1])
         final_query = self.query
@@ -98,7 +108,17 @@ class MLMapmakingWorkflow(Workflow):
         cls, descriptions: Union[List[dict], dict]
     ) -> List["MLMapmakingWorkflow"]:
         """
-        Create a list of MLMapmakingWorkflow instances from the provided descriptions.
+        Create MLMapmakingWorkflow instances from configuration descriptions.
+
+        Parameters
+        ----------
+        descriptions : dict or list of dict
+            One or more workflow configuration dictionaries.
+
+        Returns
+        -------
+        list of MLMapmakingWorkflow
+            The instantiated workflow objects.
         """
         if isinstance(descriptions, dict):
             descriptions = [descriptions]

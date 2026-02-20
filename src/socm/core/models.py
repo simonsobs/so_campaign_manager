@@ -2,13 +2,16 @@ from collections.abc import Iterable
 from numbers import Number
 from typing import TYPE_CHECKING, Dict, List, Optional, Tuple, Union, get_args, get_origin
 
-from pydantic import BaseModel, Field, PrivateAttr
+import networkx as nx
+from pydantic import BaseModel, ConfigDict, Field, PrivateAttr, field_validator
 
 if TYPE_CHECKING:
     from radical.pilot import TaskDescription
 
 
 class QosPolicy(BaseModel):
+    """SLURM Quality of Service policy defining job limits."""
+
     name: str
     max_walltime: Optional[int] = None  # in minutes
     max_jobs: Optional[int] = None
@@ -16,6 +19,8 @@ class QosPolicy(BaseModel):
 
 
 class Resource(BaseModel):
+    """HPC resource definition with node/core/memory specs and QoS policies."""
+
     name: str
     nodes: int
     cores_per_node: int
@@ -78,22 +83,40 @@ class Resource(BaseModel):
         return False
 
 class Workflow(BaseModel):
+    """
+    Base class for all workflow types.
+
+    Subclasses must implement ``get_command()`` and ``get_arguments()``
+    and be registered in ``registered_workflows`` to be usable in campaigns.
+    """
+
     name: str
-    executable: str
-    context: str
+    executable: str = ""
+    context: str = ""
     subcommand: str = ""
     id: Optional[int] = None
     environment: Optional[Dict[str, str]] = None
     resources: Optional[Dict[str, int | float]] = None
+    depends: List[str] = []
 
     model_config = {
         "extra": "allow",
     }
 
+    def __hash__(self):
+        return hash(self.id)
+
+    def __eq__(self, other):
+        if isinstance(other, Workflow):
+            return self.id == other.id
+        return NotImplemented
+
     def get_command(self, **kargs) -> str:
+        """Return the full shell command to execute this workflow."""
         raise NotImplementedError("This method should be implemented in subclasses")
 
     def get_arguments(self, **kargs) -> str:
+        """Return the command-line arguments for this workflow."""
         raise NotImplementedError("This method should be implemented in subclasses")
 
     def get_numeric_fields(self, avoid_attributes: List[str] | None = None) -> List[str]:
@@ -143,7 +166,10 @@ class Workflow(BaseModel):
                             numeric_fields.append(field_name)
 
         # Also check actual instance values for numeric fields not captured by annotations
-        for field_name, value in self.__dict__.items():
+        # Include model_extra for Pydantic v2 extra="allow" fields
+        extra = getattr(self, 'model_extra', None) or {}
+        all_attrs = {**self.__dict__, **extra}
+        for field_name, value in all_attrs.items():
             if field_name not in numeric_fields and field_name not in avoid_attributes:
                 if isinstance(value, Number):
                     numeric_fields.append(field_name)
@@ -202,13 +228,16 @@ class Workflow(BaseModel):
                         if isinstance(element_type, type) and issubclass(element_type, str):
                             categorical_fields.append(field_name)
 
-        # Also check actual instance values for numeric fields not captured by annotations
-        for field_name, value in self.__dict__.items():
+        # Also check actual instance values for categorical fields not captured by annotations
+        # Include model_extra for Pydantic v2 extra="allow" fields
+        extra = getattr(self, 'model_extra', None) or {}
+        all_attrs = {**self.__dict__, **extra}
+        for field_name, value in all_attrs.items():
             if field_name not in categorical_fields and field_name not in avoid_attributes:
                 if isinstance(value, str):
                     categorical_fields.append(field_name)
                 elif isinstance(value, Iterable) and not isinstance(value, (Number, bytes, dict)):
-                    # Check if all elements are numbers
+                    # Check if all elements are strings
                     try:
                         if all(isinstance(item, str) for item in value):
                             categorical_fields.append(field_name)
@@ -225,11 +254,87 @@ class Workflow(BaseModel):
         raise NotImplementedError("This method should be implemented in subclasses")
 
 
+class DAG(BaseModel):
+    """Directed acyclic graph of workflows with dependency edges."""
+
+    model_config = ConfigDict(arbitrary_types_allowed=True)
+    graph: nx.DiGraph = Field(default_factory=nx.DiGraph)
+
+    def add_workflow(self, workflow: Workflow):
+        """Add a workflow as a node in the DAG."""
+        self.graph.add_node(workflow.id, workflow=workflow)
+
+    def add_dependency(self, parent_id: int, child_id: int):
+        """Add a dependency edge from parent workflow to child workflow."""
+        self.graph.add_edge(parent_id, child_id)
+
+    @property
+    def workflows(self) -> List[Workflow]:
+        """Return workflows in topological order."""
+        return [self.graph.nodes[n]["workflow"] for n in nx.topological_sort(self.graph)]
+
+    @property
+    def levels(self) -> List[List[Workflow]]:
+        """Return workflows grouped by dependency level (generation).
+
+        Each level contains workflows whose dependencies are all satisfied
+        by previous levels, and can therefore be executed in parallel.
+        """
+        return [
+            [self.graph.nodes[n]["workflow"] for n in generation]
+            for generation in nx.topological_generations(self.graph)
+        ]
+
+    def __iter__(self):
+        return iter(self.workflows)
+
+    def get_id_by_name(self, workflow_name: str) -> int | None:
+        """Get the name of a Workflow based on its name"""
+        for workflow in self.workflows:
+            if workflow.name == workflow_name:
+                return workflow.id
+
+        return None
+
+    def __len__(self):
+        return self.graph.number_of_nodes()
+
+    def __getitem__(self, idx):
+        return self.workflows[idx]
+
+    def __repr__(self):
+        return f"DAG({self.workflows})"
+
+
 class Campaign(BaseModel):
+    """
+    A collection of workflows to be executed as a single campaign.
+
+    Contains the workflow DAG, scheduling policy, target resource,
+    and deadline constraints.
+    """
+
+    model_config = ConfigDict(arbitrary_types_allowed=True)
     id: int
-    workflows: List[Workflow]
+    workflows: DAG
     deadline: str
     target_resource: str = "tiger3"
     campaign_policy: str = "time"
     execution_schema: str = "batch"
     requested_resources: int = 0
+
+    @field_validator("workflows", mode="before")
+    @classmethod
+    def validate_workflows(cls, v):
+        if isinstance(v, list):
+            dag = DAG()
+            for w in v:
+                dag.add_workflow(w)
+            name_to_id = {w.name: w.id for w in v}
+            for w in v:
+                if w.depends:
+                    for dep_name in w.depends:
+                        if dep_name in name_to_id:
+                            dag.add_dependency(name_to_id[dep_name], w.id)
+            return dag
+        return v

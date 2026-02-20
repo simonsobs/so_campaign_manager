@@ -1,7 +1,41 @@
+import sys
 from pathlib import Path
 from unittest import mock
+from unittest.mock import MagicMock
 
 import pytest
+
+# ---------------------------------------------------------------------------
+# Mock the radical.* package hierarchy so tests can run on machines where
+# radical-utils / radical-pilot cannot be installed (e.g. macOS, due to the
+# netifaces dependency).  The mocks are inserted into sys.modules *before*
+# any test module is collected, which means every ``import radical.utils``
+# or ``import radical.pilot`` in the source tree will resolve to a Mock.
+# ---------------------------------------------------------------------------
+if "radical" not in sys.modules:
+    _radical = MagicMock()
+
+    # radical.utils helpers used at import-time in source modules
+    _radical.utils.generate_id.return_value = "mock.0000"
+    _radical.utils.ID_CUSTOM = 1
+    _radical.utils.ID_PRIVATE = 2
+    _radical.utils.Logger.return_value = MagicMock()
+    _radical.utils.Profiler.return_value = MagicMock()
+    _radical.utils.RLock.return_value = MagicMock()
+
+    sys.modules["radical"] = _radical
+    sys.modules["radical.utils"] = _radical.utils
+    sys.modules["radical.pilot"] = _radical.pilot
+
+# Also mock slurmise if not available (another HPC-only dependency).
+if "slurmise" not in sys.modules:
+    _slurmise = MagicMock()
+    sys.modules["slurmise"] = _slurmise
+    sys.modules["slurmise.api"] = _slurmise.api
+    sys.modules["slurmise.job_data"] = _slurmise.job_data
+    sys.modules["slurmise.job_parse"] = _slurmise.job_parse
+    sys.modules["slurmise.job_parse.file_parsers"] = _slurmise.job_parse.file_parsers
+    sys.modules["slurmise.slurm"] = _slurmise.slurm
 
 
 @pytest.fixture

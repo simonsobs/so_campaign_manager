@@ -1,0 +1,120 @@
+paramfile: &paramfile PSpipe/project/SO/pISO/paramfiles/dr6xdeep56_20251119.dict
+
+campaign:
+  deadline : 24h
+  resource : tiger3
+  execution_schema : remote
+  requested_resources : 3359
+
+stages:
+  extract_act:
+    executable: python -u
+    script: PSpipe/project/SO/pISO/python/act/extract_act.py
+    script-args:
+      - *paramfile
+    depends: null
+    resources:
+      memory: 48G
+      ranks: 1
+      threads: 4
+      runtime: 10m
+
+  get_gaussian_beams:
+    executable: python -u
+    script: PSpipe/project/SO/pISO/python/beams/get_gaussian_beams.py
+    script-args:
+      - *paramfile
+    depends: null
+    resources:
+      memory: 48G
+      ranks: 1
+      threads: 4
+      runtime: 10m
+
+  get_xtra_mask:
+    executable: python -u
+    script: PSpipe/project/SO/pISO/python/masks/get_xtra_mask.py
+    script-args:
+      - *paramfile
+    resources:
+      memory: 48G
+      ranks: 1
+      threads: 4
+      runtime: 10m
+    depends: null
+    resources:
+      memory: 48G
+      ranks: 1
+      threads: 4
+      runtime: 10m
+
+  get_windows:
+    executable: python -u
+    script: PSpipe/project/SO/pISO/python/masks/get_windows.py
+    script-args:
+    - *paramfile
+    resources:
+      memory: 72G
+      ranks: 1
+      threads: 10
+      runtime: 10m
+    depends:
+      - get_xtra_mask
+
+  get_best_fit_mflike:
+    executable: python -u
+    script: PSpipe/project/SO/pISO/python/get_best_fit_mflike.py
+    script-args:
+    - *paramfile
+    depends: null
+    resources:
+      memory: 48G
+      ranks: 1
+      threads: 4
+      runtime: 10m
+
+  get_mcm_bbl_and_pseudosignal:
+    executable: python -u
+    script: PSpipe/project/SO/pISO python/get_mcm_bbl_and_pseudosignal.py
+    script-args:
+    - *paramfile
+    resources:
+      ranks: 14
+      threads: 8
+      memory: 8G
+      runtime: 10m
+    depends:
+    - get_windows
+    - get_best_fit_mflike
+
+  get_pseudo2datavec:
+    executable: python -u
+    script: PSpipe/project/SO/pISO/python/get_pseudo2datavec.py
+    script-args:
+    - *paramfile
+    resources:
+      ranks: 1
+      threads: 2
+      memory: 8G
+      runtime: 15m
+    depends:
+    - get_mcm_bbl_and_pseudosignal
+
+  get_spectra_from_maps:
+    executable: python -u
+    script: PSpipe/project/SO/pISO/python/get_spectra_from_maps.py
+    script-args:
+    - *paramfile
+    script-kwargs:
+      start: 0
+      stop: 10
+    script-flags:
+    - simulate-syst
+    - simulate-lens
+    resources:
+      ranks: 17
+      memory: 600G
+      threads: 4
+      runtime: 15m
+    depends:
+    - get_pseudo2datavec

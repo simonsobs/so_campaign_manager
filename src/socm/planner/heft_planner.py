@@ -3,7 +3,7 @@ from typing import Dict, List, Tuple
 import networkx as nx
 import numpy as np
 
-from ..core import Campaign, QosPolicy, Resource, Workflow
+from ..core import DAG, Campaign, QosPolicy, Resource
 from .base import PlanEntry, Planner
 
 
@@ -82,7 +82,7 @@ class HeftPlanner(Planner):
 
     def _binary_search_resources(
         self,
-        campaign: List[Workflow],
+        campaign: DAG,
         resource_requirements: Dict[int, Dict[str, float]],
         lower_bound: int,
         upper_bound: int
@@ -123,7 +123,7 @@ class HeftPlanner(Planner):
 
     def _plan_with_qos_optimization(
         self,
-        campaign: List[Workflow],
+        campaign: DAG,
         resource_requirements: Dict[int, Dict[str, float]],
         requested_resources: int,
     ) -> Tuple[List[PlanEntry], nx.DiGraph, str, int]:
@@ -193,7 +193,7 @@ class HeftPlanner(Planner):
 
     def plan(
         self,
-        campaign: List[Workflow] | None = None,
+        campaign: DAG | None = None,
         resource_requirements: Dict[int, Dict[str, float]] | None = None,
         execution_schema: str | None = None,
         requested_resources: int | None = None
@@ -206,10 +206,10 @@ class HeftPlanner(Planner):
 
         Parameters
         ----------
-        campaign : List[Workflow] | None
-            The campaign workflows to plan
+        campaign : DAG | None
+            The campaign DAG to plan
         resource_requirements : Dict[int, Dict[str, float]] | None
-            Resource requirements for each workflow
+            Per-workflow resource requirements keyed by workflow ID.
         execution_schema : str | None
             'batch' for fixed resources, 'remote' for optimized allocation
         requested_resources : int | None
@@ -230,7 +230,7 @@ class HeftPlanner(Planner):
 
     def _plan_batch_mode(
         self,
-        campaign: List[Workflow],
+        campaign: DAG,
         resource_requirements: Dict[int, Dict[str, float]],
         requested_resources: int
     ) -> Tuple[List[PlanEntry], nx.DiGraph, None, int]:
@@ -243,20 +243,22 @@ class HeftPlanner(Planner):
         self._logger.info(f"Plan to execute {plan} with {requested_resources} cores")
         return plan, plan_graph, None, requested_resources
 
-    def _initialize_resource_estimates(
-        self, resource_requirements: Dict[int, Dict[str, float]]
-    ) -> None:
+    def _initialize_resource_estimates(self, resource_requirements: Dict[int, Dict[str, float]], widxs: List[int]
+    ) -> Dict[str, List[float]]:
         """Extract and store resource requirement estimates from workflows."""
-        self._estimated_walltime = []
-        self._estimated_cpus = []
-        self._estimated_memory = []
+        estimated_walltime = []
+        estimated_cpus = []
+        estimated_memory = []
 
-        for resource_req in resource_requirements.values():
-            self._estimated_walltime.append(resource_req["req_walltime"])
-            self._estimated_cpus.append(resource_req["req_cpus"])
-            self._estimated_memory.append(resource_req["req_memory"])
+        for widx in widxs:
+            estimated_walltime.append(resource_requirements[widx]["req_walltime"])
+            estimated_cpus.append(resource_requirements[widx]["req_cpus"])
+            estimated_memory.append(resource_requirements[widx]["req_memory"])
+        return {"estimated_walltime" : estimated_walltime,
+                "estimated_cpus" : estimated_cpus,
+                "estimated_memory" : estimated_memory}
 
-    def _get_sorted_workflow_indices(self) -> List[int]:
+    def _get_sorted_workflow_indices(self, estimated_walltime: List[float]) -> List[int]:
         """Get workflow indices sorted by execution time (longest first).
 
         Returns:
@@ -264,7 +266,7 @@ class HeftPlanner(Planner):
         """
         return [
             idx for idx, _ in sorted(
-                enumerate(self._estimated_walltime),
+                enumerate(estimated_walltime),
                 key=lambda x: x[1],
                 reverse=True
             )
@@ -292,8 +294,10 @@ class HeftPlanner(Planner):
     def _find_best_resource_slot(
         self,
         workflow_idx: int,
+        resource_requirements: Dict[str, List[float]],
         resources: range,
-        resource_free: np.ndarray
+        resource_free: np.ndarray,
+        earlier_start: float
     ) -> Tuple[int, float]:
         """Find the best resource slot for a workflow.
 
@@ -305,9 +309,9 @@ class HeftPlanner(Planner):
         Returns:
             Tuple of (best_core_index, earliest_start_time)
         """
-        walltime = self._estimated_walltime[workflow_idx]
-        memory_required = self._estimated_memory[workflow_idx]
-        cpus_required = self._estimated_cpus[workflow_idx]
+        walltime = resource_requirements["estimated_walltime"][workflow_idx]
+        memory_required = resource_requirements["estimated_memory"][workflow_idx]
+        cpus_required = resource_requirements["estimated_cpus"][workflow_idx]
 
         min_end_time = float("inf")
         best_core_idx = 0
@@ -341,7 +345,7 @@ class HeftPlanner(Planner):
 
     def _calculate_plan(
         self,
-        campaign: List[Workflow] | None = None,
+        campaign: DAG | None = None,
         resources: range | None = None,
         resource_requirements: Dict[int, Dict[str, float]] | None = None,
         start_time: float = 0.0,
@@ -349,7 +353,7 @@ class HeftPlanner(Planner):
         """Implement the core HEFT scheduling algorithm.
 
         Args:
-            campaign: List of workflows to schedule
+            campaign: DAG of workflows to schedule
             resources: Available resource cores
             resource_requirements: Resource needs for each workflow
             start_time: Initial time or per-core availability times
@@ -358,49 +362,57 @@ class HeftPlanner(Planner):
             Tuple of (execution_plan, dependency_graph)
         """
         # Use provided parameters or fall back to instance attributes
-        workflows = campaign if campaign else self._campaign
+
+        workflow_levels = campaign.levels if campaign else self._campaign.workflows.levels
+
         cores = (
             resources
             if resources
             else range(self._resources.nodes * self._resources.cores_per_node)
         )
-        requirements = resource_requirements if resource_requirements else self._resource_requirements
-
-        # Initialize estimation tables
-        self._initialize_resource_estimates(requirements)
-
+        resource_requirements = resource_requirements if resource_requirements else self._resource_requirements
         # Reset plan for fresh scheduling
         self._plan: List[PlanEntry] = []
-
-        # Sort workflows by execution time (longest first)
-        sorted_indices = self._get_sorted_workflow_indices()
 
         # Track when each core becomes available
         resource_free = self._initialize_resource_free_times(cores, start_time)
 
-        # Schedule each workflow
-        for workflow_idx in sorted_indices:
-            best_core_idx, start_time_actual = self._find_best_resource_slot(
-                workflow_idx, cores, resource_free
-            )
+        for workflows in workflow_levels:
+            requirements = self._initialize_resource_estimates(resource_requirements=resource_requirements,
+                                                widxs=[w.id for w in workflows])
 
-            cpus_required = self._estimated_cpus[workflow_idx]
-            walltime = self._estimated_walltime[workflow_idx]
-            memory_required = self._estimated_memory[workflow_idx]
-            core_slice = slice(best_core_idx, best_core_idx + cpus_required)
+            # Sort workflows by execution time (longest first)
+            sorted_indices = self._get_sorted_workflow_indices(estimated_walltime=requirements["estimated_walltime"])
 
-            # Create plan entry
-            plan_entry = PlanEntry(
-                workflow=workflows[workflow_idx],
-                cores=cores[core_slice],
-                memory=memory_required,
-                start_time=start_time_actual,
-                end_time=start_time_actual + walltime
-            )
-            self._plan.append(plan_entry)
+            # Schedule each workflow
+            for workflow_idx in sorted_indices:
+                workflow = workflows[workflow_idx]
+                earliest_start = 0
+                if workflow.depends:
+                    for entry in self._plan:
+                        if entry.workflow.name in workflow.depends:
+                            earliest_start = max(earliest_start, entry.end_time)
+                best_core_idx, start_time_actual = self._find_best_resource_slot(
+                    workflow_idx, requirements, cores, resource_free, earlier_start=earliest_start
+                )
 
-            # Update resource availability
-            resource_free[core_slice] = start_time_actual + walltime
+                walltime = requirements["estimated_walltime"][workflow_idx]
+                memory_required = requirements["estimated_memory"][workflow_idx]
+                cpus_required = requirements["estimated_cpus"][workflow_idx]
+                core_slice = slice(best_core_idx, best_core_idx + cpus_required)
+
+                # Create plan entry
+                plan_entry = PlanEntry(
+                    workflow=workflows[workflow_idx],
+                    cores=cores[core_slice],
+                    memory=memory_required,
+                    start_time=start_time_actual,
+                    end_time=start_time_actual + walltime
+                )
+                self._plan.append(plan_entry)
+
+                # Update resource availability
+                resource_free[core_slice] = start_time_actual + walltime
 
         # Build dependency graph
         plan_graph = self._get_plan_graph(self._plan, cores)
@@ -411,9 +423,10 @@ class HeftPlanner(Planner):
 
         return self._plan, plan_graph
 
+
     def replan(
         self,
-        campaign: List[Workflow] | None = None,
+        campaign: DAG | None = None,
         resources: range | None = None,
         resource_requirements: Dict[int, Dict[str, float]] | None = None,
         start_time: float = 0.0,

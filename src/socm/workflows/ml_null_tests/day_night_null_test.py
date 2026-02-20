@@ -28,18 +28,22 @@ class DayNightNullTestWorkflow(NullTestWorkflow):
         self, ctx: Context, obs_info: Dict[str, Dict[str, Union[float, str]]]
     ) -> Dict[str, List[List[str]]]:
         """
-        Distribute the observations across splits based on day/night.
+        Split observations based on day/night.
 
-        Groups observations by whether they were taken during the day or night and then
-        creates time-interleaved splits for each with nsplits=2.
+        Groups observations by whether they were taken during the day or
+        night and creates time-interleaved splits for each group.
 
-        Args:
-            ctx: Context object
-            obs_info: Dictionary mapping obs_id to observation metadata
+        Parameters
+        ----------
+        ctx : Context
+            The sotodlib Context object.
+        obs_info : dict
+            A mapping of observation IDs to their metadata.
 
-        Returns:
-            Dict mapping 'day' and 'night' to list of splits, where each split is a list
-            of obs_ids
+        Returns
+        -------
+        dict
+            A mapping of 'day' and 'night' to lists of observation splits.
         """
         if self.chunk_nobs is None and self.chunk_duration is None:
             raise ValueError("Either chunk_nobs or duration must be set.")
@@ -97,10 +101,18 @@ class DayNightNullTestWorkflow(NullTestWorkflow):
     @classmethod
     def get_workflows(cls, desc=None) -> List[NullTestWorkflow]:
         """
-        Create a list of NullTestWorkflows instances from the provided descriptions.
+        Create NullTestWorkflow instances for each day/night split.
 
-        Creates separate workflows for each direction split following the naming
-        convention: {setname} = direction_[rising,setting,middle]
+        Parameters
+        ----------
+        desc : dict, optional
+            The workflow configuration dictionary.
+
+        Returns
+        -------
+        list of NullTestWorkflow
+            One workflow per day/night-split combination, following the naming
+            convention: {day,night}_split_{idx}_null_test_workflow.
         """
         day_night_workflow = cls(**desc)
 
