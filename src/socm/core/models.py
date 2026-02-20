@@ -98,6 +98,7 @@ class Workflow(BaseModel):
     environment: Optional[Dict[str, str]] = None
     resources: Optional[Dict[str, int | float]] = None
     depends: List[str] = []
+
     model_config = {
         "extra": "allow",
     }
@@ -272,6 +273,17 @@ class DAG(BaseModel):
         """Return workflows in topological order."""
         return [self.graph.nodes[n]["workflow"] for n in nx.topological_sort(self.graph)]
 
+    @property
+    def levels(self) -> List[List[Workflow]]:
+        """Return workflows grouped by dependency level (generation).
+
+        Each level contains workflows whose dependencies are all satisfied
+        by previous levels, and can therefore be executed in parallel.
+        """
+        return [
+            [self.graph.nodes[n]["workflow"] for n in generation]
+            for generation in nx.topological_generations(self.graph)
+        ]
 
     def __iter__(self):
         return iter(self.workflows)

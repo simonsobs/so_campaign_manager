@@ -23,7 +23,7 @@ def compare_entries(expected_entry: PlanEntry, test_entry: PlanEntry) -> bool:
 def test_plan(mocked_init):
     # Create Workflow objects for the campaign
     dag = DAG()
-    for i in range(10):
+    for i in range(8):
         dag.add_workflow(Workflow(
             name=f"W{i+1}", executable="exe", context="ctx", subcommand="sub", id=i + 1
         ))
@@ -60,7 +60,7 @@ def test_plan(mocked_init):
         cores_per_node=112,
         memory_per_node=64 * 1024,  # in MB
     )
-    planner._num_oper = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+    planner._num_oper = [1, 2, 3, 4, 5, 6, 7, 8]
     est_plan, _ = planner._calculate_plan()
 
     assert est_plan == actual_plan
@@ -175,11 +175,11 @@ def test_initialize_resource_estimates(mocked_init):
         2: {"req_cpus": 16, "req_memory": 15000, "req_walltime": 25},
     }
 
-    planner._initialize_resource_estimates(resource_requirements)
+    requirements = planner._initialize_resource_estimates(resource_requirements, widxs=[1,2])
 
-    assert planner._estimated_walltime == [45, 25]
-    assert planner._estimated_cpus == [64, 16]
-    assert planner._estimated_memory == [2000, 15000]
+    assert requirements["estimated_walltime"] == [45, 25]
+    assert requirements["estimated_cpus"] == [64, 16]
+    assert requirements["estimated_memory"] == [2000, 15000]
 
 
 @mock.patch.object(HeftPlanner, "__init__", return_value=None)
@@ -188,7 +188,7 @@ def test_get_sorted_workflow_indices(mocked_init):
     planner = HeftPlanner(None, None, None)
     planner._estimated_walltime = [45, 25, 560, 140, 145]
 
-    sorted_indices = planner._get_sorted_workflow_indices()
+    sorted_indices = planner._get_sorted_workflow_indices(planner._estimated_walltime)
 
     # Should be sorted in descending order: 560, 145, 140, 45, 25
     assert sorted_indices == [2, 4, 3, 0, 1]

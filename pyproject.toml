@@ -103,8 +103,7 @@ dev = [
     "types-pytz",
     "types-toml",
     "types-mock",
-    "ipython",
-    "pygraphviz"
+    "ipython"
 ]
 docs = [
     "sphinx",

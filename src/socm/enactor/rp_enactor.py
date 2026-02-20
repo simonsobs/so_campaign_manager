@@ -6,7 +6,7 @@ from datetime import datetime
 from typing import Dict, List
 
 # Imports from dependent packages
-import numpy as np  # noqa: F401
+# import numpy as np  # noqa: F401
 import radical.pilot as rp
 import radical.utils as ru
 

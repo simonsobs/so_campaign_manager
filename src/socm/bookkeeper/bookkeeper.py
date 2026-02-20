@@ -37,7 +37,7 @@ class Bookkeeper(object):
         Scheduling policy passed to the HEFT planner.
     target_resource : str
         Name of the HPC resource (must be in ``registered_resources``).
-    deadline : int
+    deadline : float
         Maximum walltime (in minutes) for the entire campaign.
     dryrun : bool, optional
         If True, use a dry-run enactor instead of RADICAL-Pilot.
@@ -49,7 +49,7 @@ class Bookkeeper(object):
         campaign: Campaign,
         policy: str,
         target_resource: str,
-        deadline: int,
+        deadline: float,
         dryrun: bool = False,
     ):
         self._campaign = {"campaign": campaign, "state": States.NEW}

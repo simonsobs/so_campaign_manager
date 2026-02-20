@@ -3,7 +3,8 @@ from argparse import ArgumentParser, Namespace
 import humanfriendly
 import yaml
 
-from socm.core.models import DAG, Campaign, Workflow
+from socm.core.models import DAG, Campaign
+from socm.workflows import SpectraWorkflow
 
 
 def get_parser(parser: ArgumentParser) -> ArgumentParser:
@@ -49,7 +50,7 @@ def _main(args: Namespace) -> None:
     # Import here to avoid loading radical.pilot at CLI startup (not available on macOS)
     from socm.bookkeeper import Bookkeeper
 
-    with open('examples/dag.yml') as f:
+    with open(args.yaml) as f:
         config = yaml.safe_load(f)
 
     campaign_dag = DAG()
@@ -73,10 +74,10 @@ def _main(args: Namespace) -> None:
         for arg_name, arg_value in workflow_config.get('script-kwargs', {}).items():
             workflow_dict[arg_name] = arg_value
 
-        workflow = Workflow(**workflow_dict)
+        workflow = SpectraWorkflow(**workflow_dict)
 
         campaign_dag.add_workflow(workflow)
-        last_workflow_id += 2
+        last_workflow_id += 1
 
     for workflow in campaign_dag.workflows:
         for parent_workflow in workflow.depends:

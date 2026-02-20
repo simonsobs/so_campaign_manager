@@ -11,6 +11,7 @@ from socm.workflows.ml_null_tests import (  # noqa: F401
     WaferNullTestWorkflow,
 )
 from socm.workflows.sat_simulation import SATSimWorkflow  # noqa: F401
+from socm.workflows.spectra import SpectraWorkflow  # noqa: F401
 
 registered_workflows = {
     "ml-mapmaking": MLMapmakingWorkflow,
@@ -24,6 +25,7 @@ registered_workflows = {
     "ml-null-tests.elevation-tests": ElevationNullTestWorkflow,
     "ml-null-tests.sun-close-tests": SunCloseFarNullTestWorkflow,
     "ml-null-tests.moon-close-tests": MoonCloseFarNullTestWorkflow,
+    "power-spectra": SpectraWorkflow
 }
 
 subcampaign_map = {
