@@ -376,7 +376,6 @@ class HeftPlanner(Planner):
 
         # Track when each core becomes available
         resource_free = self._initialize_resource_free_times(cores, start_time)
-        print(resource_requirements)
 
         for workflows in workflow_levels:
             requirements = self._initialize_resource_estimates(resource_requirements=resource_requirements,
