@@ -17,6 +17,7 @@ jobs:
       - run: |
              uv sync --group dev
              uv run pytest -vvv tests/ --cov --cov-append
+             uv run coverage combine
       - uses: coverallsapp/github-action@v2
         with:
           file: .coverage
