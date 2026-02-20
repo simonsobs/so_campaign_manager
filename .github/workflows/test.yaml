@@ -16,7 +16,7 @@ jobs:
       - uses: astral-sh/setup-uv@v5
       - run: |
              uv sync --group dev
-             uv run pytest -vvv tests/ --cov --cov-append
+             uv run pytest -vvv tests/ --cov
       - name: Install coverage
         run: uv pip install coverage
       - name: Upload coverage report
