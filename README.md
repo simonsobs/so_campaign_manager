@@ -8,7 +8,7 @@
 
 ## SO Campaign Manager
 
-This repository holds the code of the software tools that will run the mapmaking campaign on Tiger 3.
+This repository holds the code of the software tools that will run the mapmaking campaign on So resources.
 
 The project has three big aspects:
 1. Providing a method to submit new workflows, update existing ones and delete via configuration or a series of commands

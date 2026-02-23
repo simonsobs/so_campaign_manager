@@ -10,7 +10,13 @@ Requirements
 Basic Installation
 ------------------
 
-Install SO Campaign Manager using pip:
+Install SO Campaign Manager using uv:
+
+.. code-block:: bash
+
+   uv add so_campaign_manager
+
+Or with pip:
 
 .. code-block:: bash
 
@@ -25,7 +31,7 @@ For development or to get the latest features, install from source:
 
    git clone https://github.com/simonsobs/so_campaign_manager.git
    cd so_campaign_manager
-   pip install -e .
+   uv sync
 
 Development Dependencies
 ------------------------
@@ -34,7 +40,7 @@ To install development dependencies for testing and documentation:
 
 .. code-block:: bash
 
-   pip install -e ".[dev]"
+   uv sync --group dev
 
 This installs additional packages needed for:
 

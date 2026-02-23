@@ -17,6 +17,7 @@ Welcome to the SO Campaign Manager documentation! This package provides a compre
 
    user_guide
    workflows
+   resources
    faq
 
 .. toctree::
@@ -81,6 +82,7 @@ Quick Navigation
 
 * :doc:`user_guide` - Comprehensive reference for all features
 * :doc:`workflows` - Available workflows and their configuration
+* :doc:`resources` - Supported HPC systems and QoS policies
 * :doc:`faq` - Frequently asked questions and troubleshooting
 
 **Advanced Users:**
