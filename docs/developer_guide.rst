@@ -16,25 +16,17 @@ Environment Setup
    git clone https://github.com/simonsobs/so_campaign_manager.git
    cd so_campaign_manager
 
-2. **Create a virtual environment:**
+2. **Install development dependencies:**
 
 .. code-block:: bash
 
-   python -m venv env
-   source env/bin/activate  # On Windows: env\Scripts\activate
+   uv sync --group dev
 
-3. **Install in development mode:**
-
-.. code-block:: bash
-
-   pip install -e ".[dev]"
-
-4. **Install pre-commit hooks (optional but recommended):**
+3. **Install pre-commit hooks (optional but recommended):**
 
 .. code-block:: bash
 
-   pip install pre-commit
-   pre-commit install
+   uv run pre-commit install
 
 Code Style and Quality
 ----------------------
@@ -48,7 +40,7 @@ All code must be PEP8 compliant. Use flake8 to check:
 
 .. code-block:: bash
 
-   flake8 src/socm tests/
+   uv run flake8 src/socm tests/
 
 Code Formatting (Optional)
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -58,10 +50,10 @@ We use ``darker`` for progressive code formatting:
 .. code-block:: bash
 
    # Check what would be changed
-   darker --diff -r origin/main src/socm -L flake8
+   uv run darker --diff -r origin/main src/socm -L flake8
 
    # Apply formatting
-   darker -r origin/main src/socm -L flake8
+   uv run darker -r origin/main src/socm -L flake8
 
 Project Structure
 -----------------
@@ -111,7 +103,6 @@ Branch Types
 * ``main``: Latest stable development (never commit directly)
 * ``feature/abc``: Development of new features
 * ``fix/abc_123``: Bug fixes (reference GitHub issue)
-* ``hotfix/abc_123``: Critical fixes for immediate release
 * ``tmp/abc``: Temporary branches (will be deleted)
 * ``test/abc``: Integration testing branches
 
@@ -132,9 +123,9 @@ Development Workflow
 
    # Make changes
    # Run tests
-   pytest tests/
+   uv run pytest tests/
    # Check code style
-   flake8 src/socm
+   uv run flake8 src/socm
 
 3. **Create pull request:**
    * Target ``main`` branch
@@ -174,16 +165,16 @@ Running Tests
 .. code-block:: bash
 
    # Run all tests
-   pytest
+   uv run pytest
 
    # Run with coverage
-   pytest --cov=socm
+   uv run pytest --cov=socm
 
    # Run specific test file
-   pytest tests/test_bookkeeper.py
+   uv run pytest tests/test_bookkeeper.py
 
    # Run with verbose output
-   pytest -v
+   uv run pytest -v
 
 Writing Tests
 ~~~~~~~~~~~~~
@@ -354,15 +345,11 @@ We use semantic versioning (MAJOR.MINOR.PATCH):
 Creating Releases
 ~~~~~~~~~~~~~~~~~
 
-1. **Update version** in ``pyproject.toml``
-2. **Update CHANGELOG** with release notes
-3. **Create release branch:**
+Releases are managed via GitHub. To create a new release:
 
-.. code-block:: bash
-
-   git checkout -b release/v1.2.3
-
-4. **Create tag and release** via GitHub
+1. **Go to the repository on GitHub** and navigate to *Releases*
+2. **Draft a new release**, setting the tag value (e.g. ``v1.2.3``) and providing release notes
+3. **Publish the release** — this triggers the CI pipeline which builds the package and publishes it to PyPI automatically
 
 Contributing Guidelines
 -----------------------
