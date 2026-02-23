@@ -28,7 +28,17 @@ Workflow Sections
 Each workflow type has its own section. Currently supported workflows:
 
 * ``ml-mapmaking`` - Maximum likelihood mapmaking
-* ``ml-null-tests`` - Null test analysis
+* ``sat-sims`` - SAT observation simulation
+* ``power-spectra`` - Power spectrum estimation (PSpipe)
+* ``ml-null-tests.mission-tests`` - Time-split null tests
+* ``ml-null-tests.wafer-tests`` - Detector wafer split null tests
+* ``ml-null-tests.direction-tests`` - Scan direction split null tests
+* ``ml-null-tests.pwv-tests`` - Precipitable water vapour split null tests
+* ``ml-null-tests.day-night-tests`` - Day/night split null tests
+* ``ml-null-tests.moonrise-set-tests`` - Moon rise/set split null tests
+* ``ml-null-tests.elevation-tests`` - Telescope elevation split null tests
+* ``ml-null-tests.sun-close-tests`` - Sun proximity split null tests
+* ``ml-null-tests.moon-close-tests`` - Moon proximity split null tests
 
 Example ML Mapmaking Configuration:
 
@@ -136,6 +146,97 @@ Statistical null tests for validating mapmaking results.
    [campaign.ml-null-tests.wafer-tests]
    chunk_nobs = 10  # Chunk size in days
    nsplits = 8      # Number of splits
+
+DAG-based Workflow Configuration
+---------------------------------
+
+In addition to TOML-based campaigns, SO Campaign Manager supports defining workflows as a
+Directed Acyclic Graph (DAG) using a YAML file. This is suited for pipeline-style workflows
+where stages have explicit dependencies on one another.
+
+DAG YAML Format
+~~~~~~~~~~~~~~~
+
+.. code-block:: yaml
+
+   paramfile: &paramfile /path/to/paramfile.dict
+
+   campaign:
+     deadline: 24h
+     resource: tiger3
+     execution_schema: remote
+     requested_resources: 3359
+
+   stages:
+     stage_one:
+       executable: python -u
+       script: /path/to/script_one.py
+       script-args:
+         - *paramfile
+       depends: null
+       resources:
+         memory: 48G
+         ranks: 1
+         threads: 4
+         runtime: 10m
+
+     stage_two:
+       executable: python -u
+       script: /path/to/script_two.py
+       script-args:
+         - *paramfile
+       depends:
+         - stage_one
+       resources:
+         ranks: 14
+         threads: 8
+         memory: 8G
+         runtime: 30m
+
+     stage_three:
+       executable: python -u
+       script: /path/to/script_three.py
+       script-kwargs:
+         start: 0
+         stop: 10
+       script-flags:
+         - simulate-syst
+       depends:
+         - stage_one
+         - stage_two
+       resources:
+         ranks: 17
+         memory: 600G
+         threads: 4
+         runtime: 15m
+
+Stage Fields
+~~~~~~~~~~~~
+
+* ``executable``: The interpreter or binary to run (e.g. ``python -u``)
+* ``script``: Path to the script to execute
+* ``script-args``: Positional arguments passed to the script (list)
+* ``script-kwargs``: Keyword arguments passed as ``--key=value`` flags (mapping)
+* ``script-flags``: Boolean flags passed as ``--flag`` (list)
+* ``depends``: List of stage names this stage depends on, or ``null`` for no dependencies
+* ``resources``: Per-stage resource requirements (``memory``, ``ranks``, ``threads``, ``runtime``)
+
+Dependency Resolution
+~~~~~~~~~~~~~~~~~~~~~
+
+Stages with ``depends: null`` are independent and can run immediately. Stages that list
+other stages under ``depends`` will only be scheduled after all their dependencies have
+completed successfully. The planner constructs the full DAG and uses HEFT scheduling to
+determine the optimal execution order.
+
+Running a DAG Campaign
+~~~~~~~~~~~~~~~~~~~~~~
+
+.. code-block:: bash
+
+   socm -t campaign.yaml
+
+An annotated example is available in the repository at ``examples/dag.yml``.
 
 Campaign Policies
 -----------------
