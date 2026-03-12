@@ -82,6 +82,18 @@ class Resource(BaseModel):
             return True
         return False
 
+class ResourceSpec(BaseModel):
+    ranks: int = 1
+    threads: int = 1
+    runtime: float = 60
+
+    model_config = {
+        "extra": "allow",
+    }
+
+    def __getitem__(self, item):
+        return getattr(self, item)
+
 class Workflow(BaseModel):
     """
     Base class for all workflow types.
@@ -96,7 +108,7 @@ class Workflow(BaseModel):
     subcommand: str = ""
     id: Optional[int] = None
     environment: Optional[Dict[str, str]] = None
-    resources: Optional[Dict[str, int | float]] = None
+    resources: ResourceSpec = Field(default_factory=ResourceSpec)
     depends: List[str] = []
 
     model_config = {

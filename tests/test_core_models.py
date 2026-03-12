@@ -70,7 +70,8 @@ def test_workflow_creation():
     assert workflow.subcommand == "test_sub"
     assert workflow.id == 1
     assert workflow.environment == {"ENV_VAR": "value"}
-    assert workflow.resources == {"ranks": 8, "threads": 4}
+    assert workflow.resources.ranks == 8
+    assert workflow.resources.threads == 4
 
 
 @patch('socm.core.models.BaseModel', MockBaseModel)

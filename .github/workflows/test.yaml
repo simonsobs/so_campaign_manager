@@ -21,7 +21,7 @@ jobs:
           python-version: "3.12"
       - uses: astral-sh/setup-uv@v7
       - run: |
-             uv sync --group dev
+             uv sync --all-extras
              uv run pytest -vvv tests/ --cov=so_campaign_manager
       - name: Install coverage
         run: uv pip install coverage
