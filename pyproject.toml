@@ -17,10 +17,14 @@ dependencies = [
     "networkx",
     "toml",
     "click",
-    "sotodlib",
-    "astral",
     "slurmise; sys_platform != 'darwin'",
     "humanfriendly",
+]
+
+[project.optional-dependencies]
+mapmaking = [
+    "sotodlib",
+    "astral",
 ]
 
 [build-system]

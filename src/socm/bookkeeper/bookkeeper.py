@@ -140,10 +140,10 @@ class Bookkeeper(object):
 
             if cores > total_cores or len(warns) > 0:
                 workflow_requirements[workflow.id] = {
-                    "req_cpus": workflow.resources["ranks"]
-                    * workflow.resources["threads"],
-                    "req_memory": workflow.resources["memory"],
-                    "req_walltime": workflow.resources["runtime"]
+                    "req_cpus": workflow.resources.ranks
+                    * workflow.resources.threads,
+                    "req_memory": workflow.resources.memory,
+                    "req_walltime": workflow.resources.runtime
                     * 1.1,  # Adding 10% to the runtime
                 }
             else:

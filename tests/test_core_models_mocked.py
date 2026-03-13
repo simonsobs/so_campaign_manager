@@ -5,6 +5,8 @@ from unittest.mock import Mock, patch
 
 import pytest
 
+from socm.core.models import ResourceSpec
+
 
 class MockBaseModel:
     """Mock pydantic BaseModel for testing."""
@@ -70,7 +72,9 @@ def test_workflow_creation():
     assert workflow.subcommand == "process"
     assert workflow.id == 42
     assert workflow.environment == {"PATH": "/usr/bin", "HOME": "/home/user"}
-    assert workflow.resources == {"cpu": 4, "memory": 8, "time": 2}
+    assert workflow.resources.cpu == 4
+    assert workflow.resources.memory == 8
+    assert workflow.resources.time == 2
 
 
 def test_workflow_defaults():
@@ -85,7 +89,7 @@ def test_workflow_defaults():
     assert workflow.subcommand == ""  # default value
     assert workflow.id is None  # default value
     assert workflow.environment is None  # default value
-    assert workflow.resources is None  # default value
+    assert workflow.resources == ResourceSpec()  # default value
 
 
 def test_workflow_abstract_methods():

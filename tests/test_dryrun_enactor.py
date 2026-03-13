@@ -9,7 +9,7 @@ from unittest.mock import MagicMock, Mock, patch
 
 import pytest
 
-from socm.core.models import Resource, Workflow
+from socm.core.models import Resource, ResourceSpec, Workflow
 from socm.enactor.dryrun_enactor import DryrunEnactor
 from socm.utils.states import States
 
@@ -22,7 +22,7 @@ def sample_workflows():
         workflow = Mock(spec=Workflow)
         workflow.id = f"workflow.{i}"
         workflow.name = f"test_workflow_{i}"
-        workflow.resources = {"ranks": 1, "threads": 8}
+        workflow.resources = ResourceSpec(ranks=1, threads=8)
         workflows.append(workflow)
     return workflows
 

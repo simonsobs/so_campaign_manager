@@ -1,5 +1,5 @@
 version = 1
-revision = 3
+revision = 2
 requires-python = ">=3.11, <3.13"
 resolution-markers = [
     "python_full_version >= '3.12' and sys_platform == 'win32'",
@@ -2078,7 +2078,6 @@ wheels = [
 name = "so-campaign-manager"
 source = { editable = "." }
 dependencies = [
-    { name = "astral" },
     { name = "click" },
     { name = "humanfriendly" },
     { name = "networkx" },
@@ -2086,8 +2085,13 @@ dependencies = [
     { name = "pydantic" },
     { name = "radical-pilot", marker = "sys_platform != 'darwin'" },
     { name = "slurmise", marker = "sys_platform != 'darwin'" },
-    { name = "sotodlib" },
     { name = "toml" },
+]
+
+[package.optional-dependencies]
+mapmaking = [
+    { name = "astral" },
+    { name = "sotodlib" },
 ]
 
 [package.dev-dependencies]
@@ -2122,7 +2126,7 @@ docs = [
 
 [package.metadata]
 requires-dist = [
-    { name = "astral" },
+    { name = "astral", marker = "extra == 'mapmaking'" },
     { name = "click" },
     { name = "humanfriendly" },
     { name = "networkx" },
@@ -2130,9 +2134,10 @@ requires-dist = [
     { name = "pydantic", specifier = ">=2.0" },
     { name = "radical-pilot", marker = "sys_platform != 'darwin'" },
     { name = "slurmise", marker = "sys_platform != 'darwin'" },
-    { name = "sotodlib" },
+    { name = "sotodlib", marker = "extra == 'mapmaking'" },
     { name = "toml" },
 ]
+provides-extras = ["mapmaking"]
 
 [package.metadata.requires-dev]
 dev = [

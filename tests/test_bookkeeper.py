@@ -1,6 +1,7 @@
 from unittest import mock
 
 from socm.bookkeeper import Bookkeeper
+from socm.core.models import ResourceSpec
 from socm.workflows import MLMapmakingWorkflow
 
 
@@ -22,12 +23,7 @@ def test_record(mocked_logger, mocked_init, mock_slurmise, mock_parse_slurm_job_
         "DOT_MOBY2": "/scratch/gpfs/SIMONSOBS/users/ip8725/act_test/act_dot_moby2",
         "SOTODLIB_SITECONFIG": "/scratch/gpfs/SIMONSOBS/users/ip8725/act_test/site.yaml",
     }
-    workflow.resources = {
-        "ranks": 1,
-        "threads": 32,
-        "memory": 80000,
-        "runtime": 80000,
-    }
+    workflow.resources = ResourceSpec(ranks=1, threads=32, memory=80000, runtime=80000)
     workflow.area = (
         "file:///scratch/gpfs/SIMONSOBS/so/science-readiness/footprint/v20250306/so_geometry_v20250306_lat_f090.fits"
     )
@@ -73,12 +69,7 @@ def test_record_dryrun(mocked_logger, mocked_init, mock_slurmise, mock_parse_slu
         "DOT_MOBY2": "/scratch/gpfs/SIMONSOBS/users/ip8725/act_test/act_dot_moby2",
         "SOTODLIB_SITECONFIG": "/scratch/gpfs/SIMONSOBS/users/ip8725/act_test/site.yaml",
     }
-    workflow.resources = {
-        "ranks": 1,
-        "threads": 32,
-        "memory": 80000,
-        "runtime": 80000,
-    }
+    workflow.resources = ResourceSpec(ranks=1, threads=32, memory=80000, runtime=80000)
     workflow.area = (
         "file:///scratch/gpfs/SIMONSOBS/so/science-readiness/footprint/v20250306/so_geometry_v20250306_lat_f090.fits"
     )

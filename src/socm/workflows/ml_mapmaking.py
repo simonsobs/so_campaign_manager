@@ -59,7 +59,7 @@ class MLMapmakingWorkflow(Workflow):
         str
             The complete srun command string with arguments.
         """
-        command = f"srun --cpu_bind=cores --export=ALL --ntasks-per-node={self.resources['ranks']} --cpus-per-task={self.resources['threads']} {self.executable} {self.subcommand} "
+        command = f"srun --cpu_bind=cores --export=ALL --ntasks-per-node={self.resources.ranks} --cpus-per-task={self.resources.threads} {self.executable} {self.subcommand} "
         command += " ".join(self.get_arguments())
 
         return command.strip()
