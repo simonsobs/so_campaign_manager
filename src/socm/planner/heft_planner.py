@@ -303,8 +303,10 @@ class HeftPlanner(Planner):
 
         Args:
             workflow_idx: Index of the workflow to schedule
+            resource_requirements: Dict of estimated resource lists
             resources: Available resource cores
             resource_free: Array tracking when each core becomes available
+            earlier_start: Earliest allowed start time (from dependency constraints)
 
         Returns:
             Tuple of (best_core_index, earliest_start_time)
@@ -319,7 +321,7 @@ class HeftPlanner(Planner):
 
         while (core_idx + cpus_required) <= len(resources):
             core_slice = slice(core_idx, core_idx + cpus_required)
-            start_time_candidate = resource_free[core_slice].max()
+            start_time_candidate = max(resource_free[core_slice].max(), earlier_start)
             end_time_candidate = start_time_candidate + walltime
 
             free_memory = self._get_free_memory(start_time_candidate, len(resources) / self._resources.cores_per_node)
