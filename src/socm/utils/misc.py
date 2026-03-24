@@ -1,9 +1,7 @@
 import ast
 from typing import Dict, List
 
-import matplotlib.pyplot as plt
 import networkx as nx
-from networkx.drawing.nx_pydot import graphviz_layout
 
 
 def parse_comma_separated_fields(config: dict, fields_to_parse: List[str]) -> dict:
@@ -107,6 +105,9 @@ def get_query_from_file(file_path: str) -> str:
 
 
 def print_plan(graph: nx.DiGraph) -> None:
+    import matplotlib.pyplot as plt
+    from networkx.drawing.nx_pydot import graphviz_layout
+
     pos = graphviz_layout(graph, prog='dot')
     plt.figure(figsize=(12, 8))
     nx.draw(graph, pos, with_labels=True, node_color='lightblue', arrows=True, node_size=500)

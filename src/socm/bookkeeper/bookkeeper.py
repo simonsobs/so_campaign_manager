@@ -221,15 +221,25 @@ class Bookkeeper(object):
 
         categorical_fields = {}
         for field in workflow.get_categorical_fields(
-            avoid_attributes=["executable", "name", "context", "output_dir", "query"]
+            avoid_attributes=["executable", "name", "context", "output_dir", "query", "depends"]
         ):
             val = getattr(workflow, field)
-            field_val = (
-                FileMD5().parse_file(Path(val.split("file://")[-1]).absolute())
-                if val.startswith("file://")
-                else val
-            )
-            categorical_fields[field] = field_val
+            self._logger.debug(f"Processing categorical field {field} with value {val}")
+            if isinstance(val, list):
+                for i, item in enumerate(val):
+                    field_val = (
+                        FileMD5().parse_file(Path(item.split("file://")[-1]).absolute())
+                        if item.startswith("file://")
+                        else item
+                    )
+                    categorical_fields[f"{field}_{i}"] = field_val
+            else:
+                field_val = (
+                    FileMD5().parse_file(Path(val.split("file://")[-1]).absolute())
+                    if val.startswith("file://")
+                    else val
+                )
+                categorical_fields[field] = field_val
 
         workflow_jobdata = JobData(
             job_name=workflow.name,
@@ -313,6 +323,9 @@ class Bookkeeper(object):
 
         # Update checkpoints and objective.
         self._update_checkpoints()
+        self._logger.debug(
+            f"Campaign makespan {self._checkpoints[-1]}, and objective {self._objective}"
+        )
         if not self._verify_objective():
             self._logger.error("Objective cannot be satisfied. Ending execution")
             with self._exec_state_lock:
@@ -322,9 +335,6 @@ class Bookkeeper(object):
 
         self._objective = int(
             ceil(min(self._checkpoints[-1] * 1.25, self._objective))
-        )
-        self._logger.debug(
-            f"Campaign makespan {self._checkpoints[-1]}, and objective {self._objective}"
         )
         self._logger.debug(f"Resource max walltime {self._objective}")
 

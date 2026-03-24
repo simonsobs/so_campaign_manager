@@ -295,6 +295,114 @@ def test_get_free_memory(mocked_init):
 
 
 @mock.patch.object(HeftPlanner, "__init__", return_value=None)
+def test_find_best_resource_slot_respects_earlier_start(mocked_init):
+    """Test that _find_best_resource_slot respects the earlier_start constraint.
+
+    Setup:
+      4 cores, cpus_required=2, walltime=10
+      resource_free = [0, 0, 30, 30]  (cores 0-1 free now, cores 2-3 free at t=30)
+      earlier_start = 20  (dependency constraint)
+
+    Without fix (bug):
+      slice 0-1: start_candidate = 0, end = 10  ← would be picked (violates dependency!)
+      slice 2-3: start_candidate = 30, end = 40
+
+    With fix:
+      slice 0-1: start_candidate = max(0, 20) = 20, end = 30  ← correctly picked
+      slice 2-3: start_candidate = max(30, 20) = 30, end = 40
+    """
+    planner = HeftPlanner(None, None, None)
+    planner._logger = MagicMock()
+    planner._plan = []
+    planner._resources = Resource(
+        name="test",
+        nodes=1,
+        cores_per_node=4,
+        memory_per_node=10000,
+    )
+
+    resource_requirements = {
+        "estimated_walltime": [10.0],
+        "estimated_cpus": [2],
+        "estimated_memory": [100.0],
+    }
+    resources = range(4)
+    resource_free = np.array([0.0, 0.0, 30.0, 30.0])
+    earlier_start = 20.0
+
+    best_core_idx, start_time = planner._find_best_resource_slot(
+        workflow_idx=0,
+        resource_requirements=resource_requirements,
+        resources=resources,
+        resource_free=resource_free,
+        earlier_start=earlier_start,
+    )
+
+    # Cores 0-1 are the best slot: they become free at t=0 but earliest we can
+    # start is t=20 (dependency), giving end=30 — better than cores 2-3 (end=40).
+    assert best_core_idx == 0
+    assert np.isclose(start_time, 20.0), f"Expected start_time=20.0, got {start_time}"
+
+
+@mock.patch.object(HeftPlanner, "__init__", return_value=None)
+def test_calculate_plan_dependency_not_violated_by_idle_cores(mocked_init):
+    """Test that a dependent workflow is not scheduled before its predecessor finishes,
+    even when other cores are completely idle.
+
+    W1 (2 cores, walltime=20) has no dependencies.
+    W2 (2 cores, walltime=10) depends on W1.
+
+    With 4 cores, cores 2-3 are idle throughout W1's execution. Without the
+    earlier_start fix, the planner would schedule W2 on cores 2-3 at t=0,
+    violating the W1 → W2 dependency. With the fix, W2 must start at t=20.
+    """
+    dag = DAG()
+    w1 = Workflow(name="W1", executable="exe", context="ctx", subcommand="sub", id=1)
+    w2 = Workflow(
+        name="W2", executable="exe", context="ctx", subcommand="sub", id=2,
+        depends=["W1"]
+    )
+    dag.add_workflow(w1)
+    dag.add_workflow(w2)
+    dag.add_dependency(parent_id=1, child_id=2)
+
+    campaign = Campaign(id=0, workflows=dag, deadline="50d")
+
+    planner = HeftPlanner(None, None, None)
+    planner._logger = MagicMock()
+    planner._estimated_memory = []
+    planner._resource_requirements = {
+        1: {"req_cpus": 2, "req_memory": 100, "req_walltime": 20},
+        2: {"req_cpus": 2, "req_memory": 100, "req_walltime": 10},
+    }
+    planner._campaign = campaign
+    planner._resources = Resource(
+        name="test",
+        nodes=1,
+        cores_per_node=4,
+        memory_per_node=10000,
+    )
+
+    est_plan, _ = planner._calculate_plan(
+        campaign=dag,
+        resources=range(4),
+        resource_requirements=planner._resource_requirements,
+    )
+
+    w1_entry = next(e for e in est_plan if e.workflow.name == "W1")
+    w2_entry = next(e for e in est_plan if e.workflow.name == "W2")
+
+    assert np.isclose(w1_entry.start_time, 0.0)
+    assert np.isclose(w1_entry.end_time, 20.0)
+    # W2 must not start before W1 finishes
+    assert w2_entry.start_time >= w1_entry.end_time, (
+        f"W2 started at {w2_entry.start_time} before W1 finished at {w1_entry.end_time}"
+    )
+    assert np.isclose(w2_entry.start_time, 20.0)
+    assert np.isclose(w2_entry.end_time, 30.0)
+
+
+@mock.patch.object(HeftPlanner, "__init__", return_value=None)
 def test_find_suitable_qos_policies_basic(mocked_init):
     """Test finding suitable QoS policies that meet deadline."""
     planner = HeftPlanner(None, None, None)
