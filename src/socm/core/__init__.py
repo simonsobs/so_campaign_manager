@@ -1,1 +1,1 @@
-from .models import DAG, Campaign, QosPolicy, Resource, Workflow  # noqa: F401
+from .models import DAG, Campaign, QosPolicy, Resource, ResourceSpec, Workflow  # noqa: F401

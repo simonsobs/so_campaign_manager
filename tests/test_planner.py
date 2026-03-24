@@ -5,12 +5,12 @@ import humanfriendly
 import numpy as np
 import pytest
 
-from socm.core import DAG, Campaign, QosPolicy, Resource, Workflow
+from socm.core import DAG, Campaign, QosPolicy, Resource, ResourceSpec, Workflow
 from socm.planner import HeftPlanner, PlanEntry
 from socm.resources import TigerResource
 
 
-def compare_entries(expected_entry: PlanEntry, test_entry: PlanEntry) -> bool:
+def compare_entries(expected_entry: PlanEntry, test_entry: PlanEntry) -> None:
     assert expected_entry.workflow == test_entry.workflow
     assert expected_entry.cores == test_entry.cores
     assert expected_entry.memory == test_entry.memory
@@ -29,14 +29,14 @@ def test_plan(mocked_init):
         ))
     campaign = Campaign(id=0, workflows=dag, deadline= "50d")
     actual_plan = [
-        PlanEntry(workflow=Workflow(name="W1", executable="exe", context="ctx", subcommand="sub", id=1, environment=None), cores=range(64, 128), memory=2000, start_time=0, end_time=45),
-        PlanEntry(workflow=Workflow(name="W2", executable="exe", context="ctx", subcommand="sub", id=2, environment=None), cores=range(128, 144), memory=15000, start_time=0, end_time=25),
-        PlanEntry(workflow=Workflow(name="W3", executable="exe", context="ctx", subcommand="sub", id=3, environment=None), cores=range(0, 1), memory=2000, start_time=0, end_time=560),
-        PlanEntry(workflow=Workflow(name="W4", executable="exe", context="ctx", subcommand="sub", id=4, environment=None), cores=range(16, 24), memory=32000, start_time=0, end_time=140),
-        PlanEntry(workflow=Workflow(name="W5", executable="exe", context="ctx", subcommand="sub", id=5, environment=None), cores=range(8, 16), memory=1000, start_time=0, end_time=145),
-        PlanEntry(workflow=Workflow(name="W6", executable="exe", context="ctx", subcommand="sub", id=6, environment=None), cores=range(112, 224), memory=20000, start_time=45, end_time=55),
-        PlanEntry(workflow=Workflow(name="W7", executable="exe", context="ctx", subcommand="sub", id=7, environment=None), cores=range(168, 224), memory=6000, start_time=0, end_time=20),
-        PlanEntry(workflow=Workflow(name="W8", executable="exe", context="ctx", subcommand="sub", id=8, environment=None), cores=range(32, 64), memory=1000, start_time=0, end_time=30),
+        PlanEntry(workflow=Workflow(name="W1", executable="exe", context="ctx", subcommand="sub", id=1, environment=None, resources=ResourceSpec()), cores=range(64, 128), memory=2000, start_time=0, end_time=45),
+        PlanEntry(workflow=Workflow(name="W2", executable="exe", context="ctx", subcommand="sub", id=2, environment=None, resources=ResourceSpec()), cores=range(128, 144), memory=15000, start_time=0, end_time=25),
+        PlanEntry(workflow=Workflow(name="W3", executable="exe", context="ctx", subcommand="sub", id=3, environment=None, resources=ResourceSpec()), cores=range(0, 1), memory=2000, start_time=0, end_time=560),
+        PlanEntry(workflow=Workflow(name="W4", executable="exe", context="ctx", subcommand="sub", id=4, environment=None, resources=ResourceSpec()), cores=range(16, 24), memory=32000, start_time=0, end_time=140),
+        PlanEntry(workflow=Workflow(name="W5", executable="exe", context="ctx", subcommand="sub", id=5, environment=None, resources=ResourceSpec()), cores=range(8, 16), memory=1000, start_time=0, end_time=145),
+        PlanEntry(workflow=Workflow(name="W6", executable="exe", context="ctx", subcommand="sub", id=6, environment=None, resources=ResourceSpec()), cores=range(112, 224), memory=20000, start_time=45, end_time=55),
+        PlanEntry(workflow=Workflow(name="W7", executable="exe", context="ctx", subcommand="sub", id=7, environment=None, resources=ResourceSpec()), cores=range(168, 224), memory=6000, start_time=0, end_time=20),
+        PlanEntry(workflow=Workflow(name="W8", executable="exe", context="ctx", subcommand="sub", id=8, environment=None, resources=ResourceSpec()), cores=range(32, 64), memory=1000, start_time=0, end_time=30),
     ]
     planner = HeftPlanner(None, None, None)
     planner._logger = MagicMock()
