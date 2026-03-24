@@ -70,6 +70,8 @@ def _main(args: Namespace) -> None:
                          "subcommand": workflow_config['script'],
                          "depends": workflow_config['depends'] if workflow_config['depends'] else [],
                          "resources": workflow_config["resources"],
+                         "script_args": workflow_config.get('script-args', []),
+                         "script_flags": workflow_config.get('script-flags', []),
                          }
         for arg_name, arg_value in workflow_config.get('script-kwargs', {}).items():
             workflow_dict[arg_name] = arg_value

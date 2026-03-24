@@ -224,12 +224,22 @@ class Bookkeeper(object):
             avoid_attributes=["executable", "name", "context", "output_dir", "query", "depends"]
         ):
             val = getattr(workflow, field)
-            field_val = (
-                FileMD5().parse_file(Path(val.split("file://")[-1]).absolute())
-                if val.startswith("file://")
-                else val
-            )
-            categorical_fields[field] = field_val
+            self._logger.debug(f"Processing categorical field {field} with value {val}")
+            if isinstance(val, list):
+                for i, item in enumerate(val):
+                    field_val = (
+                        FileMD5().parse_file(Path(item.split("file://")[-1]).absolute())
+                        if item.startswith("file://")
+                        else item
+                    )
+                    categorical_fields[f"{field}_{i}"] = field_val
+            else:
+                field_val = (
+                    FileMD5().parse_file(Path(val.split("file://")[-1]).absolute())
+                    if val.startswith("file://")
+                    else val
+                )
+                categorical_fields[field] = field_val
 
         workflow_jobdata = JobData(
             job_name=workflow.name,

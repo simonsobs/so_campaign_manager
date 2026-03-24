@@ -1,3 +1,4 @@
+from pathlib import Path
 from typing import List, Optional, Union
 
 from socm.core import Workflow
@@ -39,8 +40,11 @@ class SpectraWorkflow(Workflow):
         """
 
         arguments = []
-        if self.script_args:
-            arguments += self.script_args
+        for script_arg in self.script_args if self.script_args else []:
+            if script_arg.startswith("file://"):
+                script_arg = Path(script_arg.split("file://")[-1]).absolute()
+                script_arg = f"{script_arg.absolute()}"
+                arguments.append(script_arg)
         if self.script_flags:
             for flag in self.script_flags:
                 arguments.append(f"--{flag}")
@@ -50,13 +54,18 @@ class SpectraWorkflow(Workflow):
         for k, v in sorted_workflow.items():
             if k not in [
                 "area",
+                "name",
                 "output_dir",
                 "id",
                 "environment",
                 "resources",
                 "datasize",
+                "executable",
                 "script_args",
-                "script_flags"
+                "script_flags",
+                "name",
+                "depends",
+                "subcommand"
             ]:
                 arguments.append(f"--{k}={v}")
         return arguments

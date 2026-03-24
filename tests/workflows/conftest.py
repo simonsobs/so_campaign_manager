@@ -86,3 +86,22 @@ def mock_context_lat():
         # Set the side effect to use our implementation
         mocked.side_effect = MockContextImpl
         yield mocked
+
+@pytest.fixture
+def minimal_config():
+    return {
+        "subcommand": "script.py",
+        "resources": {"ranks": 4, "threads": 2},
+    }
+
+
+@pytest.fixture
+def full_config():
+    return {
+        "subcommand": "script.py",
+        "resources": {"ranks": 4, "threads": 2},
+        "script_args": ["file:///some/path/input.fits"],
+        "script_flags": ["verbose", "debug"],
+        "config": "config.yaml",
+        "output": "output_dir",
+    }
