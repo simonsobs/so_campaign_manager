@@ -1,3 +1,4 @@
+import os
 from argparse import ArgumentParser, Namespace
 
 import humanfriendly
@@ -64,6 +65,13 @@ def _main(args: Namespace) -> None:
                 humanfriendly.parse_timespan(workflow_config["resources"]["runtime"])
                 / 60
             )  # in minutes
+
+        workflow_base_path = os.getcwd()
+        if "base-path" in workflow_config and workflow_config["base-path"]:
+            workflow_base_path = workflow_config["base-path"]
+        elif "base-path" in config["campaign"] and config["campaign"]["base-path"]:
+            workflow_base_path = config["campaign"]["base-path"]
+
         workflow_dict = {"name": workflow_name,
                          "id": last_workflow_id,
                          "executable": workflow_config['executable'],
@@ -72,6 +80,7 @@ def _main(args: Namespace) -> None:
                          "resources": workflow_config["resources"],
                          "script_args": workflow_config.get('script-args', []),
                          "script_flags": workflow_config.get('script-flags', []),
+                         "base_path": workflow_base_path
                          }
         for arg_name, arg_value in workflow_config.get('script-kwargs', {}).items():
             workflow_dict[arg_name] = arg_value

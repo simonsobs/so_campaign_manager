@@ -3,7 +3,7 @@ from typing import Dict, List
 
 import radical.utils as ru
 
-from socm.core import Resource
+from socm.core import Resource, Workflow
 from socm.utils.states import States
 
 
@@ -65,7 +65,7 @@ class Enactor(object):
         """
         raise NotImplementedError("setup is not implemented")
 
-    def enact(self, workflows, resources):
+    def enact(self, workflows: List[Workflow]) -> None:
         """
         Submit workflows for execution.
 
@@ -73,8 +73,6 @@ class Enactor(object):
         ----------
         workflows : list
             A list of workflows to execute.
-        resources : Resource
-            The resource to execute the workflows on.
         """
         raise NotImplementedError("enact is not implemented")
 
