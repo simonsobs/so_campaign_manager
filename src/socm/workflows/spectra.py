@@ -56,6 +56,7 @@ class SpectraWorkflow(Workflow):
                 "area",
                 "name",
                 "output_dir",
+                "base_path",
                 "id",
                 "environment",
                 "resources",

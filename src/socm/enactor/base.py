@@ -65,7 +65,7 @@ class Enactor(object):
         """
         raise NotImplementedError("setup is not implemented")
 
-    def enact(self, workflows, resources):
+    def enact(self, workflows):
         """
         Submit workflows for execution.
 
@@ -73,8 +73,6 @@ class Enactor(object):
         ----------
         workflows : list
             A list of workflows to execute.
-        resources : Resource
-            The resource to execute the workflows on.
         """
         raise NotImplementedError("enact is not implemented")
 
