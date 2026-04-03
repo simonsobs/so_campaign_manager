@@ -67,9 +67,9 @@ def _main(args: Namespace) -> None:
             )  # in minutes
 
         workflow_base_path = os.getcwd()
-        if "base-path" in workflow_config:
+        if "base-path" in workflow_config and workflow_config["base-path"]:
             workflow_base_path = workflow_config["base-path"]
-        elif "base-path" in config["campaign"]:
+        elif "base-path" in config["campaign"] and config["campaign"]["base-path"]:
             workflow_base_path = config["campaign"]["base-path"]
 
         workflow_dict = {"name": workflow_name,
