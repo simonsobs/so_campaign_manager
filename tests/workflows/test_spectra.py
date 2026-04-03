@@ -74,11 +74,12 @@ def test_get_arguments_excludes_reserved_fields():
         output_dir="out",
         resources={"ranks": 1, "threads": 1},
         config="config.yaml",
+        base_path="/tmp/base",
     )
     arguments = workflow.get_arguments()
     reserved = ["name", "executable", "subcommand", "depends", "script_args",
                 "script_flags", "datasize", "output_dir", "resources", "id",
-                "environment", "area"]
+                "environment", "area", "base_path"]
     for field in reserved:
         assert not any(arg.startswith(f"--{field}=") for arg in arguments), (
             f"Reserved field '{field}' should not appear in arguments"

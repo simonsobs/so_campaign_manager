@@ -64,7 +64,6 @@ class SpectraWorkflow(Workflow):
                 "executable",
                 "script_args",
                 "script_flags",
-                "name",
                 "depends",
                 "subcommand"
             ]:
