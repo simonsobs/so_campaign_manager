@@ -31,7 +31,7 @@ class SunCloseFarNullTestWorkflow(NullTestWorkflow):
     )
 
     _field_view_radius_per_telescope: Dict[str, float] = PrivateAttr(
-        {"sat": 1.0, "act": 1.0, "lat": 1.0}
+        {"sat": 1.0, "act": 1.0, "lat": 1.0, "so_lat": 1.0, "so_sat": 1.0}
     )
 
     def _get_splits(
@@ -81,9 +81,15 @@ class SunCloseFarNullTestWorkflow(NullTestWorkflow):
                 lat=city.latitude * u.deg, lon=city.longitude * u.deg, height=alt * u.m
             )
             altaz = AltAz(obstime=obs_time, location=location)
+            azimuth = obs_meta["az_center"] * u.deg
+            elevation = obs_meta["el_center"] * u.deg
+
+            if elevation > 90 * u.deg:
+                elevation = 180 * u.deg - elevation
+                azimuth = azimuth + 180 * u.deg
             altaz_coord = SkyCoord(
-                az=obs_meta["az_center"] * u.deg,
-                alt=obs_meta["el_center"] * u.deg,
+                az=azimuth,
+                alt=elevation,
                 frame=altaz,
             )
             radec = altaz_coord.transform_to("icrs")
