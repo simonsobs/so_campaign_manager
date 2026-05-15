@@ -241,3 +241,7 @@ class DryrunEnactor(Enactor):
         with self._cb_lock:
             cb_name = cb.__name__
             self._callbacks[cb_name] = cb
+
+    def teardown(self):
+        """Tear down the dry-run Enactor, ensuring all resources are cleaned up."""
+        self._logger.info("Tearing down the Enactor")

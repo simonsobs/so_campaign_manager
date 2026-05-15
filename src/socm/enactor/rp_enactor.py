@@ -46,6 +46,7 @@ class RPEnactor(Enactor):
         self._run = False
         self._resource = None
         self._prof.prof("enactor_started", uid=self._uid)
+        self._pilot = None
         self._rp_session = rp.Session(uid=sid)
         self._rp_pmgr = rp.PilotManager(session=self._rp_session)
         self._rp_tmgr = rp.TaskManager(session=self._rp_session)
@@ -79,10 +80,10 @@ class RPEnactor(Enactor):
 
         pdesc = rp.PilotDescription(pd_init)
         self._logger.debug(f"Asking for {pdesc} pilot")
-        pilot = self._rp_pmgr.submit_pilots(pdesc)
-        self._rp_tmgr.add_pilots(pilot)
+        self._pilot = self._rp_pmgr.submit_pilots(pdesc)
+        self._rp_tmgr.add_pilots(self._pilot)
 
-        pilot.wait(state=rp.PMGR_ACTIVE)
+        self._pilot.wait(state=rp.PMGR_ACTIVE)
         self._logger.info("Pilot is ready")
 
     def enact(self, workflows: List[Workflow]) -> None:
@@ -303,3 +304,14 @@ class RPEnactor(Enactor):
         with self._cb_lock:
             cb_name = cb.__name__
             self._callbacks[cb_name] = cb
+
+    def teardown(self):
+        """Tear down the Enactor's backend, ensuring all resources are cleaned up."""
+        self._logger.info("Tearing down the Pilot")
+        # No additional teardown needed for RADICAL-Pilot as terminate handles cleanup.
+        if self._pilot:
+            self._pilot.cancel()
+            self._pilot.wait(state=rp.PMGR_CANCELED)
+            self._pilot = None
+        else:
+            self._logger.warning("No pilot to cancel during teardown.")

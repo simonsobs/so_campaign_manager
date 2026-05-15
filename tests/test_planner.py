@@ -2,11 +2,12 @@ from unittest import mock
 from unittest.mock import MagicMock
 
 import humanfriendly
+import networkx as nx
 import numpy as np
 import pytest
 
 from socm.core import DAG, Campaign, QosPolicy, Resource, ResourceSpec, Workflow
-from socm.planner import HeftPlanner, PlanEntry
+from socm.planner import HeftPlanner, PlanEntry, PlanResult
 from socm.resources import TigerResource
 
 
@@ -432,3 +433,324 @@ def test_find_suitable_qos_policies_basic(mocked_init):
     assert suitable == QosPolicy(name="long", max_walltime=240, max_jobs=10, max_cores=400)
     with pytest.raises(ValueError):
         planner._find_suitable_qos_policies(requested_cores=410)
+
+
+# ------------------------------------------------------------------------------
+# _build_batch_subgraph
+# ------------------------------------------------------------------------------
+
+@mock.patch.object(HeftPlanner, "__init__", return_value=None)
+def test_build_batch_subgraph_keeps_intra_edges(mocked_init):
+    """Edges between nodes in the same batch are preserved."""
+    planner = HeftPlanner(None, None, None)
+
+    graph = nx.DiGraph()
+    graph.add_edges_from([(1, 2), (2, 3), (3, 4)])
+
+    subgraph = planner._build_batch_subgraph(graph, [1, 2, 3])
+
+    assert set(subgraph.nodes()) == {1, 2, 3}
+    assert set(subgraph.edges()) == {(1, 2), (2, 3)}
+
+
+@mock.patch.object(HeftPlanner, "__init__", return_value=None)
+def test_build_batch_subgraph_drops_cross_edges(mocked_init):
+    """Edges from nodes outside the batch are not included in the subgraph."""
+    planner = HeftPlanner(None, None, None)
+
+    graph = nx.DiGraph()
+    graph.add_edges_from([(1, 2), (2, 3), (3, 4)])
+
+    subgraph = planner._build_batch_subgraph(graph, [4])
+
+    assert set(subgraph.nodes()) == {4}
+    assert list(subgraph.edges()) == []
+
+
+# ------------------------------------------------------------------------------
+# _split_plan_into_batches
+# ------------------------------------------------------------------------------
+
+@mock.patch.object(HeftPlanner, "__init__", return_value=None)
+def test_split_plan_single_batch(mocked_init):
+    """All entries fit within max_walltime → one batch containing all entries."""
+    planner = HeftPlanner(None, None, None)
+
+    w1 = Workflow(name="W1", executable="exe", context="ctx", subcommand="sub", id=1)
+    w2 = Workflow(name="W2", executable="exe", context="ctx", subcommand="sub", id=2)
+    w3 = Workflow(name="W3", executable="exe", context="ctx", subcommand="sub", id=3)
+
+    plan = [
+        PlanEntry(workflow=w1, cores=range(0, 4), memory=100, start_time=0, end_time=50),
+        PlanEntry(workflow=w2, cores=range(0, 4), memory=100, start_time=0, end_time=60),
+        PlanEntry(workflow=w3, cores=range(0, 4), memory=100, start_time=50, end_time=80),
+    ]
+
+    graph = nx.DiGraph()
+    for i in [1, 2, 3]:
+        graph.add_node(i)
+
+    batches = planner._split_plan_into_batches(plan, graph, max_walltime=100)
+
+    assert len(batches) == 1
+    assert len(batches[0].plan) == 3
+
+
+@mock.patch.object(HeftPlanner, "__init__", return_value=None)
+def test_split_plan_multi_batch(mocked_init):
+    """Entries spanning two windows produce two batches; cross-batch edge is dropped."""
+    planner = HeftPlanner(None, None, None)
+
+    w1 = Workflow(name="W1", executable="exe", context="ctx", subcommand="sub", id=1)
+    w2 = Workflow(name="W2", executable="exe", context="ctx", subcommand="sub", id=2)
+
+    plan = [
+        PlanEntry(workflow=w1, cores=range(0, 4), memory=100, start_time=0, end_time=50),
+        PlanEntry(workflow=w2, cores=range(0, 4), memory=100, start_time=50, end_time=110),
+    ]
+
+    graph = nx.DiGraph()
+    graph.add_edge(1, 2)
+
+    batches = planner._split_plan_into_batches(plan, graph, max_walltime=100)
+
+    assert len(batches) == 2
+    assert batches[0].plan[0].workflow.id == 1
+    assert batches[1].plan[0].workflow.id == 2
+    assert not batches[0].graph.has_edge(1, 2)
+    assert not batches[1].graph.has_edge(1, 2)
+
+
+@mock.patch.object(HeftPlanner, "__init__", return_value=None)
+def test_split_plan_early_start_triggers_split(mocked_init):
+    """An entry with start_time earlier than the current batch_start correctly
+    triggers a new batch when the expanded window would exceed max_walltime.
+
+    W1: [10, 50), W2: [0, 60) — sorted by end_time gives W1 then W2.
+    After W1: batch_start=10.
+    W2 start_time=0 → tentative_start=min(10,0)=0; 60 > 0+55=55 → split.
+    Without the fix (keeping batch_start=10): 60 > 10+55=65 is False → no split,
+    but the actual window [0, 60) has duration 60 > 55.
+    """
+    planner = HeftPlanner(None, None, None)
+
+    w1 = Workflow(name="W1", executable="exe", context="ctx", subcommand="sub", id=1)
+    w2 = Workflow(name="W2", executable="exe", context="ctx", subcommand="sub", id=2)
+
+    plan = [
+        PlanEntry(workflow=w1, cores=range(0, 4), memory=100, start_time=10, end_time=50),
+        PlanEntry(workflow=w2, cores=range(0, 4), memory=100, start_time=0, end_time=60),
+    ]
+
+    graph = nx.DiGraph()
+    graph.add_node(1)
+    graph.add_node(2)
+
+    batches = planner._split_plan_into_batches(plan, graph, max_walltime=55)
+
+    assert len(batches) == 2
+    assert batches[0].plan[0].workflow.id == 1
+    assert batches[1].plan[0].workflow.id == 2
+
+
+# ------------------------------------------------------------------------------
+# _plan_with_qos_optimization
+# ------------------------------------------------------------------------------
+
+@mock.patch.object(HeftPlanner, "__init__", return_value=None)
+def test_plan_with_qos_optimization_single_fit(mocked_init):
+    """When the deadline fits in one QoS window, returns a one-batch PlanResult."""
+    planner = HeftPlanner(None, None, None)
+    planner._logger = MagicMock()
+    planner._objective = 200
+
+    planner._resources = TigerResource(
+        name="tiger3", nodes=2, cores_per_node=112, memory_per_node=64 * 1024
+    )
+    planner._resources.qos = [
+        QosPolicy(name="short", max_walltime=1440, max_jobs=50, max_cores=1000),
+    ]
+
+    w1 = Workflow(name="W1", executable="exe", context="ctx", subcommand="sub", id=1)
+    mock_plan = [
+        PlanEntry(workflow=w1, cores=range(0, 112), memory=1000, start_time=0, end_time=200)
+    ]
+    mock_graph = nx.DiGraph()
+    mock_graph.add_node(1)
+
+    resource_requirements = {1: {"req_cpus": 112, "req_memory": 1000, "req_walltime": 200}}
+
+    with mock.patch.object(planner, "_binary_search_resources", return_value=(112, mock_plan, mock_graph)):
+        result = planner._plan_with_qos_optimization(
+            campaign=MagicMock(),
+            resource_requirements=resource_requirements,
+            requested_resources=224,
+        )
+
+    assert isinstance(result, PlanResult)
+    assert len(result.batches) == 1
+    assert result.qos is not None
+    assert result.qos.name == "short"
+    assert result.ncores == 112
+
+
+@mock.patch.object(HeftPlanner, "__init__", return_value=None)
+def test_plan_with_qos_optimization_multi_batch(mocked_init):
+    """When no single QoS covers the deadline, the plan is split into multiple batches."""
+    planner = HeftPlanner(None, None, None)
+    planner._logger = MagicMock()
+    planner._objective = 10000  # Exceeds any single QoS window
+
+    planner._resources = TigerResource(
+        name="tiger3", nodes=2, cores_per_node=112, memory_per_node=64 * 1024
+    )
+    planner._resources.qos = [
+        QosPolicy(name="short", max_walltime=200, max_jobs=50, max_cores=500),
+    ]
+
+    w1 = Workflow(name="W1", executable="exe", context="ctx", subcommand="sub", id=1)
+    w2 = Workflow(name="W2", executable="exe", context="ctx", subcommand="sub", id=2)
+    mock_plan = [
+        PlanEntry(workflow=w1, cores=range(0, 100), memory=1000, start_time=0, end_time=150),
+        PlanEntry(workflow=w2, cores=range(0, 100), memory=1000, start_time=150, end_time=350),
+    ]
+    mock_graph = nx.DiGraph()
+    mock_graph.add_edge(1, 2)
+
+    resource_requirements = {
+        1: {"req_cpus": 100, "req_memory": 1000, "req_walltime": 150},
+        2: {"req_cpus": 100, "req_memory": 1000, "req_walltime": 200},
+    }
+
+    with mock.patch.object(planner, "_binary_search_resources", return_value=(100, mock_plan, mock_graph)):
+        result = planner._plan_with_qos_optimization(
+            campaign=MagicMock(),
+            resource_requirements=resource_requirements,
+            requested_resources=200,
+        )
+
+    assert isinstance(result, PlanResult)
+    assert len(result.batches) == 2
+    assert result.qos.name == "short"
+    assert result.ncores == 100
+
+
+@mock.patch.object(HeftPlanner, "__init__", return_value=None)
+def test_plan_with_qos_optimization_infeasible_cannot_meet_deadline(mocked_init):
+    """Raises ValueError when binary search cannot find a plan meeting the deadline."""
+    planner = HeftPlanner(None, None, None)
+    planner._logger = MagicMock()
+    planner._objective = 10
+
+    planner._resources = TigerResource(
+        name="tiger3", nodes=2, cores_per_node=112, memory_per_node=64 * 1024
+    )
+
+    resource_requirements = {1: {"req_cpus": 112, "req_memory": 1000, "req_walltime": 100}}
+
+    with mock.patch.object(planner, "_binary_search_resources", return_value=None):
+        with pytest.raises(ValueError):
+            planner._plan_with_qos_optimization(
+                campaign=MagicMock(),
+                resource_requirements=resource_requirements,
+                requested_resources=224,
+            )
+
+
+@mock.patch.object(HeftPlanner, "__init__", return_value=None)
+def test_plan_with_qos_optimization_infeasible_no_qos_for_cores(mocked_init):
+    """Raises ValueError when no QoS policy can accommodate the required core count."""
+    planner = HeftPlanner(None, None, None)
+    planner._logger = MagicMock()
+    planner._objective = 10000  # Deadline too long for any single QoS window
+
+    planner._resources = TigerResource(
+        name="tiger3", nodes=2, cores_per_node=112, memory_per_node=64 * 1024
+    )
+    # All QoS policies have max_cores < 100 (ncores returned by binary search)
+    planner._resources.qos = [
+        QosPolicy(name="tiny", max_walltime=50, max_jobs=10, max_cores=50),
+    ]
+
+    w1 = Workflow(name="W1", executable="exe", context="ctx", subcommand="sub", id=1)
+    mock_plan = [
+        PlanEntry(workflow=w1, cores=range(0, 100), memory=1000, start_time=0, end_time=30)
+    ]
+    mock_graph = nx.DiGraph()
+    mock_graph.add_node(1)
+
+    resource_requirements = {1: {"req_cpus": 100, "req_memory": 1000, "req_walltime": 30}}
+
+    with mock.patch.object(planner, "_binary_search_resources", return_value=(100, mock_plan, mock_graph)):
+        with pytest.raises(ValueError):
+            planner._plan_with_qos_optimization(
+                campaign=MagicMock(),
+                resource_requirements=resource_requirements,
+                requested_resources=200,
+            )
+
+
+@mock.patch.object(HeftPlanner, "__init__", return_value=None)
+def test_plan_with_qos_optimization_infeasible_workflow_too_long(mocked_init):
+    """Raises ValueError when a single workflow's duration exceeds the best QoS walltime."""
+    planner = HeftPlanner(None, None, None)
+    planner._logger = MagicMock()
+    planner._objective = 10000  # Exceeds any single QoS window
+
+    planner._resources = TigerResource(
+        name="tiger3", nodes=2, cores_per_node=112, memory_per_node=64 * 1024
+    )
+    # QoS has enough cores but walltime cap of 100 min
+    planner._resources.qos = [
+        QosPolicy(name="short", max_walltime=100, max_jobs=50, max_cores=500),
+    ]
+
+    w1 = Workflow(name="W1", executable="exe", context="ctx", subcommand="sub", id=1)
+    # W1 duration = 150 > max_walltime=100 → infeasible
+    mock_plan = [
+        PlanEntry(workflow=w1, cores=range(0, 50), memory=1000, start_time=0, end_time=150)
+    ]
+    mock_graph = nx.DiGraph()
+    mock_graph.add_node(1)
+
+    resource_requirements = {1: {"req_cpus": 50, "req_memory": 1000, "req_walltime": 150}}
+
+    with mock.patch.object(planner, "_binary_search_resources", return_value=(50, mock_plan, mock_graph)):
+        with pytest.raises(ValueError):
+            planner._plan_with_qos_optimization(
+                campaign=MagicMock(),
+                resource_requirements=resource_requirements,
+                requested_resources=200,
+            )
+
+
+# ------------------------------------------------------------------------------
+# _plan_batch_mode
+# ------------------------------------------------------------------------------
+
+@mock.patch.object(HeftPlanner, "__init__", return_value=None)
+def test_plan_batch_mode_returns_plan_result(mocked_init):
+    """_plan_batch_mode wraps the calculated plan in a PlanResult with qos=None."""
+    planner = HeftPlanner(None, None, None)
+    planner._logger = MagicMock()
+
+    w1 = Workflow(name="W1", executable="exe", context="ctx", subcommand="sub", id=1)
+    mock_plan = [PlanEntry(workflow=w1, cores=range(0, 4), memory=100, start_time=0, end_time=50)]
+    mock_graph = nx.DiGraph()
+    mock_graph.add_node(1)
+
+    resource_requirements = {1: {"req_cpus": 4, "req_memory": 100, "req_walltime": 50}}
+
+    with mock.patch.object(planner, "_calculate_plan", return_value=(mock_plan, mock_graph)):
+        result = planner._plan_batch_mode(
+            campaign=MagicMock(),
+            resource_requirements=resource_requirements,
+            requested_resources=4,
+        )
+
+    assert isinstance(result, PlanResult)
+    assert result.qos is None
+    assert result.ncores == 4
+    assert len(result.batches) == 1
+    assert result.batches[0].plan == mock_plan
+    assert result.batches[0].graph is mock_graph
