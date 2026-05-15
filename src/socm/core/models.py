@@ -1,6 +1,6 @@
 from collections.abc import Iterable
 from numbers import Number
-from typing import TYPE_CHECKING, Dict, List, Optional, Tuple, Union, get_args, get_origin
+from typing import TYPE_CHECKING, Dict, List, NamedTuple, Optional, Tuple, Union, get_args, get_origin
 
 import networkx as nx
 from pydantic import BaseModel, ConfigDict, Field, PrivateAttr, field_validator
@@ -350,3 +350,25 @@ class Campaign(BaseModel):
                             dag.add_dependency(name_to_id[dep_name], w.id)
             return dag
         return v
+
+
+class PlanEntry(NamedTuple):
+    """Represents a scheduled workflow in the execution plan."""
+    workflow: Workflow
+    cores: range
+    memory: float
+    start_time: float
+    end_time: float
+
+
+class Batch(NamedTuple):
+    """A group of workflows that execute within a single pilot submission."""
+    plan: List[PlanEntry]
+    graph: nx.DiGraph
+
+
+class PlanResult(NamedTuple):
+    """Complete output of the planning phase."""
+    qos: Optional[QosPolicy]  # None for batch execution schema
+    ncores: int
+    batches: List[Batch]  # Length 1 for single-submission campaigns

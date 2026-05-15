@@ -3,8 +3,8 @@ from typing import Dict, List, Tuple
 import networkx as nx
 import numpy as np
 
-from ..core import DAG, Campaign, QosPolicy, Resource
-from .base import PlanEntry, Planner
+from ..core import DAG, Batch, Campaign, PlanEntry, PlanResult, QosPolicy, Resource
+from .base import Planner
 
 
 class HeftPlanner(Planner):
@@ -121,16 +121,89 @@ class HeftPlanner(Planner):
             return best_ncores, best_plan, best_graph
         return None
 
+    def _build_batch_subgraph(self, graph: nx.DiGraph, workflow_ids: List[int | None]) -> nx.DiGraph:
+        """Extract the subgraph for a batch, dropping cross-batch edges.
+
+        Args:
+            graph: Full plan dependency graph
+            workflow_ids: Workflow IDs belonging to this batch
+
+        Returns:
+            DiGraph containing only intra-batch nodes and edges
+        """
+        id_set = set(workflow_ids)
+        subgraph = nx.DiGraph()
+        for wf_id in workflow_ids:
+            subgraph.add_node(wf_id)
+        for wf_id in workflow_ids:
+            for successor in graph.successors(wf_id):
+                if successor in id_set:
+                    subgraph.add_edge(wf_id, successor)
+        return subgraph
+
+    def _split_plan_into_batches(
+        self, plan: List[PlanEntry], graph: nx.DiGraph, max_walltime: float
+    ) -> List[Batch]:
+        """Split a plan into batches where each batch fits within max_walltime.
+
+        Entries are assigned to batches greedily by end_time. A new batch starts
+        when the next entry's end_time would exceed the current batch window.
+        Cross-batch dependency edges are dropped because sequential batch execution
+        guarantees ordering.
+
+        Args:
+            plan: Full list of plan entries (will be sorted by end_time internally)
+            graph: Full plan dependency graph
+            max_walltime: Maximum duration (in plan time units) per batch
+
+        Returns:
+            List of Batch objects
+        """
+        sorted_plan = sorted(plan, key=lambda e: e.end_time)
+        batches: List[Batch] = []
+        current_batch: List[PlanEntry] = []
+        batch_start = 0.0
+
+        for entry in sorted_plan:
+            tentative_start = min(batch_start, entry.start_time) if current_batch else entry.start_time
+
+            if entry.end_time > tentative_start + max_walltime:
+                if current_batch:
+                    batch_wf_ids = [e.workflow.id for e in current_batch]
+                    batches.append(Batch(
+                        plan=current_batch,
+                        graph=self._build_batch_subgraph(graph, batch_wf_ids)
+                    ))
+                batch_start = entry.start_time
+                current_batch = []
+            else:
+                batch_start = tentative_start
+
+            current_batch.append(entry)
+
+        if current_batch:
+            batch_wf_ids = [e.workflow.id for e in current_batch]
+            batches.append(Batch(
+                plan=current_batch,
+                graph=self._build_batch_subgraph(graph, batch_wf_ids)
+            ))
+
+        return batches
+
     def _plan_with_qos_optimization(
         self,
         campaign: DAG,
         resource_requirements: Dict[int, Dict[str, float]],
         requested_resources: int,
-    ) -> Tuple[List[PlanEntry], nx.DiGraph, str, int]:
+    ) -> PlanResult:
         """Find optimal QoS and resource allocation for the campaign.
 
+        Attempts a single-pilot fit first. If no single QoS policy can accommodate
+        both the required cores and the campaign deadline, the plan is split into
+        sequential batches using the highest-walltime QoS that covers the core count.
+
         Returns:
-            Tuple of (plan, graph, qos_name, ncores).
+            PlanResult with qos, ncores, and one or more batches.
         """
         max_workflow_resources = self._get_max_ncores(resource_requirements)
         upper_bound = requested_resources
@@ -140,16 +213,60 @@ class HeftPlanner(Planner):
             campaign, resource_requirements, lower_bound, upper_bound
         )
 
-        if result is not None:
-            ncores, plan, plan_graph = result
-            qos_candidate = self._find_suitable_qos_policies(requested_cores=ncores)
-            self._logger.info(f"Plan to execute {plan} with {ncores} cores")
-            return plan, plan_graph, qos_candidate.name, ncores
-        else:
+        if result is None:
             raise ValueError(
                 f"Cannot meet {self._objective} min deadline with {requested_resources} cores. "
                 f"Please increase deadline or increase requested cores."
             )
+
+        ncores, plan, plan_graph = result
+
+        # Try single-QoS fit (deadline fits within one pilot)
+        qos_candidate = self._resources.fits_in_qos(self._objective, cores=ncores)
+        if qos_candidate is not None:
+            self._logger.info(
+                f"Plan fits in single QoS {qos_candidate.name} with {ncores} cores"
+            )
+            return PlanResult(
+                qos=qos_candidate,
+                ncores=ncores,
+                batches=[Batch(plan=plan, graph=plan_graph)]
+            )
+
+        # No single QoS fits — find best QoS by walltime among those with enough cores
+        splittable = [
+            q for q in self._resources.qos
+            if q.max_cores is None or q.max_cores >= ncores
+        ]
+        if not splittable:
+            available_qos = ', '.join(f"{q.name}(max_cores={q.max_cores})" for q in self._resources.qos)
+            raise ValueError(
+                f"No QoS policy has max_cores >= {ncores}. "
+                f"Campaign is infeasible. Available: {available_qos}"
+            )
+
+        best_qos = max(
+            splittable,
+            key=lambda q: q.max_walltime if q.max_walltime is not None else float('inf')
+        )
+        max_walltime = best_qos.max_walltime
+
+        # Validate that no individual workflow exceeds the batch window
+        for entry in plan:
+            wf_duration = entry.end_time - entry.start_time
+            if wf_duration > max_walltime:
+                raise ValueError(
+                    f"Workflow '{entry.workflow.name}' requires {wf_duration:.1f} min, "
+                    f"which exceeds QoS '{best_qos.name}' max walltime of {max_walltime} min. "
+                    "Campaign is infeasible."
+                )
+
+        batches = self._split_plan_into_batches(plan, plan_graph, max_walltime)
+        self._logger.info(
+            f"Plan split into {len(batches)} batches using QoS {best_qos.name} "
+            f"(max_walltime={max_walltime} min) with {ncores} cores"
+        )
+        return PlanResult(qos=best_qos, ncores=ncores, batches=batches)
 
     def _get_plan_graph(
         self, plan: List[PlanEntry], resources: range
@@ -197,12 +314,13 @@ class HeftPlanner(Planner):
         resource_requirements: Dict[int, Dict[str, float]] | None = None,
         execution_schema: str | None = None,
         requested_resources: int | None = None
-    ) -> Tuple[List[PlanEntry], nx.DiGraph, QosPolicy | None, int]:
+    ) -> PlanResult:
         """Plan campaign execution with resource allocation.
 
         In batch mode, uses the requested resources directly.
         In remote mode, performs QoS selection and binary search to find the minimum
-        resources that satisfy the campaign deadline.
+        resources that satisfy the campaign deadline, splitting into multiple batches
+        if no single QoS policy covers both cores and deadline.
 
         Parameters
         ----------
@@ -217,11 +335,9 @@ class HeftPlanner(Planner):
 
         Returns
         -------
-        Tuple[plan, graph, qos, ncores]
-            - plan: List of PlanEntry tuples
-            - graph: DAG representation of the campaign
-            - qos: QoS policy name (None for batch mode)
-            - ncores: Number of cores allocated
+        PlanResult
+            Contains the selected QoS policy (None for batch mode), core count,
+            and one or more Batch objects representing pilot submissions.
         """
         if execution_schema == "batch":
             return self._plan_batch_mode(campaign, resource_requirements, requested_resources)
@@ -233,15 +349,15 @@ class HeftPlanner(Planner):
         campaign: DAG,
         resource_requirements: Dict[int, Dict[str, float]],
         requested_resources: int
-    ) -> Tuple[List[PlanEntry], nx.DiGraph, None, int]:
-        """Plan execution for batch mode with fixed resources."""
+    ) -> PlanResult:
+        """Plan execution for batch mode with fixed resources (single batch, no QoS)."""
         plan, plan_graph = self._calculate_plan(
             campaign=campaign,
             resources=range(requested_resources),
             resource_requirements=resource_requirements
         )
         self._logger.info(f"Plan to execute {plan} with {requested_resources} cores")
-        return plan, plan_graph, None, requested_resources
+        return PlanResult(qos=None, ncores=requested_resources, batches=[Batch(plan=plan, graph=plan_graph)])
 
     def _initialize_resource_estimates(self, resource_requirements: Dict[int, Dict[str, float]], widxs: List[int]
     ) -> Dict[str, List[float]]:
@@ -254,9 +370,9 @@ class HeftPlanner(Planner):
             estimated_walltime.append(resource_requirements[widx]["req_walltime"])
             estimated_cpus.append(resource_requirements[widx]["req_cpus"])
             estimated_memory.append(resource_requirements[widx]["req_memory"])
-        return {"estimated_walltime" : estimated_walltime,
-                "estimated_cpus" : estimated_cpus,
-                "estimated_memory" : estimated_memory}
+        return {"estimated_walltime": estimated_walltime,
+                "estimated_cpus": estimated_cpus,
+                "estimated_memory": estimated_memory}
 
     def _get_sorted_workflow_indices(self, estimated_walltime: List[float]) -> List[int]:
         """Get workflow indices sorted by execution time (longest first).
@@ -363,8 +479,6 @@ class HeftPlanner(Planner):
         Returns:
             Tuple of (execution_plan, dependency_graph)
         """
-        # Use provided parameters or fall back to instance attributes
-
         workflow_levels = campaign.levels if campaign else self._campaign.workflows.levels
 
         cores = (
@@ -424,7 +538,6 @@ class HeftPlanner(Planner):
         self._logger.debug("Potential plan %s", self._plan)
 
         return self._plan, plan_graph
-
 
     def replan(
         self,
