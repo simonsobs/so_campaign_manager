@@ -96,4 +96,4 @@ class Planner(object):
         PlanResult
             The complete planning result containing QoS policy, core count, and execution batches.
         """
-        raise NotImplementedError("replan method is not implemented")
+        raise NotImplementedError("Replan method is not implemented")
