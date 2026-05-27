@@ -36,12 +36,15 @@ class NullTestWorkflow(MLMapmakingWorkflow):
         for obs_id in obs_ids:
             self.datasize += obs_id["n_samples"]
             obs_info[obs_id["obs_id"]] = {
-                "start_time": obs_id["timestamp"],
+                "start_time": float(obs_id["timestamp"]),
                 "wafer_list": obs_id["wafer_slots_list"].split(","),
                 "tube_slot": obs_id.get("tube_slot", "st1"),
-                "az_center": obs_id["az_center"],
-                "el_center": obs_id["el_center"],
+                "az_center": float(obs_id["az_center"]),
+                "el_center": float(obs_id["el_center"]),
                 "pwv": obs_id.get("pwv", 0),
+                "az_throw": float(obs_id.get("az_throw", 30.0)),
+                "duration": float(obs_id.get("duration", 600.0)),
+                "n_samples": int(obs_id["n_samples"]),
             }
         # Ensure obs_ids are sorted by their timestamp
         # Order the obs_ids based on their timestamp it is in the obs_meta.obs_info.timestamp
