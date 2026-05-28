@@ -9,10 +9,13 @@ from sotodlib.core import Context
 
 from socm.workflows.ml_null_tests import NullTestWorkflow
 
-# Simons Observatory site (Atacama, Chile) — same as pixell.coordinates.default_site
-_SO_LAT = -22.9585   # degrees North
-_SO_LON = -67.7876   # degrees East
-_SO_ALT = 5188.0     # metres above sea level
+# Simons Observatory site (Atacama, Chile) — consistent with the other null-test workflows
+_SO_NAME = "San Pedro de Atacama"
+_SO_COUNTRY = "Chile"
+_SO_TIMEZONE = "America/Santiago"
+_SO_LAT = -22.91    # degrees North
+_SO_LON = -68.2     # degrees East
+_SO_ALT = 5190.0    # metres above sea level
 
 # Fields unique to this workflow that must be stripped before spawning child NullTestWorkflows
 _SMART_FIELDS = frozenset({
@@ -164,11 +167,13 @@ class SmartSplitNullTestWorkflow(NullTestWorkflow):
         subsequent runs use the astropy cache.
         """
         import astropy.units as u
+        from astral import LocationInfo
         from astropy.coordinates import AltAz, EarthLocation, SkyCoord
         from astropy.time import Time
 
+        city = LocationInfo(_SO_NAME, _SO_COUNTRY, _SO_TIMEZONE, _SO_LAT, _SO_LON)
         site = EarthLocation(
-            lat=_SO_LAT * u.deg, lon=_SO_LON * u.deg, height=_SO_ALT * u.m
+            lat=city.latitude * u.deg, lon=city.longitude * u.deg, height=_SO_ALT * u.m
         )
 
         obs_ids: List[str] = list(obs_info.keys())
@@ -195,12 +200,18 @@ class SmartSplitNullTestWorkflow(NullTestWorkflow):
         el_arr = np.concatenate(all_el)
         t_arr = np.concatenate(all_t)
 
-        times = Time(t_arr, format="unix")
+        # Mirror elevation > 90° (same correction as the rest of the null-test
+        # workflows): reflect through the zenith and rotate azimuth by 180°.
+        high_el = el_arr > 90.0
+        el_arr[high_el] = 180.0 - el_arr[high_el]
+        az_arr[high_el] = az_arr[high_el] + 180.0
+
+        times = Time(t_arr, format="unix", scale="utc")
         frame = AltAz(obstime=times, location=site)
-        coords = SkyCoord(az=az_arr * u.deg, alt=el_arr * u.deg, frame=frame)
-        icrs = coords.icrs
-        ras: np.ndarray = np.asarray(icrs.ra.deg)
-        decs: np.ndarray = np.asarray(icrs.dec.deg)
+        altaz_coords = SkyCoord(az=az_arr * u.deg, alt=el_arr * u.deg, frame=frame)
+        icrs = altaz_coords.transform_to("icrs")
+        ras: np.ndarray = np.asarray(icrs.ra.deg, dtype=np.float64)
+        decs: np.ndarray = np.asarray(icrs.dec.deg, dtype=np.float64)
 
         result: Dict[str, tuple] = {}
         i = 0
