@@ -15,6 +15,7 @@ try:
         MoonCloseFarNullTestWorkflow,
         MoonRiseSetNullTestWorkflow,
         PWVNullTestWorkflow,
+        SmartSplitNullTestWorkflow,
         SunCloseFarNullTestWorkflow,
         TimeNullTestWorkflow,
         WaferNullTestWorkflow,
@@ -33,6 +34,7 @@ try:
         "ml-null-tests.elevation-tests": ElevationNullTestWorkflow,
         "ml-null-tests.sun-close-tests": SunCloseFarNullTestWorkflow,
         "ml-null-tests.moon-close-tests": MoonCloseFarNullTestWorkflow,
+        "ml-null-tests.smart-split-tests": SmartSplitNullTestWorkflow,
     })
 
     subcampaign_map.update({
@@ -46,6 +48,7 @@ try:
             "elevation-tests",
             "sun-close-tests",
             "moon-close-tests",
+            "smart-split-tests",
         ]
     })
 except ImportError:

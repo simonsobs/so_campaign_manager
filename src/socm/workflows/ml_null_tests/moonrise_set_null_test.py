@@ -66,34 +66,38 @@ class MoonRiseSetNullTestWorkflow(NullTestWorkflow):
             city = LocationInfo(
                 "San Pedro de Atacama", "Chile", "America/Santiago", -22.91, -68.2
             )
-            moon_rise = moonrise(city.observer, obs_time, timezone.utc)
-            moon_set = moonset(city.observer, obs_time, timezone.utc)
 
-            moon_times = []
-            if moon_set.hour < moon_rise.hour:
-                # Moon sets on a different day
-                start_of_day = obs_time.replace(
-                    hour=0, minute=0, second=0, microsecond=0
-                )
-                end_of_day = obs_time.replace(
-                    hour=23, minute=59, second=59, microsecond=999999
-                )
-                moon_times = [
-                    {"start_time": start_of_day, "end_time": moon_set},
-                    {"start_time": moon_rise, "end_time": end_of_day},
-                ]
-            else:
-                # Moon sets on the same day
-                moon_times = [{"start_time": moon_rise, "end_time": moon_set}]
-            moon_in_sky = False
-            for mt in moon_times:
-                if mt["start_time"] <= obs_time <= mt["end_time"]:
-                    moon_in_sky = True
-                    break
-            if moon_in_sky:
-                moon_sky_splits["insky"].append(obs_id)
-            else:
-                moon_sky_splits["outsky"].append(obs_id)
+            try:
+                moon_rise = moonrise(city.observer, obs_time, timezone.utc)
+                moon_set = moonset(city.observer, obs_time, timezone.utc)
+
+                moon_times = []
+                if moon_set.hour < moon_rise.hour:
+                    # Moon sets on a different day
+                    start_of_day = obs_time.replace(
+                        hour=0, minute=0, second=0, microsecond=0
+                    )
+                    end_of_day = obs_time.replace(
+                        hour=23, minute=59, second=59, microsecond=999999
+                    )
+                    moon_times = [
+                        {"start_time": start_of_day, "end_time": moon_set},
+                        {"start_time": moon_rise, "end_time": end_of_day},
+                    ]
+                else:
+                    # Moon sets on the same day
+                    moon_times = [{"start_time": moon_rise, "end_time": moon_set}]
+                moon_in_sky = False
+                for mt in moon_times:
+                    if mt["start_time"] <= obs_time <= mt["end_time"]:
+                        moon_in_sky = True
+                        break
+                if moon_in_sky:
+                    moon_sky_splits["insky"].append(obs_id)
+                else:
+                    moon_sky_splits["outsky"].append(obs_id)
+            except ValueError:
+                continue
 
         final_splits = {}
 

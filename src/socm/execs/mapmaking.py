@@ -54,7 +54,6 @@ def _main(args: Namespace) -> None:
     config = toml.load(args.toml)
     config = parse_comma_separated_fields(config=config, fields_to_parse=["maxiter", "downsample"])
     workflows_configs = get_workflow_entries(config, subcampaign_map=subcampaign_map)
-
     campaign_dag = DAG()
     last_workflow_id = 1
     for workflow_type, workflow_config in workflows_configs.items():
