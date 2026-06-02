@@ -249,7 +249,7 @@ class HeftPlanner(Planner):
             splittable,
             key=lambda q: q.max_walltime if q.max_walltime is not None else float('inf')
         )
-        max_walltime = best_qos.max_walltime
+        max_walltime = best_qos.max_walltime or float('inf')
 
         # Validate that no individual workflow exceeds the batch window
         for entry in plan:

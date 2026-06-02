@@ -1,6 +1,7 @@
 import os
-from typing import Dict, List
+from typing import Dict, List, Tuple
 
+import networkx as nx
 import radical.utils as ru
 
 from ..core import DAG, Campaign, PlanEntry, PlanResult, Resource
@@ -76,7 +77,7 @@ class Planner(object):
         resources: range | None = None,
         resource_requirements: Dict[int, Dict[str, float]] | None = None,
         start_time: int = 0,
-    ) -> PlanResult:
+    ) -> Tuple[List[PlanEntry], nx.DiGraph]:
         """
         Recalculate the execution plan, typically after workflow completion.
 
@@ -93,7 +94,7 @@ class Planner(object):
 
         Returns
         -------
-        PlanResult
-            The complete planning result containing QoS policy, core count, and execution batches.
+        Tuple[List[PlanEntry], nx.DiGraph]
+            A tuple containing the updated plan entries and the dependency graph.
         """
         raise NotImplementedError("Replan method is not implemented")

@@ -166,12 +166,14 @@ class Bookkeeper(object):
         """
 
         self._checkpoints: List[float] = [0]
+        self._batch_start: float = float("inf")
 
         for plan_entry in plan_batch:
             if plan_entry.end_time not in self._checkpoints:
                 self._checkpoints.append(plan_entry.end_time)
             if plan_entry.start_time not in self._checkpoints:
                 self._checkpoints.append(plan_entry.start_time)
+            self._batch_start = min(self._batch_start, plan_entry.start_time)
 
         self._checkpoints.sort()
 
@@ -311,22 +313,27 @@ class Bookkeeper(object):
         # There is no need to check since I know there is no plan.
         self._logger.debug("Campaign state to PLANNING")
         self._prof.prof("planning_start", uid=self._uid)
-        if self._plan_result is None:
-            self._logger.debug("Calculating campaign plan")
+        try:
+            if self._plan_result is None:
+                self._logger.debug("Calculating campaign plan")
+                with self._exec_state_lock:
+                    self._campaign["state"] = States.PLANNING
+
+                workflow_requirements = self._get_campaign_requirements()
+
+                self._plan_result = self._planner.plan(
+                    campaign=self._campaign["campaign"].workflows,
+                    execution_schema=self._campaign["campaign"].execution_schema,
+                    resource_requirements=workflow_requirements,
+                    requested_resources=self._campaign["campaign"].requested_resources
+                )
+        except Exception as ex:
+            self._logger.error(f"Exception during planning: {ex}")
             with self._exec_state_lock:
-                self._campaign["state"] = States.PLANNING
-
-            workflow_requirements = self._get_campaign_requirements()
-
-            self._plan_result = self._planner.plan(
-                campaign=self._campaign["campaign"].workflows,
-                execution_schema=self._campaign["campaign"].execution_schema,
-                resource_requirements=workflow_requirements,
-                requested_resources=self._campaign["campaign"].requested_resources
-            )
-
-        self._planning_done.set()
-        self._prof.prof("planning_ended", uid=self._uid)
+                self._campaign["state"] = States.FAILED
+        finally:
+            self._planning_done.set()
+            self._prof.prof("planning_ended", uid=self._uid)
 
         self._logger.debug(f"Calculated campaign plan batches with {self._plan_result.qos} QOS and requesting {self._plan_result.ncores} cores")
         objective_met = self._verify_objective()
@@ -340,11 +347,13 @@ class Bookkeeper(object):
                 if self._terminate_event.is_set():
                     break
 
+                wf_id_lookup = {plan_entry.workflow.id: plan_entry for plan_entry in plan_batch.plan}
                 self._update_checkpoints(plan_batch.plan)
 
                 max_walltime = self._plan_result.qos.max_walltime if self._plan_result.qos is not None else float('inf')
+                batch_duration = self._checkpoints[-1] - self._batch_start
                 batch_walltime = int(
-                    ceil(min(self._checkpoints[-1] * 1.25, max_walltime))
+                    ceil(min(batch_duration * 1.25, max_walltime))
                 )
                 self._logger.debug(f"Resource max walltime for batch {batch_walltime}")
 
@@ -382,25 +391,25 @@ class Bookkeeper(object):
                             or predecessors_states == set([States.DONE])
                         ) and self._workflows_state[wf_id] == States.NEW:
                             node_slice = (
-                                plan_batch.plan[wf_id - 1][2] / self._resource.memory_per_node
+                                wf_id_lookup[wf_id].memory / self._resource.memory_per_node
                             )
                             threads_per_core = floor(
                                 self._resource.cores_per_node
                                 * node_slice
-                                / len(plan_batch.plan[wf_id - 1][1])
+                                / len(wf_id_lookup[wf_id].cores)
                             )
                             # print(node_slice, threads_per_core, self._plan[wf_id - 1])
-                            workflows.append(plan_batch.plan[wf_id - 1][0])
-                            cores.append((plan_batch.plan[wf_id - 1][1], threads_per_core))
-                            memory.append(plan_batch.plan[wf_id - 1][2])
+                            workflows.append(wf_id_lookup[wf_id].workflow)
+                            cores.append((wf_id_lookup[wf_id].cores, threads_per_core))
+                            memory.append(wf_id_lookup[wf_id].memory)
 
                             self._logger.debug(
                                 f"To submit workflows {[x for x in workflows]}"
                                 + f" to resources {cores}"
                             )
 
-                            for rc_id in plan_batch.plan[wf_id - 1][1]:
-                                self._est_end_times[rc_id] = plan_batch.plan[wf_id - 1][3]
+                            for rc_id in wf_id_lookup[wf_id].cores:
+                                self._est_end_times[rc_id] = wf_id_lookup[wf_id].end_time
                     if workflows:
                         self._logger.debug(
                             f"Submitting workflows {[x.id for x in workflows]}"

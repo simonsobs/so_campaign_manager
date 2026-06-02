@@ -83,7 +83,7 @@ def test_planner_plan_not_implemented(mock_os, mock_ru):
 @patch("socm.planner.base.ru")
 @patch("socm.planner.base.os")
 def test_planner_replan_not_implemented(mock_os, mock_ru):
-    """Test that plan method raises NotImplementedError."""
+    """Test that replan method raises NotImplementedError."""
     mock_ru.generate_id.return_value = "planner.0003"
     mock_ru.Logger.return_value = Mock()
     mock_ru.ID_CUSTOM = "custom"
