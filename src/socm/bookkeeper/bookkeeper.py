@@ -4,7 +4,7 @@ from importlib.resources import files
 from math import ceil, floor
 from pathlib import Path
 from time import sleep
-from typing import Dict
+from typing import Dict, List
 
 import radical.utils as ru
 from slurmise.api import Slurmise
@@ -12,7 +12,7 @@ from slurmise.job_data import JobData
 from slurmise.job_parse.file_parsers import FileMD5
 from slurmise.slurm import parse_slurm_job_metadata
 
-from ..core import Campaign, Workflow
+from ..core import Campaign, PlanEntry, Workflow
 from ..enactor import DryrunEnactor, RPEnactor
 from ..planner import HeftPlanner
 from ..resources import registered_resources
@@ -60,8 +60,7 @@ class Bookkeeper(object):
 
         self._resource = registered_resources[target_resource]()
         self._checkpoints = None
-        self._plan = None
-        self._plan_graph = None
+        self._plan_result = None
         self._unavail_resources = []
         self._workflows_state = dict()
         self._workflows_execids = dict()
@@ -95,6 +94,9 @@ class Bookkeeper(object):
         # Creating a thread to execute the monitoring and work methods.
         # One flag for both threads may be enough  to monitor and check.
         self._terminate_event = mt.Event()  # Thread event to terminate.
+        self._batch_finished = mt.Event()  # Thread event to indicate batch completion.
+        self._planning_done = mt.Event()  # Thread event to indicate planning is complete.
+        self._current_batch_wf_ids = set()
         self._work_thread = None  # Private attribute that will hold the thread
         self._monitoring_thread = None  # Private attribute that will hold the thread
 
@@ -158,18 +160,20 @@ class Bookkeeper(object):
                 }
         return workflow_requirements
 
-    def _update_checkpoints(self):
+    def _update_checkpoints(self, plan_batch: List[PlanEntry]) -> None:
         """
         Create a list of timestamps when workflows may start executing or end.
         """
 
-        self._checkpoints = [0]
+        self._checkpoints: List[float] = [0]
+        self._batch_start: float = float("inf")
 
-        for work in self._plan:
-            if work[-2] not in self._checkpoints:
-                self._checkpoints.append(work[-2])
-            if work[-1] not in self._checkpoints:
-                self._checkpoints.append(work[-1])
+        for plan_entry in plan_batch:
+            if plan_entry.end_time not in self._checkpoints:
+                self._checkpoints.append(plan_entry.end_time)
+            if plan_entry.start_time not in self._checkpoints:
+                self._checkpoints.append(plan_entry.start_time)
+            self._batch_start = min(self._batch_start, plan_entry.start_time)
 
         self._checkpoints.sort()
 
@@ -180,7 +184,7 @@ class Bookkeeper(object):
         compares it with the maximum walltime.
         """
 
-        self._update_checkpoints()
+        self._update_checkpoints(self._plan_result.batches[-1].plan)
 
         if self._checkpoints[-1] > self._objective:
             return False
@@ -273,6 +277,11 @@ class Bookkeeper(object):
         with self._exec_state_lock:
             for workflow_id in workflow_ids:
                 self._workflows_state[workflow_id] = new_state
+            if self._current_batch_wf_ids and all(
+                self._workflows_state.get(wf_id) in CFINAL
+                for wf_id in self._current_batch_wf_ids
+            ):
+                self._batch_finished.set()
 
     def workflowid_update_cb(self, workflow_ids, step_ids, **kargs):
         """
@@ -304,124 +313,140 @@ class Bookkeeper(object):
         # There is no need to check since I know there is no plan.
         self._logger.debug("Campaign state to PLANNING")
         self._prof.prof("planning_start", uid=self._uid)
-        if self._plan is None:
-            self._logger.debug("Calculating campaign plan")
+        try:
+            if self._plan_result is None:
+                self._logger.debug("Calculating campaign plan")
+                with self._exec_state_lock:
+                    self._campaign["state"] = States.PLANNING
+
+                workflow_requirements = self._get_campaign_requirements()
+
+                self._plan_result = self._planner.plan(
+                    campaign=self._campaign["campaign"].workflows,
+                    execution_schema=self._campaign["campaign"].execution_schema,
+                    resource_requirements=workflow_requirements,
+                    requested_resources=self._campaign["campaign"].requested_resources
+                )
+        except Exception as ex:
+            self._logger.error(f"Exception during planning: {ex}")
             with self._exec_state_lock:
-                self._campaign["state"] = States.PLANNING
+                self._campaign["state"] = States.FAILED
+                return
+        finally:
+            self._planning_done.set()
+            self._prof.prof("planning_ended", uid=self._uid)
 
-            workflow_requirements = self._get_campaign_requirements()
+        self._logger.debug(f"Calculated campaign plan batches with {self._plan_result.qos} QOS and requesting {self._plan_result.ncores} cores")
+        objective_met = self._verify_objective()
 
-            self._plan, self._plan_graph, selected_qos, cores_request = self._planner.plan(
-                campaign=self._campaign["campaign"].workflows,
-                execution_schema=self._campaign["campaign"].execution_schema,
-                resource_requirements=workflow_requirements,
-                requested_resources=self._campaign["campaign"].requested_resources
-            )
-
-        self._prof.prof("planning_ended", uid=self._uid)
-        self._logger.debug(f"Calculated campaign plan with {selected_qos} QOS and requesting {cores_request} cores")
-
-        # Update checkpoints and objective.
-        self._update_checkpoints()
-        self._logger.debug(
-            f"Campaign makespan {self._checkpoints[-1]}, and objective {self._objective}"
-        )
-        if not self._verify_objective():
+        if not objective_met:
             self._logger.error("Objective cannot be satisfied. Ending execution")
             with self._exec_state_lock:
                 self._campaign["state"] = States.FAILED
-            sleep(1)
-            return
+        else:
+            for plan_batch in self._plan_result.batches:
+                if self._terminate_event.is_set():
+                    break
 
-        self._objective = int(
-            ceil(min(self._checkpoints[-1] * 1.25, self._objective))
-        )
-        self._logger.debug(f"Resource max walltime {self._objective}")
+                wf_id_lookup = {plan_entry.workflow.id: plan_entry for plan_entry in plan_batch.plan}
+                self._update_checkpoints(plan_batch.plan)
 
-        self._enactor.setup(
-            resource=self._resource,
-            walltime=self._objective,
-            cores=cores_request,
-            execution_schema=self._campaign["campaign"].execution_schema,
-        )
+                if self._plan_result.qos is not None and self._plan_result.qos.max_walltime is not None:
+                    max_walltime = self._plan_result.qos.max_walltime
+                else:
+                    max_walltime = float('inf')
 
-        with self._exec_state_lock:
-            self._campaign["state"] = States.EXECUTING
-        self._logger.debug("Campaign state to EXECUTING")
+                batch_duration = self._checkpoints[-1] - self._batch_start
+                batch_walltime = int(
+                    ceil(min(batch_duration * 1.25, max_walltime))
+                )
+                self._logger.debug(f"Resource max walltime for batch {batch_walltime}")
 
-        self._prof.prof("work_start", uid=self._uid)
-        while not self._terminate_event.is_set():
-            if not self._verify_objective():
-                self._logger.error("Objective cannot be satisfied. Ending execution")
+                self._enactor.setup(
+                    resource=self._resource,
+                    walltime=batch_walltime,
+                    cores=self._plan_result.ncores,
+                    execution_schema=self._campaign["campaign"].execution_schema,
+                )
+
                 with self._exec_state_lock:
-                    self._campaign["state"] = States.FAILED
-                    # self.terminate()
-            else:
-                self._prof.prof("work_submit", uid=self._uid)
-                workflows = list()  # Workflows to enact
-                cores = list()  # The selected cores
-                memory = list()  # The memory per workflow
+                    if self._campaign["state"] != States.EXECUTING:
+                        self._campaign["state"] = States.EXECUTING
+                        self._logger.debug("Campaign state to EXECUTING")
 
-                for wf_id in self._plan_graph.nodes():
+                self._current_batch_wf_ids = set(plan_batch.graph.nodes())
+                self._batch_finished.clear()
 
-                    predecessors_states = set()
-                    for predecessor in self._plan_graph.predecessors(wf_id):
-                        predecessors_states.add(self._workflows_state[predecessor])
-                    # Do not enact to workflows that sould have been executed
-                    # already.
-                    if (
-                        predecessors_states == set()
-                        or predecessors_states == set([States.DONE])
-                    ) and self._workflows_state[wf_id] == States.NEW:
-                        node_slice = (
-                            self._plan[wf_id - 1][2] / self._resource.memory_per_node
-                        )
-                        threads_per_core = floor(
-                            self._resource.cores_per_node
-                            * node_slice
-                            / len(self._plan[wf_id - 1][1])
-                        )
-                        # print(node_slice, threads_per_core, self._plan[wf_id - 1])
-                        workflows.append(self._plan[wf_id - 1][0])
-                        cores.append((self._plan[wf_id - 1][1], threads_per_core))
-                        memory.append(self._plan[wf_id - 1][2])
+                self._prof.prof("work_start", uid=self._uid)
+                while not self._terminate_event.is_set() and not self._batch_finished.is_set():
+                    self._prof.prof("work_submit", uid=self._uid)
+                    workflows = list()  # Workflows to enact
+                    cores = list()  # The selected cores
+                    memory = list()  # The memory per workflow
 
+                    for wf_id in plan_batch.graph.nodes():
+
+                        predecessors_states = set()
+                        for predecessor in plan_batch.graph.predecessors(wf_id):
+                            predecessors_states.add(self._workflows_state[predecessor])
+                        # Do not enact to workflows that sould have been executed
+                        # already.
+                        if (
+                            predecessors_states == set()
+                            or predecessors_states == set([States.DONE])
+                        ) and self._workflows_state[wf_id] == States.NEW:
+                            node_slice = (
+                                wf_id_lookup[wf_id].memory / self._resource.memory_per_node
+                            )
+                            threads_per_core = floor(
+                                self._resource.cores_per_node
+                                * node_slice
+                                / len(wf_id_lookup[wf_id].cores)
+                            )
+                            # print(node_slice, threads_per_core, self._plan[wf_id - 1])
+                            workflows.append(wf_id_lookup[wf_id].workflow)
+                            cores.append((wf_id_lookup[wf_id].cores, threads_per_core))
+                            memory.append(wf_id_lookup[wf_id].memory)
+
+                            self._logger.debug(
+                                f"To submit workflows {[x for x in workflows]}"
+                                + f" to resources {cores}"
+                            )
+
+                            for rc_id in wf_id_lookup[wf_id].cores:
+                                self._est_end_times[rc_id] = wf_id_lookup[wf_id].end_time
+                    if workflows:
                         self._logger.debug(
-                            f"To submit workflows {[x for x in workflows]}"
+                            f"Submitting workflows {[x.id for x in workflows]}"
                             + f" to resources {cores}"
                         )
 
-                        for rc_id in self._plan[wf_id - 1][1]:
-                            self._est_end_times[rc_id] = self._plan[wf_id - 1][3]
-                if workflows:
-                    self._logger.debug(
-                        f"Submitting workflows {[x.id for x in workflows]}"
-                        + f" to resources {cores}"
-                    )
+                    # There is no need to call the enactor when no new things
+                    # should happen.
+                    # self._logger.debug('Adding items: %s, %s', workflows, resources)
+                    if workflows and cores and memory:
+                        self._prof.prof("enactor_submit", uid=self._uid)
+                        self._enactor.enact(workflows=workflows)
+                        self._prof.prof("enactor_submitted", uid=self._uid)
 
-                # There is no need to call the enactor when no new things
-                # should happen.
-                # self._logger.debug('Adding items: %s, %s', workflows, resources)
-                if workflows and cores and memory:
-                    self._prof.prof("enactor_submit", uid=self._uid)
-                    self._enactor.enact(workflows=workflows)
-                    self._prof.prof("enactor_submitted", uid=self._uid)
-
-                    with self._monitor_lock:
-                        self._workflows_to_monitor += workflows
-                        self._unavail_resources += cores
-                        self._logger.info(
-                            f"Total number of workflows to monitor {len(workflows)}"
+                        with self._monitor_lock:
+                            self._workflows_to_monitor += workflows
+                            self._unavail_resources += cores
+                            self._logger.info(
+                                f"Total number of workflows to monitor {len(workflows)}"
+                            )
+                        self._logger.debug(
+                            "Things monitored: %s, %s, %s",
+                            self._workflows_to_monitor,
+                            self._unavail_resources,
+                            self._est_end_times,
                         )
-                    self._logger.debug(
-                        "Things monitored: %s, %s, %s",
-                        self._workflows_to_monitor,
-                        self._unavail_resources,
-                        self._est_end_times,
-                    )
 
-                self._prof.prof("work_submitted", uid=self._uid)
-            sleep(1)
+                    self._prof.prof("work_submitted", uid=self._uid)
+                    sleep(1)
+
+                if not self._terminate_event.is_set():
+                    self._enactor.teardown()
 
     def monitor(self):
         """
@@ -459,7 +484,7 @@ class Bookkeeper(object):
                 else:
                     sleep(1)  # Sleep for a while if nothing happened.
 
-        self._logger.debug("Monitor thread Stoped")
+        self._logger.debug("Monitor thread Stopped")
 
     def get_makespan(self):
         """
@@ -472,8 +497,8 @@ class Bookkeeper(object):
             completion time of the entire campaign (in minutes).
         """
 
-        self._update_checkpoints()
-
+        if self._checkpoints is None:
+            return 0
         return self._checkpoints[-1]
 
     def terminate(self):
@@ -534,8 +559,7 @@ class Bookkeeper(object):
             # self._logger.debug(
             #     "Time now: %s, checkpoints: %s", self._time, self._checkpoints
             # )
-            while self._checkpoints is None:
-                continue
+            self._planning_done.wait()
 
             self._prof.prof("bookkeper_wait", uid=self._uid)
             while self._campaign["state"] not in CFINAL:

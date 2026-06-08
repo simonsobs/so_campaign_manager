@@ -149,3 +149,7 @@ class Enactor(object):
     def terminate(self):
         """Terminate the Enactor and clean up resources."""
         raise NotImplementedError("terminate is not implemented")
+
+    def teardown(self):
+        """Tear down the Enactor's backend, ensuring all resources are cleaned up."""
+        raise NotImplementedError("teardown is not implemented")

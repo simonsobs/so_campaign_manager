@@ -1,19 +1,11 @@
 import os
-from typing import Dict, List, NamedTuple, Tuple
+from typing import Dict, List, Tuple
 
 import networkx as nx
 import radical.utils as ru
 
-from ..core import DAG, Campaign, Resource, Workflow
+from ..core import DAG, Campaign, PlanEntry, PlanResult, Resource
 
-
-class PlanEntry(NamedTuple):
-    """Represents a scheduled workflow in the execution plan."""
-    workflow: Workflow
-    cores: range
-    memory: float
-    start_time: float
-    end_time: float
 
 class Planner(object):
     """
@@ -55,7 +47,7 @@ class Planner(object):
         resource_requirements: Dict[int, Dict[str, float]] | None = None,
         start_time: int = 0,
         **kargs,
-    ) -> Tuple[List[PlanEntry], nx.DiGraph]:
+    ) -> PlanResult:
         """
         Calculate an execution plan for the given campaign and resources.
 
@@ -74,12 +66,9 @@ class Planner(object):
 
         Returns
         -------
-        tuple[list[PlanEntry], nx.DiGraph]
-            A tuple of (plan_entries, dependency_graph) where plan_entries
-            is a list of PlanEntry named tuples and dependency_graph is a
-            NetworkX DiGraph.
+        PlanResult
+            The complete planning result containing QoS policy, core count, and execution batches.
         """
-
         raise NotImplementedError("Plan method is not implemented")
 
     def replan(
@@ -91,8 +80,6 @@ class Planner(object):
     ) -> Tuple[List[PlanEntry], nx.DiGraph]:
         """
         Recalculate the execution plan, typically after workflow completion.
-
-        Delegates to ``plan()`` if all required arguments are provided.
 
         Parameters
         ----------
@@ -107,18 +94,7 @@ class Planner(object):
 
         Returns
         -------
-        tuple
-            A tuple of (plan_entries, dependency_graph).
+        Tuple[List[PlanEntry], nx.DiGraph]
+            A tuple containing the updated plan entries and the dependency graph.
         """
-        if campaign and resources and resource_requirements:
-            self._logger.debug("Replanning")
-            self._plan = self.plan(
-                campaign=campaign,
-                resources=resources,
-                resource_requirements=resource_requirements,
-                start_time=start_time,
-            )
-        else:
-            self._logger.debug("Nothing to plan for")
-
-        return self._plan
+        raise NotImplementedError("Replan method is not implemented")
