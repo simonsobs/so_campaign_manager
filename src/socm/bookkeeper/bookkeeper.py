@@ -331,6 +331,7 @@ class Bookkeeper(object):
             self._logger.error(f"Exception during planning: {ex}")
             with self._exec_state_lock:
                 self._campaign["state"] = States.FAILED
+                return
         finally:
             self._planning_done.set()
             self._prof.prof("planning_ended", uid=self._uid)
@@ -350,7 +351,11 @@ class Bookkeeper(object):
                 wf_id_lookup = {plan_entry.workflow.id: plan_entry for plan_entry in plan_batch.plan}
                 self._update_checkpoints(plan_batch.plan)
 
-                max_walltime = self._plan_result.qos.max_walltime if self._plan_result.qos is not None else float('inf')
+                if self._plan_result.qos is not None and self._plan_result.qos.max_walltime is not None:
+                    max_walltime = self._plan_result.qos.max_walltime
+                else:
+                    max_walltime = float('inf')
+
                 batch_duration = self._checkpoints[-1] - self._batch_start
                 batch_walltime = int(
                     ceil(min(batch_duration * 1.25, max_walltime))
