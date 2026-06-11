@@ -76,7 +76,7 @@ def _main(args: Namespace) -> None:
 
     policy = config["campaign"].get("policy", "time")
     target_resource = config["campaign"].get("resource", "tiger3")
-    # pprint(workflows)
+
     campaign = Campaign(
         id=1,
         workflows=campaign_dag,
@@ -86,8 +86,7 @@ def _main(args: Namespace) -> None:
         requested_resources=config["campaign"]["requested_resources"],
         target_resource=target_resource,
     )
-    # breakpoint()
-    # print(campaign)
+
     # This main class to execute the campaign to a resource.
     b = Bookkeeper(
         campaign=campaign,

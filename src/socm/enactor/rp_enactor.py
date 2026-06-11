@@ -311,7 +311,7 @@ class RPEnactor(Enactor):
         # No additional teardown needed for RADICAL-Pilot as terminate handles cleanup.
         if self._pilot:
             self._pilot.cancel()
-            self._pilot.wait(state=rp.PMGR_CANCELED)
+            self._pilot.wait(state=rp.CANCELED)
             self._pilot = None
         else:
             self._logger.warning("No pilot to cancel during teardown.")

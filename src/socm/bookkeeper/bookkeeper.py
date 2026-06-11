@@ -328,7 +328,7 @@ class Bookkeeper(object):
                     requested_resources=self._campaign["campaign"].requested_resources
                 )
         except Exception as ex:
-            self._logger.error(f"Exception during planning: {ex}")
+            self._logger.exception(f"Exception during planning: {ex}")
             with self._exec_state_lock:
                 self._campaign["state"] = States.FAILED
                 return
