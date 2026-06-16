@@ -3,8 +3,35 @@ from ..core import QosPolicy, Resource
 
 class PerlmutterResource(Resource):
     """
-    PerlmutterResource is a specialized Resource class for the Perlmutter HPC system.
-    It includes additional attributes specific to the Perlmutter system.
+    Resource definition for the Perlmutter HPC system at NERSC.
+
+    Pre-configures the node count, core layout, memory, and SLURM QoS
+    policies for Perlmutter so that campaigns can reference it by name
+    in ``registered_resources``.
+
+    Attributes
+    ----------
+    name : str
+        Resource identifier, fixed to ``"perlmutter"``.
+    nodes : int
+        Total compute nodes available (3 072).
+    cores_per_node : int
+        CPU cores per node (128).
+    memory_per_node : int
+        Memory per node in MB (1 000 000).
+    default_qos : str
+        Default QoS name (``"regular"``).
+
+    QoS tiers
+    ----------
+    regular
+        48 h walltime, 5 000 jobs, 393 216 cores.
+    interactive
+        4 h walltime, 2 jobs, 512 cores.
+    shared_interactive
+        4 h walltime, 2 jobs, 64 cores.
+    debug
+        30 min walltime, 5 jobs, 1 024 cores.
     """
 
     name: str = "perlmutter"

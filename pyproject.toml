@@ -17,6 +17,8 @@ dependencies = [
     "networkx",
     "toml",
     "click",
+    "pytz",
+    "scipy",
     "slurmise; sys_platform != 'darwin'",
     "humanfriendly",
 ]

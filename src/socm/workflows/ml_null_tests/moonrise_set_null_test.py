@@ -12,10 +12,28 @@ from socm.workflows.ml_null_tests import NullTestWorkflow
 
 class MoonRiseSetNullTestWorkflow(NullTestWorkflow):
     """
-    A workflow for moonrise/moonset null tests.
+    Null-test workflow that splits observations by whether the Moon is in the sky.
 
-    This workflow splits observations based on whether they were taken during the moonrise or moonset.
-    It creates time-interleaved splits with nsplits=2 as specified.
+    Uses the `astral <https://astral.readthedocs.io/>`_ library and the SO
+    site coordinates (San Pedro de Atacama, Chile) to determine the moonrise and
+    moonset times for each observation's date. Observations taken while the Moon
+    is above the horizon are classified as ``"insky"``; the remainder are
+    classified as ``"outsky"``. Within each group ``nsplits = 2``
+    time-interleaved splits are created. Child workflows follow the naming
+    convention ``moon_{insky,outsky}_split_<N>_null_test_workflow``.
+
+    Parameters
+    ----------
+    chunk_nobs : int or None, optional
+        Number of observations per time chunk per moon-sky group. Defaults to
+        ``None``.
+    chunk_duration : timedelta or None, optional
+        Duration per chunk (not yet implemented). Defaults to ``None``.
+    nsplits : int, optional
+        Number of time splits per group. Fixed to ``2``. Defaults to ``2``.
+    name : str, optional
+        Human-readable workflow name. Defaults to
+        ``"moonset_null_test_workflow"``.
     """
 
     chunk_nobs: Optional[int] = None
@@ -27,23 +45,39 @@ class MoonRiseSetNullTestWorkflow(NullTestWorkflow):
         self, ctx: Context, obs_info: Dict[str, Dict[str, Union[float, str]]]
     ) -> Dict[str, List[List[str]]]:
         """
-        Split observations based on whether the moon is in the sky.
+        Split observations based on whether the Moon is above the horizon.
 
-        Groups observations by whether they were taken while the moon was
-        above the horizon (insky) or below (outsky), then creates
-        time-interleaved splits for each group.
+        Computes moonrise/moonset times for the SO site on each observation
+        date and classifies observations as ``"insky"`` (moon above horizon)
+        or ``"outsky"`` (moon below horizon). Within each group, observations
+        are sorted chronologically, chunked by ``chunk_nobs``, and distributed
+        round-robin across ``nsplits`` (= 2) splits. Observations for which
+        moonrise/moonset cannot be computed (``ValueError``) are silently
+        skipped.
 
         Parameters
         ----------
         ctx : Context
-            The sotodlib Context object.
-        obs_info : dict
-            A mapping of observation IDs to their metadata.
+            The sotodlib :class:`~sotodlib.core.Context` object (not used
+            directly).
+        obs_info : dict of str to dict
+            Mapping of observation ID to metadata. The ``start_time`` key
+            (Unix timestamp) is used.
 
         Returns
         -------
-        dict
-            A mapping of 'insky' and 'outsky' to lists of observation splits.
+        dict of str to list of list of str
+            Mapping of ``"insky"`` and ``"outsky"`` to lists of ``nsplits``
+            splits, each containing the observation IDs for that group and
+            split.
+
+        Raises
+        ------
+        ValueError
+            If neither ``chunk_nobs`` nor ``chunk_duration`` is set, or if
+            both are set.
+        NotImplementedError
+            If ``chunk_duration`` is set (not yet implemented).
         """
         if self.chunk_nobs is None and self.chunk_duration is None:
             raise ValueError("Either chunk_nobs or duration must be set.")
@@ -125,18 +159,23 @@ class MoonRiseSetNullTestWorkflow(NullTestWorkflow):
     @classmethod
     def get_workflows(cls, desc=None) -> List[NullTestWorkflow]:
         """
-        Create NullTestWorkflow instances for each moonrise/moonset split.
+        Create one :class:`~socm.workflows.ml_null_tests.base.NullTestWorkflow` per moon-sky-split pair.
+
+        Instantiates the parent :class:`MoonRiseSetNullTestWorkflow` to compute
+        the splits, then creates a child :class:`NullTestWorkflow` for each
+        non-empty (moon sky status, time-split) combination. Query files are
+        written to ``<output_dir>/moon_{insky,outsky}_split_<N>/query.txt``.
 
         Parameters
         ----------
         desc : dict, optional
-            The workflow configuration dictionary.
+            Workflow configuration dictionary.
 
         Returns
         -------
         list of NullTestWorkflow
-            One workflow per moon-sky-split combination, following the naming
-            convention: moon_{insky,outsky}_split_{idx}_null_test_workflow.
+            One workflow per non-empty moon-sky-split pair, named
+            ``moon_{insky,outsky}_split_<N>_null_test_workflow``.
         """
         moon_sky_workflow = cls(**desc)
 

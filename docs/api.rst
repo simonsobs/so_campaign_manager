@@ -1,7 +1,7 @@
 API Reference
 =============
 
-This section documents the core API of SO Campaign Manager.
+This section documents the public API of SO Campaign Manager.
 
 Core Modules
 ------------
@@ -54,27 +54,45 @@ Enactors
    :undoc-members:
    :show-inheritance:
 
-Workflows
-~~~~~~~~~
+Resources
+---------
 
-Base Workflow
-^^^^^^^^^^^^^
-
-.. automodule:: socm.workflows
+.. automodule:: socm.resources.tiger
    :members:
    :undoc-members:
    :show-inheritance:
 
+.. automodule:: socm.resources.perlmutter
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+.. automodule:: socm.resources.universe
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+Workflows
+---------
+
 ML Mapmaking
-^^^^^^^^^^^^
+~~~~~~~~~~~~
 
 .. automodule:: socm.workflows.ml_mapmaking
    :members:
    :undoc-members:
    :show-inheritance:
 
+Power Spectra
+~~~~~~~~~~~~~
+
+.. automodule:: socm.workflows.spectra
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
 SAT Simulation
-^^^^^^^^^^^^^^
+~~~~~~~~~~~~~~
 
 .. automodule:: socm.workflows.sat_simulation
    :members:
@@ -82,29 +100,92 @@ SAT Simulation
    :show-inheritance:
 
 Null Tests
-^^^^^^^^^^
+~~~~~~~~~~
+
+Base Null Test
+^^^^^^^^^^^^^^
 
 .. automodule:: socm.workflows.ml_null_tests.base
    :members:
    :undoc-members:
    :show-inheritance:
 
+Mission (Time) Null Test
+^^^^^^^^^^^^^^^^^^^^^^^^
+
 .. automodule:: socm.workflows.ml_null_tests.time_null_test
    :members:
    :undoc-members:
    :show-inheritance:
+
+Wafer Null Test
+^^^^^^^^^^^^^^^
 
 .. automodule:: socm.workflows.ml_null_tests.wafer_null_test
    :members:
    :undoc-members:
    :show-inheritance:
 
+Direction Null Test
+^^^^^^^^^^^^^^^^^^^
+
+.. automodule:: socm.workflows.ml_null_tests.direction_null_test
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+PWV Null Test
+^^^^^^^^^^^^^
+
 .. automodule:: socm.workflows.ml_null_tests.pwv_null_test
    :members:
    :undoc-members:
    :show-inheritance:
 
-.. automodule:: socm.workflows.ml_null_tests.direction_null_test
+Day/Night Null Test
+^^^^^^^^^^^^^^^^^^^
+
+.. automodule:: socm.workflows.ml_null_tests.day_night_null_test
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+Moon Rise/Set Null Test
+^^^^^^^^^^^^^^^^^^^^^^^
+
+.. automodule:: socm.workflows.ml_null_tests.moonrise_set_null_test
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+Elevation Null Test
+^^^^^^^^^^^^^^^^^^^
+
+.. automodule:: socm.workflows.ml_null_tests.elevation_null_test
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+Sun Close/Far Null Test
+^^^^^^^^^^^^^^^^^^^^^^^
+
+.. automodule:: socm.workflows.ml_null_tests.sun_close_null_test
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+Moon Close/Far Null Test
+^^^^^^^^^^^^^^^^^^^^^^^^
+
+.. automodule:: socm.workflows.ml_null_tests.moon_close_null_test
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+Smart Split Null Test
+^^^^^^^^^^^^^^^^^^^^^
+
+.. automodule:: socm.workflows.ml_null_tests.smart_split_null_test
    :members:
    :undoc-members:
    :show-inheritance:

@@ -10,10 +10,28 @@ from socm.workflows.ml_null_tests import NullTestWorkflow
 
 class PWVNullTestWorkflow(NullTestWorkflow):
     """
-    A workflow for PWV (precipitable water vapor) null tests.
+    Null-test workflow that splits observations by precipitable water vapour (PWV).
 
-    This workflow splits observations into two groups based on PWV levels ('high' and 'low')
-    and creates time-interleaved splits with nsplits=2 as specified.
+    Classifies each observation as ``"high"`` (PWV > ``pwv_limit``) or
+    ``"low"`` (PWV ≤ ``pwv_limit``), then within each group creates
+    ``nsplits = 2`` time-interleaved splits to test for atmosphere-dependent
+    systematics. Child workflows follow the naming convention
+    ``pwv_<level>_split_<N>_null_test_workflow``.
+
+    Parameters
+    ----------
+    chunk_nobs : int or None, optional
+        Number of observations per time chunk per PWV group. Defaults to
+        ``None``.
+    chunk_duration : timedelta or None, optional
+        Duration per chunk (not yet implemented). Defaults to ``None``.
+    pwv_limit : float, optional
+        PWV threshold in mm. Observations above this value are classified as
+        ``"high"``. Defaults to ``2.0``.
+    nsplits : int, optional
+        Number of time splits per PWV group. Fixed to ``2``. Defaults to ``2``.
+    name : str, optional
+        Human-readable workflow name. Defaults to ``"pwv_null_test_workflow"``.
     """
 
     chunk_nobs: Optional[int] = None
@@ -26,18 +44,35 @@ class PWVNullTestWorkflow(NullTestWorkflow):
         self, ctx: Context, obs_info: Dict[str, Dict[str, Union[float, str]]]
     ) -> Dict[str, List[List[str]]]:
         """
-        Distribute the observations across splits based on PWV values.
+        Distribute observations into PWV-level-based, time-interleaved splits.
 
-        Groups observations by PWV level (high, low) and then
-        creates time-interleaved splits for each level with nsplits=2.
+        Groups observations by whether their PWV exceeds ``pwv_limit``. Within
+        each group, observations are sorted chronologically, chunked by
+        ``chunk_nobs``, and assigned round-robin to ``nsplits`` (= 2) splits.
 
-        Args:
-            ctx: Context object
-            obs_info: Dictionary mapping obs_id to observation metadata
+        Parameters
+        ----------
+        ctx : Context
+            The sotodlib :class:`~sotodlib.core.Context` object (not used
+            directly).
+        obs_info : dict of str to dict
+            Mapping of observation ID to metadata. The ``pwv`` and
+            ``start_time`` keys are used.
 
-        Returns:
-            Dict mapping PWV level to list of splits, where each split is a list
-            of obs_ids
+        Returns
+        -------
+        dict of str to list of list of str
+            Mapping of PWV level (``"high"`` or ``"low"``) to a list of
+            ``nsplits`` splits, each containing the observation IDs assigned
+            to that level and split.
+
+        Raises
+        ------
+        ValueError
+            If neither ``chunk_nobs`` nor ``chunk_duration`` is set, or if
+            both are set.
+        NotImplementedError
+            If ``chunk_duration`` is set (not yet implemented).
         """
         if self.chunk_nobs is None and self.chunk_duration is None:
             raise ValueError("Either chunk_nobs or duration must be set.")
@@ -83,10 +118,23 @@ class PWVNullTestWorkflow(NullTestWorkflow):
     @classmethod
     def get_workflows(cls, desc=None) -> List[NullTestWorkflow]:
         """
-        Create a list of NullTestWorkflows instances from the provided descriptions.
+        Create one :class:`~socm.workflows.ml_null_tests.base.NullTestWorkflow` per PWV-split pair.
 
-        Creates separate workflows for each PWV-based split following the naming
-        convention: {setname} = pwv_{pwv_level}_split_{split_idx + 1}_null_test_workflow
+        Instantiates the parent :class:`PWVNullTestWorkflow` to compute the
+        splits, then creates a child :class:`NullTestWorkflow` for each
+        non-empty (PWV level, time-split) combination. Query files are written
+        to ``<output_dir>/pwv_<level>_split_<N>/query.txt``.
+
+        Parameters
+        ----------
+        desc : dict, optional
+            Workflow configuration dictionary.
+
+        Returns
+        -------
+        list of NullTestWorkflow
+            One workflow per non-empty PWV-split pair, named
+            ``pwv_<level>_split_<N>_null_test_workflow``.
         """
         pwv_workflow = cls(**desc)
 

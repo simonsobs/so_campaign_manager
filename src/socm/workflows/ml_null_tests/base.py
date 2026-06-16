@@ -10,7 +10,40 @@ from socm.workflows import MLMapmakingWorkflow
 
 class NullTestWorkflow(MLMapmakingWorkflow):
     """
-    A workflow for null tests.
+    Base class for all null-test workflows.
+
+    Extends :class:`~socm.workflows.ml_mapmaking.MLMapmakingWorkflow` with
+    observation-splitting logic. After Pydantic validation (via
+    :meth:`model_post_init`) the observation database is queried, metadata is
+    collected for each matching observation, and :meth:`_get_splits` is called
+    to divide the observations into sets. Each set is later turned into an
+    independent workflow instance by the :meth:`get_workflows` class method.
+
+    Subclasses must override :meth:`_get_splits` to implement the specific
+    splitting criterion (time, wafer, direction, etc.) and :meth:`get_workflows`
+    to instantiate one child workflow per resulting split.
+
+    Parameters
+    ----------
+    area : str
+        Path (or ``file://`` URI) to the FITS sky-area file.
+    output_dir : str
+        Root output directory; each split writes to a subdirectory.
+    query : str, optional
+        Observation-database query string or ``file://`` URI. Defaults to
+        ``"1"`` (all observations).
+    name : str, optional
+        Human-readable workflow name. Defaults to
+        ``"lat_null_test_workflow"``.
+    datasize : int, optional
+        Accumulated sample count (computed automatically). Defaults to ``0``.
+    chunk_nobs : int or None, optional
+        Number of observations per time chunk used by splitting subclasses.
+        Exactly one of ``chunk_nobs`` and ``chunk_duration`` must be set.
+        Defaults to ``None``.
+    chunk_duration : timedelta or None, optional
+        Duration per time chunk (not yet fully supported in all subclasses).
+        Defaults to ``None``.
     """
 
     area: str
@@ -23,7 +56,18 @@ class NullTestWorkflow(MLMapmakingWorkflow):
 
     def model_post_init(self, __context: Any) -> None:
         """
-        Post-initialization to load observation context and compute splits.
+        Post-initialisation hook that queries the observation database and computes splits.
+
+        Loads the sotodlib :class:`~sotodlib.core.Context`, resolves the query
+        string, collects per-observation metadata (timestamp, wafers, tube slot,
+        azimuth, elevation, PWV, throw, duration, sample count), and calls
+        :meth:`_get_splits` to produce the observation splits stored in
+        :attr:`_splits`.
+
+        Parameters
+        ----------
+        __context : Any
+            Pydantic internal context argument (not used directly).
         """
         ctx_file = Path(self.context.split("file://")[-1]).absolute()
         ctx = Context(ctx_file)
@@ -52,6 +96,22 @@ class NullTestWorkflow(MLMapmakingWorkflow):
         self._splits = self._get_splits(ctx, obs_info)
 
     def _get_num_chunks(self, num_obs: int) -> int:
+        """
+        Compute the number of time chunks for a given observation count.
+
+        Uses ceiling division so that no observation is dropped.
+
+        Parameters
+        ----------
+        num_obs : int
+            The total number of observations to chunk.
+
+        Returns
+        -------
+        int
+            The number of chunks needed to cover ``num_obs`` observations
+            with at most ``chunk_nobs`` observations per chunk.
+        """
         num_chunks = (
             num_obs + self.chunk_nobs - 1
         ) // self.chunk_nobs  # Ceiling division
@@ -63,20 +123,32 @@ class NullTestWorkflow(MLMapmakingWorkflow):
         """
         Compute observation splits for the null test.
 
-        Must be implemented by subclasses to define how observations are
-        divided into splits based on the specific null test criterion.
+        Must be implemented by every concrete subclass. The base implementation
+        raises :class:`NotImplementedError` when called on any class other than
+        ``NullTestWorkflow`` itself (which uses a no-op pass for the base case).
 
         Parameters
         ----------
         ctx : Context
-            The sotodlib Context object.
-        obs_info : dict
-            A mapping of observation IDs to their metadata.
+            The sotodlib :class:`~sotodlib.core.Context` object.
+        obs_info : dict of str to dict
+            Mapping of observation ID to its metadata dictionary containing
+            keys ``start_time``, ``wafer_list``, ``tube_slot``, ``az_center``,
+            ``el_center``, ``pwv``, ``az_throw``, ``duration``, and
+            ``n_samples``.
 
         Returns
         -------
-        list or dict
-            The observation splits, structure depends on the subclass.
+        list of list of str or dict
+            The observation splits. The exact structure depends on the
+            subclass: most return a ``list`` of splits (each a list of obs
+            IDs), while some return a ``dict`` mapping a category label to a
+            list of splits.
+
+        Raises
+        ------
+        NotImplementedError
+            Raised by any concrete subclass that has not overridden this method.
         """
         if self.__class__.__name__ != "NullTestWorkflow":
             raise NotImplementedError(
@@ -88,20 +160,27 @@ class NullTestWorkflow(MLMapmakingWorkflow):
     @classmethod
     def get_workflows(cls, desc: Dict[str, Any]) -> List["NullTestWorkflow"]:
         """
-        Create NullTestWorkflow instances from a configuration description.
+        Create :class:`NullTestWorkflow` instances from a configuration description.
 
-        Must be implemented by subclasses to define how workflow instances
-        are created from the computed splits.
+        Must be implemented by every concrete subclass. The base implementation
+        raises :class:`NotImplementedError` when called on any class other than
+        ``NullTestWorkflow`` itself.
 
         Parameters
         ----------
         desc : dict
-            The workflow configuration dictionary.
+            The workflow configuration dictionary passed as keyword arguments
+            to the constructor.
 
         Returns
         -------
         list of NullTestWorkflow
-            The instantiated workflow objects.
+            One workflow instance per non-empty observation split.
+
+        Raises
+        ------
+        NotImplementedError
+            Raised by any concrete subclass that has not overridden this method.
         """
         if cls.__name__ != "NullTestWorkflow":
             raise NotImplementedError(
@@ -112,12 +191,22 @@ class NullTestWorkflow(MLMapmakingWorkflow):
 
     def get_arguments(self) -> List[str]:
         """
-        Get the list of command-line arguments for the null test workflow.
+        Build the list of command-line arguments for the null-test workflow.
+
+        Constructs positional arguments (query file path, area, output
+        directory, preprocessing config) followed by ``--key=value`` options
+        for every set field not in the exclusion list (``area``,
+        ``output_dir``, ``executable``, ``query``, ``id``, ``environment``,
+        ``resources``, ``datasize``, ``chunk_nobs``, ``nsplits``, ``wafers``,
+        ``subcommand``, ``name``, ``chunk_duration``, ``preprocess_config``).
+
+        ``file://`` URIs are resolved to absolute paths. List values are joined
+        with commas.
 
         Returns
         -------
         list of str
-            The positional and keyword arguments for the workflow command.
+            Ordered list of positional and keyword argument strings.
         """
         area = Path(self.area.split("file://")[-1])
         query = Path(self.query.split("file://")[-1])

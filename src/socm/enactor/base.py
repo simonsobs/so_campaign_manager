@@ -9,21 +9,37 @@ from socm.utils.states import States
 
 class Enactor(object):
     """
-    The Enactor is responsible for executing workflows on resources.
+    Abstract base class for campaign workflow enactors.
 
-    The Enactor takes as input a list of workflows and executes them on
-    their selected resources. It offers methods to execute and monitor
-    workflow execution.
+    An enactor is responsible for submitting workflows to an HPC resource and
+    monitoring their execution. Concrete subclasses implement the execution
+    back-end (e.g. RADICAL-Pilot, dry-run) by overriding the abstract methods.
+
+    State updates are delivered to registered callbacks. Each callback is
+    invoked with ``workflow_ids``, ``new_state``, and ``step_ids`` keyword
+    arguments whenever a workflow changes state.
+
+    Parameters
+    ----------
+    sid : str or None, optional
+        Session ID used to construct namespaced logger and profiler file paths.
 
     Attributes
     ----------
     _worflows : list
-        A list with the workflow IDs that are executing.
+        List of workflow IDs that have been submitted for execution.
     _execution_status : dict
-        A hash table that holds the state and execution status of each
-        workflow.
-    _logger : ru.Logger
-        A logging object.
+        Mapping of workflow ID to a status dictionary containing at minimum:
+
+        * ``"state"`` — current :class:`~socm.utils.states.States` value.
+        * ``"endpoint"`` — back-end task object or ``None``.
+        * ``"exec_thread"`` — execution thread or ``None``.
+        * ``"start_time"`` — submission timestamp.
+        * ``"end_time"`` — completion timestamp or ``None``.
+    _logger : radical.utils.Logger
+        RADICAL-Utils logger instance.
+    _prof : radical.utils.Profiler
+        RADICAL-Utils profiler instance.
     """
 
     def __init__(self, sid=None):
@@ -52,33 +68,61 @@ class Enactor(object):
         """
         Set up the enactor with resource configuration for workflow execution.
 
+        Must be called before :meth:`enact`. Concrete subclasses use this
+        method to create pilot jobs or otherwise reserve HPC resources.
+
         Parameters
         ----------
         resource : Resource
-            The HPC resource to execute workflows on.
+            The HPC resource on which workflows will execute.
         walltime : int
-            Maximum walltime in minutes for the pilot job.
+            Maximum walltime in minutes for the pilot or allocation.
         cores : int
             Number of cores to request.
         execution_schema : str or None, optional
-            The access schema (e.g., 'batch' or 'local').
+            Access schema (e.g. ``"batch"`` or ``"local"``). Interpretation is
+            back-end specific.
+
+        Raises
+        ------
+        NotImplementedError
+            Always raised by the base implementation.
         """
         raise NotImplementedError("setup is not implemented")
 
     def enact(self, workflows: List[Workflow]) -> None:
         """
-        Submit workflows for execution.
+        Submit a list of workflows for execution.
+
+        Must be overridden by concrete subclasses. Each workflow in the list
+        should be submitted to the back-end and its initial state recorded in
+        :attr:`_execution_status`.
 
         Parameters
         ----------
-        workflows : list
-            A list of workflows to execute.
+        workflows : list of Workflow
+            Workflows to submit for execution.
+
+        Raises
+        ------
+        NotImplementedError
+            Always raised by the base implementation.
         """
         raise NotImplementedError("enact is not implemented")
 
     def _monitor(self):
-        """Monitor the execution status of submitted workflows."""
+        """
+        Monitor the execution status of submitted workflows.
 
+        Runs in a background thread in concrete implementations. Updates
+        :attr:`_execution_status` and invokes registered state callbacks when
+        workflows reach final states.
+
+        Raises
+        ------
+        NotImplementedError
+            Always raised by the base implementation.
+        """
         raise NotImplementedError("_monitor is not implemented")
 
     def get_status(self, workflows: str | List[str] | None = None) -> Dict[str, States]:
@@ -88,12 +132,13 @@ class Enactor(object):
         Parameters
         ----------
         workflows : str, list of str, or None, optional
-            A workflow ID, a list of workflow IDs, or None to get all.
+            A single workflow ID, a list of workflow IDs, or ``None`` to
+            retrieve the state of every tracked workflow.
 
         Returns
         -------
-        dict
-            A dictionary mapping workflow IDs to their current state.
+        dict of str to States
+            A mapping of workflow ID to its current :class:`~socm.utils.states.States` value.
         """
 
         status = dict()
@@ -110,14 +155,17 @@ class Enactor(object):
 
     def update_status_cb(self, workflow, new_state):
         """
-        Update the execution state of a workflow via callback.
+        Update the execution state of a workflow via an external callback.
+
+        Logs a warning if the workflow has not yet been submitted (i.e. is
+        not present in :attr:`_execution_status`).
 
         Parameters
         ----------
         workflow : str
             The workflow ID to update.
         new_state : States
-            The new state to set for the workflow.
+            The new :class:`~socm.utils.states.States` value to assign.
         """
 
         if workflow not in self._execution_status:
@@ -131,25 +179,45 @@ class Enactor(object):
 
     def _get_workflow_state(self, workflow):
         """
-        Get the current state of a workflow.
+        Return the current state of a tracked workflow.
 
         Parameters
         ----------
         workflow : str
-            The workflow ID.
+            The workflow ID to look up.
 
         Returns
         -------
         States
-            The current state of the workflow.
+            The current :class:`~socm.utils.states.States` value for the workflow.
         """
 
         return self._execution_status[workflow]["state"]
 
     def terminate(self):
-        """Terminate the Enactor and clean up resources."""
+        """
+        Terminate the enactor and clean up all managed resources.
+
+        Must be overridden by concrete subclasses to cancel any in-flight
+        pilot jobs or background threads.
+
+        Raises
+        ------
+        NotImplementedError
+            Always raised by the base implementation.
+        """
         raise NotImplementedError("terminate is not implemented")
 
     def teardown(self):
-        """Tear down the Enactor's backend, ensuring all resources are cleaned up."""
+        """
+        Tear down the enactor's back-end, ensuring resources are released.
+
+        Called between batches to cancel the current pilot before a new one
+        is started. Must be overridden by concrete subclasses.
+
+        Raises
+        ------
+        NotImplementedError
+            Always raised by the base implementation.
+        """
         raise NotImplementedError("teardown is not implemented")

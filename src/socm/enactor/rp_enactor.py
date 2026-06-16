@@ -17,11 +17,50 @@ from socm.utils.states import States
 
 class RPEnactor(Enactor):
     """
-    RADICAL-Pilot enactor for executing workflows on HPC resources.
+    RADICAL-Pilot enactor for executing workflows on HPC resources via SLURM.
 
-    The RPEnactor submits workflows to SLURM via RADICAL-Pilot and monitors
-    their execution. It takes a list of workflows, creates RP TaskDescriptions,
-    and submits them through a pilot job.
+    Submits workflows to an HPC scheduler through RADICAL-Pilot (RP), monitors
+    their progress via a background thread, and delivers state-change
+    notifications to registered callbacks. Each workflow is translated into an
+    ``rp.TaskDescription`` whose MPI rank and thread counts are derived from
+    the workflow's :class:`~socm.core.models.ResourceSpec`.
+
+    The RP session and pilot/task managers are created eagerly in
+    ``__init__`` and remain active until :meth:`terminate` is called.  A
+    single pilot per batch is submitted in :meth:`setup`; subsequent calls to
+    :meth:`setup` (for successive batches) cancel the old pilot and create a
+    new one.
+
+    Parameters
+    ----------
+    sid : str
+        Session ID used to construct namespaced log/profiler file paths and
+        as the RADICAL-Pilot session UID.
+
+    Attributes
+    ----------
+    _to_monitor : list of int
+        Workflow IDs that have been submitted and are awaiting a final state.
+    _monitoring_lock : radical.utils.RLock
+        Lock protecting concurrent access to ``_to_monitor``.
+    _cb_lock : radical.utils.RLock
+        Lock protecting concurrent access to ``_callbacks``.
+    _callbacks : dict of str to callable
+        Registered state-change callbacks, keyed by callback function name.
+    _monitoring_thread : threading.Thread or None
+        Background thread running :meth:`_monitor`; started on first
+        :meth:`enact` call.
+    _terminate_monitor : threading.Event
+        Set to signal the monitoring thread to stop.
+    _pilot : radical.pilot.Pilot or None
+        The currently active RP pilot. ``None`` before :meth:`setup` or after
+        :meth:`teardown`.
+    _rp_session : radical.pilot.Session
+        The RADICAL-Pilot session.
+    _rp_pmgr : radical.pilot.PilotManager
+        The RADICAL-Pilot pilot manager.
+    _rp_tmgr : radical.pilot.TaskManager
+        The RADICAL-Pilot task manager.
     """
 
     def __init__(self, sid: str):
@@ -54,18 +93,24 @@ class RPEnactor(Enactor):
 
     def setup(self, resource: Resource, walltime: int, cores: int, execution_schema: str | None = None) -> None:
         """
-        Set up the RADICAL-Pilot session and submit a pilot job.
+        Submit a RADICAL-Pilot pilot job and wait for it to become active.
+
+        Constructs a ``rp.PilotDescription`` from the resource name, walltime,
+        and core count, submits it via the pilot manager, and blocks until the
+        pilot reaches ``PMGR_ACTIVE`` state.
 
         Parameters
         ----------
         resource : Resource
-            The HPC resource to execute workflows on.
+            The HPC resource to execute workflows on. The resource ``name``
+            is used to build the RP resource string ``"so.<name>"``.
         walltime : int
             Maximum walltime in minutes for the pilot job.
         cores : int
-            Number of cores to request.
+            Number of cores to request in the pilot.
         execution_schema : str or None, optional
-            The access schema (e.g., 'batch' or 'local').
+            Access schema passed to RP. ``"batch"`` selects the SLURM batch
+            schema; any other value (including ``None``) selects ``"local"``.
         """
         self._resource = resource
 
@@ -90,10 +135,16 @@ class RPEnactor(Enactor):
         """
         Submit workflows for execution via RADICAL-Pilot.
 
+        Translates each :class:`~socm.core.models.Workflow` into an
+        ``rp.TaskDescription``, records the initial ``EXECUTING`` state,
+        invokes registered callbacks, and submits all tasks to the RP task
+        manager. Starts the monitoring background thread on the first call.
+
         Parameters
         ----------
         workflows : list of Workflow
-            The workflows to submit for execution.
+            Workflows to submit. Already-submitted workflows (those present in
+            :attr:`_execution_status`) are skipped with a warning.
         """
 
         self._prof.prof("enacting_start", uid=self._uid)
@@ -180,8 +231,14 @@ class RPEnactor(Enactor):
         """
         Monitor submitted workflows in a background thread.
 
-        Polls RADICAL-Pilot task states and updates the internal execution
-        status. Invokes registered callbacks when workflows complete.
+        Continuously polls RADICAL-Pilot task states for all workflow IDs in
+        :attr:`_to_monitor`. When a task reaches a final RP state, the internal
+        status is updated to ``DONE``, the SLURM job/step ID is extracted from
+        the task's ``stdout``, and all registered callbacks are invoked with the
+        completed workflow IDs and step IDs. Completed workflows are removed
+        from :attr:`_to_monitor`.
+
+        Runs until :attr:`_terminate_monitor` is set.
         """
 
         self._prof.prof("workflow_monitor_start", uid=self._uid)
@@ -235,12 +292,14 @@ class RPEnactor(Enactor):
         Parameters
         ----------
         workflows : str, list of str, or None, optional
-            A workflow ID, a list of workflow IDs, or None to get all.
+            A single workflow ID, a list of workflow IDs, or ``None`` to
+            retrieve the state of every tracked workflow.
 
         Returns
         -------
-        dict
-            A dictionary mapping workflow IDs to their current state.
+        dict of str to States
+            Mapping of workflow ID to its current
+            :class:`~socm.utils.states.States` value.
         """
 
         status = dict()
@@ -257,14 +316,16 @@ class RPEnactor(Enactor):
 
     def update_status(self, workflow, new_state):
         """
-        Update the execution state of a workflow.
+        Update the execution state of a tracked workflow.
+
+        Logs a warning if the workflow has not yet been submitted.
 
         Parameters
         ----------
         workflow : str
             The workflow ID to update.
         new_state : States
-            The new state to set for the workflow.
+            The new :class:`~socm.utils.states.States` value to assign.
         """
 
         if workflow not in self._execution_status:
@@ -277,7 +338,13 @@ class RPEnactor(Enactor):
             self._execution_status[workflow]["state"] = new_state
 
     def terminate(self):
-        """Terminate the Enactor, monitor thread, and RADICAL-Pilot session."""
+        """
+        Terminate the enactor, stopping the monitor thread and closing the RP session.
+
+        Signals the monitoring thread to stop via :attr:`_terminate_monitor`,
+        waits for it to join, then closes the pilot manager (which cancels the
+        active pilot) and the RP session.
+        """
         self._logger.info("Start terminating procedure")
         self._prof.prof("str_terminating", uid=self._uid)
         if self._monitoring_thread:
@@ -295,10 +362,15 @@ class RPEnactor(Enactor):
         """
         Register a callback function for workflow state updates.
 
+        The callback will be invoked with keyword arguments
+        ``workflow_ids``, ``new_state``, and ``step_ids`` whenever one or more
+        workflows change state. Multiple callbacks can be registered; they are
+        stored in :attr:`_callbacks` keyed by function name.
+
         Parameters
         ----------
         cb : callable
-            A callback function invoked when workflow states change.
+            The callback function to register.
         """
 
         with self._cb_lock:
@@ -306,7 +378,12 @@ class RPEnactor(Enactor):
             self._callbacks[cb_name] = cb
 
     def teardown(self):
-        """Tear down the Enactor's backend, ensuring all resources are cleaned up."""
+        """
+        Cancel the active pilot and release its resources.
+
+        Called between successive campaign batches so that a new pilot can be
+        submitted for the next batch. If no pilot is active, logs a warning.
+        """
         self._logger.info("Tearing down the Pilot")
         # No additional teardown needed for RADICAL-Pilot as terminate handles cleanup.
         if self._pilot:

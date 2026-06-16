@@ -10,10 +10,31 @@ from socm.workflows.ml_null_tests import NullTestWorkflow
 
 class ElevationNullTestWorkflow(NullTestWorkflow):
     """
-    A workflow for elevation null tests.
+    Null-test workflow that splits observations by telescope elevation.
 
-    This workflow splits observations based on their elevation angles.
-    It creates time-interleaved splits with nsplits=2 as specified.
+    Classifies each observation as ``"low"`` (elevation < ``elevation_threshold``)
+    or ``"high"`` (elevation ≥ ``elevation_threshold``), then within each group
+    creates ``nsplits = 2`` time-interleaved splits to test for
+    elevation-dependent systematics such as ground pickup or atmospheric
+    gradients. Child workflows follow the naming convention
+    ``elevation_<level>_split_<N>_null_test_workflow``.
+
+    Parameters
+    ----------
+    chunk_nobs : int or None, optional
+        Number of observations per time chunk per elevation group. Defaults to
+        ``None``.
+    chunk_duration : timedelta or None, optional
+        Duration per chunk (not yet implemented). Defaults to ``None``.
+    nsplits : int, optional
+        Number of time splits per elevation group. Fixed to ``2``. Defaults to
+        ``2``.
+    name : str, optional
+        Human-readable workflow name. Defaults to
+        ``"elevation_null_test_workflow"``.
+    elevation_threshold : float, optional
+        Elevation threshold in degrees. Observations with an elevation centre
+        below this value are classified as ``"low"``. Defaults to ``45.0``.
     """
 
     chunk_nobs: Optional[int] = None
@@ -26,22 +47,36 @@ class ElevationNullTestWorkflow(NullTestWorkflow):
         self, ctx: Context, obs_info: Dict[str, Dict[str, Union[float, str]]]
     ) -> Dict[str, List[List[str]]]:
         """
-        Split observations based on elevation angle (low/high).
+        Distribute observations into elevation-based, time-interleaved splits.
 
-        Groups observations by whether their elevation is below or above
-        the threshold, then creates time-interleaved splits for each group.
+        Groups observations by whether their elevation centre is below or above
+        ``elevation_threshold``. Within each group, observations are sorted
+        chronologically, chunked by ``chunk_nobs``, and assigned round-robin
+        to ``nsplits`` (= 2) splits.
 
         Parameters
         ----------
         ctx : Context
-            The sotodlib Context object.
-        obs_info : dict
-            A mapping of observation IDs to their metadata.
+            The sotodlib :class:`~sotodlib.core.Context` object (not used
+            directly).
+        obs_info : dict of str to dict
+            Mapping of observation ID to metadata. The ``el_center`` and
+            ``start_time`` keys are used.
 
         Returns
         -------
-        dict
-            A mapping of 'low' and 'high' to lists of observation splits.
+        dict of str to list of list of str
+            Mapping of elevation label (``"low"`` or ``"high"``) to a list of
+            ``nsplits`` splits, each containing the observation IDs assigned
+            to that elevation group and split.
+
+        Raises
+        ------
+        ValueError
+            If neither ``chunk_nobs`` nor ``chunk_duration`` is set, or if
+            both are set.
+        NotImplementedError
+            If ``chunk_duration`` is set (not yet implemented).
         """
         if self.chunk_nobs is None and self.chunk_duration is None:
             raise ValueError("Either chunk_nobs or duration must be set.")
@@ -87,18 +122,23 @@ class ElevationNullTestWorkflow(NullTestWorkflow):
     @classmethod
     def get_workflows(cls, desc=None) -> List[NullTestWorkflow]:
         """
-        Create NullTestWorkflow instances for each elevation split.
+        Create one :class:`~socm.workflows.ml_null_tests.base.NullTestWorkflow` per elevation-split pair.
+
+        Instantiates the parent :class:`ElevationNullTestWorkflow` to compute
+        the splits, then creates a child :class:`NullTestWorkflow` for each
+        non-empty (elevation label, time-split) combination. Query files are
+        written to ``<output_dir>/elevation_<level>_split_<N>/query.txt``.
 
         Parameters
         ----------
         desc : dict, optional
-            The workflow configuration dictionary.
+            Workflow configuration dictionary.
 
         Returns
         -------
         list of NullTestWorkflow
-            One workflow per elevation-split combination, following the naming
-            convention: elevation_{low,high}_split_{idx}_null_test_workflow.
+            One workflow per non-empty elevation-split pair, named
+            ``elevation_<level>_split_<N>_null_test_workflow``.
         """
         elevation_workflow = cls(**desc)
 

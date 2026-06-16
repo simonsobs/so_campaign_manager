@@ -6,7 +6,28 @@ from socm.core import Workflow
 
 class SpectraWorkflow(Workflow):
     """
-    A workflow for ML mapmaking.
+    Workflow for power-spectrum estimation using PSpipe.
+
+    Executes an arbitrary PSpipe Python script via ``python -u <subcommand>``.
+    Positional script arguments (``script_args``) are passed before any
+    keyword flags. ``file://`` URIs in ``script_args`` are resolved to absolute
+    paths at argument-building time.
+
+    Parameters
+    ----------
+    name : str, optional
+        Human-readable workflow name. Defaults to ``"pspipe_workflow"``.
+    executable : str, optional
+        Executable to invoke. Defaults to ``"python -u"``.
+    datasize : int, optional
+        Estimated data volume (reserved for future use by the planner).
+        Defaults to ``0``.
+    script_args : list of str or None, optional
+        Positional arguments to pass to the script. ``file://`` URIs are
+        resolved to absolute paths. Defaults to ``None``.
+    script_flags : list of str or None, optional
+        Boolean flags appended as ``--flag`` (without values). Defaults to
+        ``None``.
     """
 
     name: str = "pspipe_workflow"
@@ -17,12 +38,16 @@ class SpectraWorkflow(Workflow):
 
     def get_command(self) -> str:
         """
-        Get the full shell command to run the ML mapmaking workflow.
+        Build the full ``srun`` command string for the power-spectra workflow.
+
+        Constructs an ``srun`` invocation using the resource specification
+        (``ranks``, ``threads``) and appends all arguments from
+        :meth:`get_arguments`.
 
         Returns
         -------
         str
-            The complete srun command string with arguments.
+            The complete shell command string, stripped of trailing whitespace.
         """
         command = f"srun --cpu_bind=cores --export=ALL --ntasks-per-node={self.resources.ranks} --cpus-per-task={self.resources.threads} {self.executable} {self.subcommand} "
         command += " ".join(self.get_arguments())
@@ -31,12 +56,19 @@ class SpectraWorkflow(Workflow):
 
     def get_arguments(self) -> List[str]:
         """
-        Get the list of command-line arguments for the ML mapmaking workflow.
+        Build the list of command-line arguments for the power-spectra workflow.
+
+        Resolves ``file://`` URIs in ``script_args`` to absolute paths, appends
+        each item in ``script_flags`` as ``--flag``, and then appends
+        ``--key=value`` options for every set field not in the exclusion list
+        (``area``, ``name``, ``output_dir``, ``base_path``, ``id``,
+        ``environment``, ``resources``, ``datasize``, ``executable``,
+        ``script_args``, ``script_flags``, ``depends``, ``subcommand``).
 
         Returns
         -------
         list of str
-            The positional and keyword arguments for the workflow command.
+            Ordered list of argument strings.
         """
 
         arguments = []
@@ -75,17 +107,18 @@ class SpectraWorkflow(Workflow):
         cls, descriptions: Union[List[dict], dict]
     ) -> List["SpectraWorkflow"]:
         """
-        Create SpectraWorkflow instances from configuration descriptions.
+        Create :class:`SpectraWorkflow` instances from configuration descriptions.
 
         Parameters
         ----------
         descriptions : dict or list of dict
-            One or more workflow configuration dictionaries.
+            A single workflow configuration dictionary or a list of them.
+            Each dictionary is passed as keyword arguments to the constructor.
 
         Returns
         -------
         list of SpectraWorkflow
-            The instantiated workflow objects.
+            One instantiated workflow per configuration dictionary.
         """
         if isinstance(descriptions, dict):
             descriptions = [descriptions]

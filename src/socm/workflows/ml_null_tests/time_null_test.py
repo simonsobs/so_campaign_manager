@@ -10,7 +10,27 @@ from socm.workflows.ml_null_tests import NullTestWorkflow
 
 class TimeNullTestWorkflow(NullTestWorkflow):
     """
-    A workflow for time null tests.
+    Null-test workflow that splits observations by mission time (temporal null test).
+
+    Observations are sorted chronologically, grouped into chunks of
+    ``chunk_nobs`` observations each, and then distributed across
+    ``nsplits`` splits in a round-robin (time-interleaved) fashion so that
+    each split covers the full mission span.
+
+    Parameters
+    ----------
+    chunk_nobs : int or None, optional
+        Number of observations per time chunk. Exactly one of ``chunk_nobs``
+        and ``chunk_duration`` must be set. Defaults to ``None``.
+    chunk_duration : timedelta or None, optional
+        Duration per chunk. Not yet implemented; raises
+        :class:`NotImplementedError` if set without ``chunk_nobs``. Defaults
+        to ``None``.
+    nsplits : int, optional
+        Number of splits (sub-campaigns) to produce. Defaults to ``8``.
+    name : str, optional
+        Human-readable workflow name. Defaults to
+        ``"time_null_test_workflow"``.
     """
 
     chunk_nobs: Optional[int] = None
@@ -22,7 +42,34 @@ class TimeNullTestWorkflow(NullTestWorkflow):
         self, ctx: Context, obs_info: Dict[str, Dict[str, Union[float, str]]]
     ) -> List[List[str]]:
         """
-        Distribute the observations across splits based on the context and observation IDs.
+        Distribute observations across splits in a time-interleaved fashion.
+
+        Observations are sorted by start time, grouped into chunks of
+        ``chunk_nobs``, and distributed round-robin across ``nsplits`` splits.
+
+        Parameters
+        ----------
+        ctx : Context
+            The sotodlib :class:`~sotodlib.core.Context` object (not used
+            directly but required by the interface).
+        obs_info : dict of str to dict
+            Mapping of observation ID to metadata. The ``start_time`` key is
+            used for chronological ordering.
+
+        Returns
+        -------
+        list of list of str
+            A list of ``nsplits`` splits, each containing the observation IDs
+            assigned to that split.
+
+        Raises
+        ------
+        ValueError
+            If neither ``chunk_nobs`` nor ``chunk_duration`` is set, or if
+            both are set simultaneously.
+        NotImplementedError
+            If ``chunk_duration`` is set (duration-based splitting is not yet
+            implemented).
         """
         if self.chunk_nobs is None and self.chunk_duration is None:
             raise ValueError("Either chunk_nobs or duration must be set.")
@@ -48,7 +95,23 @@ class TimeNullTestWorkflow(NullTestWorkflow):
     @classmethod
     def get_workflows(cls, desc=None) -> List[NullTestWorkflow]:
         """
-        Create a list of NullTestWorkflows instances from the provided descriptions.
+        Create one :class:`~socm.workflows.ml_null_tests.base.NullTestWorkflow` per non-empty time split.
+
+        Instantiates the parent :class:`TimeNullTestWorkflow` to compute the
+        splits, then creates a child :class:`NullTestWorkflow` for each
+        non-empty split. Query files containing the assigned observation IDs are
+        written to ``<output_dir>/mission_split_<N>/query.txt``.
+
+        Parameters
+        ----------
+        desc : dict, optional
+            Workflow configuration dictionary.
+
+        Returns
+        -------
+        list of NullTestWorkflow
+            One workflow per non-empty split, named
+            ``mission_split_<N>_null_test_workflow``.
         """
 
         time_workflow = cls(**desc)

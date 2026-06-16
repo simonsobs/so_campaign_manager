@@ -21,11 +21,13 @@ class Mock(MagicMock):
         return MagicMock()
 
 MOCK_MODULES = [
-    'sotodlib', 'sotodlib.core', 'sotodlib.core.Context',
-    'radical', 'radical.utils', 'radical.pilot',
-    'slurmise',
-    'networkx',
-]
+      'sotodlib', 'sotodlib.core', 'sotodlib.core.Context',
+      'radical', 'radical.utils', 'radical.pilot', 'slurmise', 'networkx', 'astral',
+      'astral.sun', 'slurmise.api', 'humanfriendly', 'astropy', 'astropy.units','astropy.coordinates',
+      'astropy.time', 'astral.moon', 'slurmise.job_data', 'slurmise.job_parse', 'slurmise.job_parse.file_parsers',
+      'slurmise.slurm'
+
+  ]
 sys.modules.update((mod_name, Mock()) for mod_name in MOCK_MODULES)
 
 # -- Project information -----------------------------------------------------
@@ -51,6 +53,9 @@ extensions = [
 
 templates_path = ['_templates']
 exclude_patterns = ['_build', 'Thumbs.db', '.DS_Store']
+autodoc_mock_imports = [
+      'sotodlib', 'radical', 'slurmise', 'networkx', 'astral', 'humanfriendly','astropy'
+  ]
 
 # -- Options for HTML output -------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#options-for-html-output
@@ -65,7 +70,6 @@ try:
         'sticky_navigation': True,
         'includehidden': True,
         'titles_only': False,
-        'display_version': True,
     }
 except ImportError:
     html_theme = 'alabaster'
@@ -105,8 +109,8 @@ html_show_copyright = True
 
 # -- Extension configuration -------------------------------------------------
 
-# Napoleon settings
-napoleon_google_docstring = True
+# Napoleon settings — use NumPy-style docstrings exclusively
+napoleon_google_docstring = False
 napoleon_numpy_docstring = True
 napoleon_include_init_with_doc = False
 napoleon_include_private_with_doc = False

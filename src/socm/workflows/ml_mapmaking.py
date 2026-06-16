@@ -12,9 +12,59 @@ from socm.utils.misc import get_query_from_file
 def _load_context(ctx_path: str) -> Context:
     return Context(Path(ctx_path))
 
+
 class MLMapmakingWorkflow(Workflow):
     """
-    A workflow for ML mapmaking.
+    Workflow for maximum-likelihood (ML) mapmaking via ``so-site-pipeline make-ml-map``.
+
+    On construction the sotodlib observation database is queried to compute the
+    total data size (``datasize``) for use by the planner's resource estimator.
+    Query strings may be provided inline or as ``file://`` URIs pointing to
+    plain-text files containing one observation ID per line.
+
+    Parameters
+    ----------
+    area : str
+        Path (or ``file://`` URI) to the FITS sky-area file.
+    output_dir : str
+        Directory where mapmaking products will be written.
+    preprocess_config : str
+        Path (or ``file://`` URI) to the preprocessing configuration file.
+    query : str, optional
+        SQL-style observation database query string, or a ``file://`` URI to a
+        file containing one observation ID per line. Defaults to ``"1"``
+        (select all observations).
+    name : str, optional
+        Human-readable workflow name. Defaults to ``"ml_mapmaking_workflow"``.
+    executable : str, optional
+        Executable name. Defaults to ``"so-site-pipeline"``.
+    subcommand : str, optional
+        Subcommand passed to the executable. Defaults to ``"make-ml-map"``.
+    datasize : int, optional
+        Total number of data samples across all selected observations. Computed
+        automatically during post-initialisation; can also be set explicitly.
+        Defaults to ``0``.
+    comps : str or None, optional
+        Map components to produce (e.g. ``"TQU"`` or ``"T"``). Defaults to
+        ``"TQU"``.
+    wafers : str or None, optional
+        Comma-separated list of detector wafers to include. ``None`` means all.
+    bands : str or None, optional
+        Frequency band filter string. ``None`` means all bands.
+    nmat : str or None, optional
+        Noise-matrix model identifier (e.g. ``"corr"``). Defaults to
+        ``"corr"``.
+    max_dets : int or None, optional
+        Maximum number of detectors to use. ``None`` means no limit.
+    site : str or None, optional
+        Telescope site identifier (e.g. ``"so_lat"``). Defaults to
+        ``"so_lat"``.
+    downsample : int or list of int, optional
+        Downsampling factor(s). Defaults to ``1``.
+    maxiter : int or list of int, optional
+        Maximum conjugate-gradient iterations. Defaults to ``500``.
+    tiled : int, optional
+        Enable tiled mapmaking (``1``) or not (``0``). Defaults to ``1``.
     """
 
     area: str
@@ -37,7 +87,17 @@ class MLMapmakingWorkflow(Workflow):
 
     def model_post_init(self, __context: Any) -> None:
         """
-        Post-initialization to load observation context and compute total data size.
+        Post-initialisation hook that queries the observation database to compute ``datasize``.
+
+        Loads the sotodlib :class:`~sotodlib.core.Context` from the ``context``
+        field, resolves the query (inline string or ``file://`` path), and
+        accumulates ``n_samples`` from each matching observation into
+        :attr:`datasize`.
+
+        Parameters
+        ----------
+        __context : Any
+            Pydantic internal context argument (not used directly).
         """
         ctx_file = Path(self.context.split("file://")[-1]).absolute()
         ctx = _load_context(str(ctx_file))
@@ -52,12 +112,16 @@ class MLMapmakingWorkflow(Workflow):
 
     def get_command(self) -> str:
         """
-        Get the full shell command to run the ML mapmaking workflow.
+        Build the full ``srun`` command string for the ML mapmaking workflow.
+
+        Constructs an ``srun`` invocation using the resource specification
+        (``ranks``, ``threads``) and appends all arguments from
+        :meth:`get_arguments`.
 
         Returns
         -------
         str
-            The complete srun command string with arguments.
+            The complete shell command string, stripped of trailing whitespace.
         """
         command = f"srun --cpu_bind=cores --export=ALL --ntasks-per-node={self.resources.ranks} --cpus-per-task={self.resources.threads} {self.executable} {self.subcommand} "
         command += " ".join(self.get_arguments())
@@ -66,12 +130,21 @@ class MLMapmakingWorkflow(Workflow):
 
     def get_arguments(self) -> List[str]:
         """
-        Get the list of command-line arguments for the ML mapmaking workflow.
+        Build the list of command-line arguments for the ML mapmaking workflow.
+
+        Constructs a positional argument list followed by ``--key=value``
+        options for every field set in the workflow configuration that is not
+        part of the excluded set (``area``, ``output_dir``, ``executable``,
+        ``query``, ``id``, ``environment``, ``resources``, ``datasize``,
+        ``preprocess_config``).
+
+        ``file://`` URI values are resolved to absolute paths. List values are
+        joined with commas.
 
         Returns
         -------
         list of str
-            The positional and keyword arguments for the workflow command.
+            Ordered list of positional and keyword argument strings.
         """
         area = Path(self.area.split("file://")[-1])
         final_query = self.query
@@ -108,17 +181,18 @@ class MLMapmakingWorkflow(Workflow):
         cls, descriptions: Union[List[dict], dict]
     ) -> List["MLMapmakingWorkflow"]:
         """
-        Create MLMapmakingWorkflow instances from configuration descriptions.
+        Create :class:`MLMapmakingWorkflow` instances from configuration descriptions.
 
         Parameters
         ----------
         descriptions : dict or list of dict
-            One or more workflow configuration dictionaries.
+            A single workflow configuration dictionary or a list of them.
+            Each dictionary is passed as keyword arguments to the constructor.
 
         Returns
         -------
         list of MLMapmakingWorkflow
-            The instantiated workflow objects.
+            One instantiated workflow per configuration dictionary.
         """
         if isinstance(descriptions, dict):
             descriptions = [descriptions]

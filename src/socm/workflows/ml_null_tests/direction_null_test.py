@@ -10,10 +10,26 @@ from socm.workflows.ml_null_tests import NullTestWorkflow
 
 class DirectionNullTestWorkflow(NullTestWorkflow):
     """
-    A workflow for direction null tests.
+    Null-test workflow that splits observations by scan direction.
 
-    This workflow splits observations based on scan direction (rising, setting, middle)
-    and creates time-interleaved splits with nsplits=2 as specified.
+    Classifies each observation into one of three azimuth categories —
+    ``"rising"`` (az < 180°), ``"setting"`` (az > 180°), or ``"middle"``
+    (az ≈ 180°) — then within each direction creates ``nsplits = 2``
+    time-interleaved splits. The split structure follows the naming convention
+    ``direction_<direction>_split_<N>_null_test_workflow``.
+
+    Parameters
+    ----------
+    chunk_nobs : int or None, optional
+        Number of observations per time chunk per direction. Defaults to
+        ``None``.
+    chunk_duration : timedelta or None, optional
+        Duration per chunk (not yet implemented). Defaults to ``None``.
+    nsplits : int, optional
+        Number of time splits per direction. Fixed to ``2``. Defaults to ``2``.
+    name : str, optional
+        Human-readable workflow name. Defaults to
+        ``"direction_null_test_workflow"``.
     """
 
     chunk_nobs: Optional[int] = None
@@ -25,18 +41,35 @@ class DirectionNullTestWorkflow(NullTestWorkflow):
         self, ctx: Context, obs_info: Dict[str, Dict[str, Union[float, str]]]
     ) -> Dict[str, List[List[str]]]:
         """
-        Distribute the observations across splits based on scan direction.
+        Distribute observations into direction-based, time-interleaved splits.
 
-        Groups observations by direction (rising, setting, middle) and then
-        creates time-interleaved splits for each direction with nsplits=2.
+        Groups observations by azimuth center into ``"rising"``,
+        ``"setting"``, or ``"middle"`` categories. Within each category,
+        observations are sorted chronologically, chunked by ``chunk_nobs``,
+        and assigned round-robin to ``nsplits`` (= 2) splits.
 
-        Args:
-            ctx: Context object
-            obs_info: Dictionary mapping obs_id to observation metadata
+        Parameters
+        ----------
+        ctx : Context
+            The sotodlib :class:`~sotodlib.core.Context` object (not used
+            directly).
+        obs_info : dict of str to dict
+            Mapping of observation ID to metadata. The ``az_center`` and
+            ``start_time`` keys are used.
 
-        Returns:
-            Dict mapping direction to list of splits, where each split is a list
-            of obs_ids
+        Returns
+        -------
+        dict of str to list of list of str
+            Mapping of direction name to a list of ``nsplits`` splits, each
+            containing the observation IDs assigned to that direction and split.
+
+        Raises
+        ------
+        ValueError
+            If neither ``chunk_nobs`` nor ``chunk_duration`` is set, if both
+            are set, or if an unexpected azimuth value is encountered.
+        NotImplementedError
+            If ``chunk_duration`` is set (not yet implemented).
         """
         if self.chunk_nobs is None and self.chunk_duration is None:
             raise ValueError("Either chunk_nobs or duration must be set.")
@@ -99,10 +132,23 @@ class DirectionNullTestWorkflow(NullTestWorkflow):
     @classmethod
     def get_workflows(cls, desc=None) -> List[NullTestWorkflow]:
         """
-        Create a list of NullTestWorkflows instances from the provided descriptions.
+        Create one :class:`~socm.workflows.ml_null_tests.base.NullTestWorkflow` per direction-split pair.
 
-        Creates separate workflows for each direction split following the naming
-        convention: {setname} = direction_[rising,setting,middle]
+        Instantiates the parent :class:`DirectionNullTestWorkflow` to compute
+        the splits, then creates a child :class:`NullTestWorkflow` for each
+        non-empty (direction, time-split) combination. Query files are written
+        to ``<output_dir>/direction_<direction>_split_<N>/query.txt``.
+
+        Parameters
+        ----------
+        desc : dict, optional
+            Workflow configuration dictionary.
+
+        Returns
+        -------
+        list of NullTestWorkflow
+            One workflow per non-empty direction-split pair, named
+            ``direction_<direction>_split_<N>_null_test_workflow``.
         """
         direction_workflow = cls(**desc)
 

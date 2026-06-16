@@ -11,10 +11,33 @@ from socm.workflows.ml_null_tests import NullTestWorkflow
 
 class WaferNullTestWorkflow(NullTestWorkflow):
     """
-    A workflow for wafer null tests.
+    Null-test workflow that splits observations by detector wafer.
 
-    Splits observations by wafer slot and creates time-interleaved splits
-    for each wafer.
+    For each wafer slot defined in the telescope's focal plane, observations
+    that include that wafer are sorted chronologically, grouped into chunks of
+    ``chunk_nobs``, and distributed round-robin across ``nsplits`` time splits.
+    The resulting child workflows each process a single wafer and a single time
+    split, following the naming convention
+    ``wafer_<wafer>_split_<N>_null_test_workflow``.
+
+    Parameters
+    ----------
+    chunk_nobs : int or None, optional
+        Number of observations per time chunk per wafer. Defaults to ``None``.
+    chunk_duration : timedelta or None, optional
+        Duration per chunk (not yet implemented). Defaults to ``None``.
+    nsplits : int, optional
+        Number of time splits per wafer. Defaults to ``8``.
+    name : str, optional
+        Human-readable workflow name. Defaults to
+        ``"wafer_null_test_workflow"``.
+
+    Attributes
+    ----------
+    _wafer_list_per_telescope : dict of str to list of str
+        Private attribute mapping telescope site names to their list of
+        ``"tube_slot:wafer"`` identifiers. Populated with the SO LAT and SAT
+        focal-plane configurations.
     """
 
     chunk_nobs: Optional[int] = None
@@ -96,19 +119,39 @@ class WaferNullTestWorkflow(NullTestWorkflow):
         self, ctx: Context, obs_info: Dict[str, Dict[str, Union[float, str]]]
     ) -> Dict[str, List[str]]:
         """
-        Split observations by wafer slot with time-interleaved chunks.
+        Split observations by wafer slot and create time-interleaved sub-splits.
+
+        For each wafer in the telescope's focal plane (determined by
+        :attr:`site`), this method:
+
+        1. Filters observations that include that wafer.
+        2. Sorts the filtered observations chronologically.
+        3. Groups them into chunks of ``chunk_nobs``.
+        4. Distributes the chunks round-robin across ``nsplits`` time splits.
 
         Parameters
         ----------
         ctx : Context
-            The sotodlib Context object.
-        obs_info : dict
-            A mapping of observation IDs to their metadata.
+            The sotodlib :class:`~sotodlib.core.Context` object (not used
+            directly but required by the interface).
+        obs_info : dict of str to dict
+            Mapping of observation ID to metadata. Keys used: ``tube_slot``,
+            ``wafer_list``, ``start_time``.
 
         Returns
         -------
-        dict
-            A mapping of wafer slot names to lists of observation splits.
+        dict of str to list of list of str
+            Mapping of ``"tube_slot:wafer"`` identifiers to a list of
+            ``nsplits`` splits, each containing the observation IDs for that
+            wafer and time split.
+
+        Raises
+        ------
+        ValueError
+            If neither ``chunk_nobs`` nor ``chunk_duration`` is set, if both
+            are set, or if observations span more than one tube slot.
+        NotImplementedError
+            If ``chunk_duration`` is set (not yet implemented).
         """
         # Find the obs with the most wafers.
         # For each wafer do the same as the time null test.
@@ -159,18 +202,23 @@ class WaferNullTestWorkflow(NullTestWorkflow):
     @classmethod
     def get_workflows(cls, desc=None) -> List[NullTestWorkflow]:
         """
-        Create NullTestWorkflow instances for each wafer and split.
+        Create one :class:`~socm.workflows.ml_null_tests.base.NullTestWorkflow` per wafer-split combination.
+
+        Instantiates the parent :class:`WaferNullTestWorkflow` to compute the
+        splits, then creates a child :class:`NullTestWorkflow` for each
+        non-empty (wafer, time-split) pair. Query files are written to
+        ``<output_dir>/wafer_<wafer>_split_<N>/query.txt``.
 
         Parameters
         ----------
         desc : dict, optional
-            The workflow configuration dictionary.
+            Workflow configuration dictionary.
 
         Returns
         -------
         list of NullTestWorkflow
-            One workflow per wafer-split combination, following the naming
-            convention: wafer_{wafer}_split_{idx}_null_test_workflow.
+            One workflow per non-empty wafer-split combination, named
+            ``wafer_<wafer>_split_<N>_null_test_workflow``.
         """
 
         wafer_workflow = cls(**desc)

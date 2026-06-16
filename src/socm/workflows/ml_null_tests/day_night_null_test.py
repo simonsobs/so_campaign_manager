@@ -13,10 +13,29 @@ from socm.workflows.ml_null_tests import NullTestWorkflow
 
 class DayNightNullTestWorkflow(NullTestWorkflow):
     """
-    A workflow for day/night null tests.
+    Null-test workflow that splits observations by time of day (day vs. night).
 
-    This workflow splits observations based on whether they were taken during the day or night.
-    It creates time-interleaved splits with nsplits=2 as specified.
+    Uses the `astral <https://astral.readthedocs.io/>`_ library and the
+    geographic location of the SO site (San Pedro de Atacama, Chile) to
+    determine whether each observation's start time falls between local sunrise
+    and sunset. Observations are classified as ``"day"`` or ``"night"``, and
+    within each group ``nsplits = 2`` time-interleaved splits are created to
+    test for solar-related systematics. Child workflows follow the naming
+    convention ``{day,night}_split_<N>_null_test_workflow``.
+
+    Parameters
+    ----------
+    chunk_nobs : int or None, optional
+        Number of observations per time chunk per day/night group. Defaults to
+        ``None``.
+    chunk_duration : timedelta or None, optional
+        Duration per chunk (not yet implemented). Defaults to ``None``.
+    nsplits : int, optional
+        Number of time splits per day/night group. Fixed to ``2``. Defaults
+        to ``2``.
+    name : str, optional
+        Human-readable workflow name. Defaults to
+        ``"day_night_null_test_workflow"``.
     """
 
     chunk_nobs: Optional[int] = None
@@ -28,22 +47,36 @@ class DayNightNullTestWorkflow(NullTestWorkflow):
         self, ctx: Context, obs_info: Dict[str, Dict[str, Union[float, str]]]
     ) -> Dict[str, List[List[str]]]:
         """
-        Split observations based on day/night.
+        Split observations based on day/night classification.
 
-        Groups observations by whether they were taken during the day or
-        night and creates time-interleaved splits for each group.
+        Groups observations by whether they were taken during daylight hours
+        (between local sunrise and sunset at the SO site), then creates
+        ``nsplits`` (= 2) time-interleaved splits within each group.
 
         Parameters
         ----------
         ctx : Context
-            The sotodlib Context object.
-        obs_info : dict
-            A mapping of observation IDs to their metadata.
+            The sotodlib :class:`~sotodlib.core.Context` object (not used
+            directly).
+        obs_info : dict of str to dict
+            Mapping of observation ID to metadata. The ``start_time`` key
+            (Unix timestamp) is used for the day/night determination and
+            chronological ordering.
 
         Returns
         -------
-        dict
-            A mapping of 'day' and 'night' to lists of observation splits.
+        dict of str to list of list of str
+            Mapping of ``"day"`` and ``"night"`` to lists of ``nsplits``
+            splits, each containing the observation IDs assigned to that
+            group and split.
+
+        Raises
+        ------
+        ValueError
+            If neither ``chunk_nobs`` nor ``chunk_duration`` is set, or if
+            both are set.
+        NotImplementedError
+            If ``chunk_duration`` is set (not yet implemented).
         """
         if self.chunk_nobs is None and self.chunk_duration is None:
             raise ValueError("Either chunk_nobs or duration must be set.")
@@ -101,18 +134,23 @@ class DayNightNullTestWorkflow(NullTestWorkflow):
     @classmethod
     def get_workflows(cls, desc=None) -> List[NullTestWorkflow]:
         """
-        Create NullTestWorkflow instances for each day/night split.
+        Create one :class:`~socm.workflows.ml_null_tests.base.NullTestWorkflow` per day/night-split pair.
+
+        Instantiates the parent :class:`DayNightNullTestWorkflow` to compute
+        the splits, then creates a child :class:`NullTestWorkflow` for each
+        non-empty (day/night, time-split) combination. Query files are written
+        to ``<output_dir>/{day,night}_split_<N>/query.txt``.
 
         Parameters
         ----------
         desc : dict, optional
-            The workflow configuration dictionary.
+            Workflow configuration dictionary.
 
         Returns
         -------
         list of NullTestWorkflow
-            One workflow per day/night-split combination, following the naming
-            convention: {day,night}_split_{idx}_null_test_workflow.
+            One workflow per non-empty day/night-split pair, named
+            ``{day,night}_split_<N>_null_test_workflow``.
         """
         day_night_workflow = cls(**desc)
 

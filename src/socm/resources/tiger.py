@@ -3,8 +3,44 @@ from ..core import QosPolicy, Resource
 
 class TigerResource(Resource):
     """
-    TigerResource is a specialized Resource class for the Tiger HPC system.
-    It includes additional attributes specific to the Tiger system.
+    Resource definition for the Tiger 3 HPC cluster at Princeton.
+
+    Pre-configures the node count, core layout, memory, and SLURM QoS
+    policies for Tiger 3 so that campaigns can reference it by name
+    (``"tiger3"`` in ``registered_resources``).
+
+    The QoS tiers are configured in ascending order of walltime, from
+    the most restrictive ``test`` tier to the most permissive ``vlong``
+    tier. The planner iterates this list in order and selects the first
+    tier that satisfies a job's walltime and core requirements.
+
+    Attributes
+    ----------
+    name : str
+        Resource identifier, fixed to ``"tiger3"``.
+    nodes : int
+        Total compute nodes available (492).
+    cores_per_node : int
+        CPU cores per node (112).
+    memory_per_node : int
+        Memory per node in MB (1 000 000).
+    default_qos : str
+        Default QoS name used when no specific policy is required (``"test"``).
+
+    QoS tiers
+    ----------
+    test
+        1 h walltime, 1 job, 8 000 cores.
+    vshort
+        5 h walltime, 2 000 jobs, 55 104 cores.
+    short
+        24 h walltime, 50 jobs, 8 000 cores.
+    medium
+        3 d walltime, 80 jobs, 4 000 cores.
+    long
+        6 d walltime, 16 jobs, 1 000 cores.
+    vlong
+        15 d walltime, 8 jobs, 900 cores.
     """
 
     name: str = "tiger3"

@@ -36,10 +36,12 @@ The project follows strict code quality standards:
 PEP8 Compliance (Mandatory)
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-All code must be PEP8 compliant. Use flake8 to check:
+All code must be PEP8 compliant with a maximum line length of 120 characters
+(configured in ``pyproject.toml``). Use ruff and flake8 to check:
 
 .. code-block:: bash
 
+   ruff check src/
    uv run flake8 src/socm tests/
 
 Code Formatting (Optional)
@@ -71,24 +73,42 @@ Project Structure
    │   │   ├── __init__.py
    │   │   └── bookkeeper.py
    │   ├── workflows/         # Workflow implementations
-   │   │   ├── __init__.py
+   │   │   ├── __init__.py    # registered_workflows dict + subcampaign_map
    │   │   ├── ml_mapmaking.py
    │   │   ├── sat_simulation.py
+   │   │   ├── spectra.py
    │   │   └── ml_null_tests/
+   │   │       ├── __init__.py
+   │   │       ├── base.py
+   │   │       ├── time_null_test.py
+   │   │       ├── wafer_null_test.py
+   │   │       ├── direction_null_test.py
+   │   │       ├── pwv_null_test.py
+   │   │       ├── day_night_null_test.py
+   │   │       ├── moonrise_set_null_test.py
+   │   │       ├── elevation_null_test.py
+   │   │       ├── sun_close_null_test.py
+   │   │       ├── moon_close_null_test.py
+   │   │       └── smart_split_null_test.py
    │   ├── enactor/           # Execution backends
    │   │   ├── __init__.py
    │   │   ├── base.py
-   │   │   └── rp_enactor.py
+   │   │   ├── rp_enactor.py
+   │   │   └── dryrun_enactor.py
    │   ├── planner/           # Campaign planning
-   │   │   └── __init__.py
-   │   ├── utils/             # Utilities
    │   │   ├── __init__.py
-   │   │   ├── const.py
-   │   │   ├── misc.py
-   │   │   └── states.py
-   │   └── configs/           # Default configurations
+   │   │   ├── base.py
+   │   │   └── heft_planner.py
+   │   ├── resources/         # HPC resource definitions
+   │   │   ├── __init__.py
+   │   │   ├── tiger.py
+   │   │   ├── perlmutter.py
+   │   │   └── universe.py
+   │   └── utils/             # Utilities
+   │       ├── __init__.py
+   │       ├── misc.py
+   │       └── states.py
    ├── tests/                 # Test suite
-   ├── examples/              # Example configurations
    ├── docs/                  # Documentation
    └── pyproject.toml         # Project configuration
 
@@ -103,6 +123,7 @@ Branch Types
 * ``main``: Latest stable development (never commit directly)
 * ``feature/abc``: Development of new features
 * ``fix/abc_123``: Bug fixes (reference GitHub issue)
+* ``hotfix/abc_123``: Urgent fixes
 * ``tmp/abc``: Temporary branches (will be deleted)
 * ``test/abc``: Integration testing branches
 
@@ -123,9 +144,10 @@ Development Workflow
 
    # Make changes
    # Run tests
-   uv run pytest tests/
+   uv run pytest tests/ --cov
    # Check code style
-   uv run flake8 src/socm
+   ruff check src/
+   uv run darker --diff -r origin/main src/ -L flake8
 
 3. **Create pull request:**
    * Target ``main`` branch
@@ -138,8 +160,7 @@ Branch Policies
 ~~~~~~~~~~~~~~~
 
 * All branches are short-lived
-* Limited number of open branches per developer
-* Only ``N`` fix branches and ``M << N`` feature branches
+* Merge ``main`` into your feature branch before creating a PR
 
 Testing
 -------
@@ -153,28 +174,25 @@ Tests are organized to mirror the package structure:
 
    tests/
    ├── __init__.py
-   ├── conftest.py            # Test configuration
+   ├── conftest.py            # Test configuration and shared fixtures
    ├── test_bookkeeper.py     # Bookkeeper tests
-   ├── test_misc.py          # Utility tests
-   ├── test_planner.py       # Planner tests
-   └── workflows/            # Workflow tests
+   ├── test_misc.py           # Utility tests
+   ├── test_planner.py        # Planner tests
+   └── workflows/             # Workflow tests
 
 Running Tests
 ~~~~~~~~~~~~~
 
 .. code-block:: bash
 
-   # Run all tests
-   uv run pytest
-
-   # Run with coverage
-   uv run pytest --cov=socm
+   # Run all tests with coverage
+   pytest -vvv tests/ --cov --cov-append
 
    # Run specific test file
-   uv run pytest tests/test_bookkeeper.py
+   pytest tests/test_bookkeeper.py
 
-   # Run with verbose output
-   uv run pytest -v
+   # Run specific test
+   pytest tests/test_core_models.py::test_workflow_creation -v
 
 Writing Tests
 ~~~~~~~~~~~~~
@@ -202,7 +220,7 @@ Follow these guidelines:
    @pytest.fixture
    def sample_campaign():
        """Create a sample campaign for testing."""
-       return Campaign(id=1, workflows=[], campaign_policy="time")
+       return Campaign(id=1, workflows=[], campaign_policy="time", deadline="1d")
 
 Adding New Features
 -------------------
@@ -217,36 +235,51 @@ To add a new workflow type:
 .. code-block:: python
 
    # src/socm/workflows/my_workflow.py
+   from typing import List
    from socm.core.models import Workflow
 
    class MyWorkflow(Workflow):
        special_param: str
 
-       def get_command(self, **kwargs) -> str:
+       def get_command(self) -> str:
            return f"{self.executable} {self.subcommand}"
 
-       def get_arguments(self, **kwargs) -> str:
-           return f"--special {self.special_param}"
+       def get_arguments(self) -> List[str]:
+           # get_arguments must return a List[str], not a plain str
+           return [f"--special={self.special_param}"]
+
+       @classmethod
+       def get_workflows(cls, descriptions):
+           if isinstance(descriptions, dict):
+               descriptions = [descriptions]
+           return [cls(**desc) for desc in descriptions]
+
+.. note::
+
+   ``get_arguments()`` must return a ``List[str]``, **not** a single string.
+   The enactor concatenates the list elements when building the RP task
+   description, so returning a plain string will cause incorrect argument
+   splitting at execution time.
 
 2. **Register workflow:**
 
 .. code-block:: python
 
    # src/socm/workflows/__init__.py
-   from .my_workflow import MyWorkflow
+   from .my_workflow import MyWorkflow  # noqa: F401
 
    registered_workflows = {
        # ... existing workflows
        'my-workflow': MyWorkflow,
    }
 
-3. **Add to subcampaign mapping:**
+3. **If part of a subcampaign, update ``subcampaign_map``:**
 
 .. code-block:: python
 
    subcampaign_map = {
        # ... existing mappings
-       'my-workflow': 'my-workflow',
+       'my-subcampaign': ['my-workflow', ...],
    }
 
 4. **Write tests:**
@@ -259,9 +292,11 @@ To add a new workflow type:
            name="test",
            executable="my-exe",
            context="test.yaml",
-           special_param="value"
+           special_param="value",
+           id=1,
        )
        assert workflow.special_param == "value"
+       assert workflow.get_arguments() == ["--special=value"]
 
 Enactor Backends
 ~~~~~~~~~~~~~~~~
@@ -272,15 +307,27 @@ To add a new execution backend:
 
 .. code-block:: python
 
-   from socm.enactor.base import BaseEnactor
+   from socm.enactor.base import Enactor
 
-   class MyEnactor(BaseEnactor):
-       def submit_jobs(self, jobs):
-           # Implementation
+   class MyEnactor(Enactor):
+       def setup(self, resource, walltime, cores, execution_schema=None):
+           # Set up the execution backend
            pass
 
-2. **Implement required methods**
-3. **Register in bookkeeper**
+       def enact(self, workflows):
+           # Submit workflows for execution
+           pass
+
+       def terminate(self):
+           # Clean up resources
+           pass
+
+       def teardown(self):
+           # Cancel the current allocation
+           pass
+
+2. **Implement all required methods from** :class:`~socm.enactor.base.Enactor`
+3. **Register in bookkeeper:** add a condition in ``Bookkeeper.__init__`` based on a flag
 
 Documentation
 -------------
@@ -298,36 +345,46 @@ The built documentation will be in ``docs/_build/html/``.
 Writing Documentation
 ~~~~~~~~~~~~~~~~~~~~~
 
-1. **Use reStructuredText format**
-2. **Include code examples**
-3. **Document all public APIs**
-4. **Keep examples up to date**
+1. **Use reStructuredText format** for ``.rst`` files
+2. **Use NumPy-style docstrings** for Python source files
+3. **Include code examples**
+4. **Document all public APIs**
+5. **Keep examples up to date**
 
 API Documentation
 ~~~~~~~~~~~~~~~~~
 
-Use Google-style docstrings:
+Use NumPy-style docstrings for all public classes, methods, and functions:
 
 .. code-block:: python
 
    def my_function(param1: str, param2: int = 0) -> bool:
-       """Brief description of the function.
+       """
+       Brief description of the function.
 
        Longer description if needed.
 
-       Args:
-           param1: Description of param1.
-           param2: Description of param2. Defaults to 0.
+       Parameters
+       ----------
+       param1 : str
+           Description of param1.
+       param2 : int, optional
+           Description of param2. Defaults to 0.
 
-       Returns:
+       Returns
+       -------
+       bool
            Description of return value.
 
-       Raises:
-           ValueError: If param1 is empty.
+       Raises
+       ------
+       ValueError
+           If param1 is empty.
 
-       Example:
-           >>> my_function("test", 5)
-           True
+       Examples
+       --------
+       >>> my_function("test", 5)
+       True
        """
 
 Release Process
