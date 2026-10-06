@@ -127,8 +127,12 @@ class Workflow(BaseModel):
         """Return the full shell command to execute this workflow."""
         raise NotImplementedError("This method should be implemented in subclasses")
 
-    def get_arguments(self, **kargs) -> str:
-        """Return the command-line arguments for this workflow."""
+    def get_arguments(self, **kargs) -> List[str]:
+        """
+        Return the command-line arguments for this workflow, one list entry
+        per argument and without shell quoting. Enactors pass them to the
+        executable as-is; ``get_command`` quotes them with ``shlex.join``.
+        """
         raise NotImplementedError("This method should be implemented in subclasses")
 
     def get_numeric_fields(self, avoid_attributes: List[str] | None = None) -> List[str]:
@@ -334,6 +338,7 @@ class Campaign(BaseModel):
     campaign_policy: str = "time"
     execution_schema: str = "batch"
     requested_resources: int = 0
+    base_path: Optional[str] = None
 
     @field_validator("workflows", mode="before")
     @classmethod

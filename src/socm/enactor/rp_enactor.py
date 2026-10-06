@@ -134,6 +134,7 @@ class RPEnactor(Enactor):
                 exec_workflow.ranks = workflow.resources.ranks
                 exec_workflow.cores_per_rank = workflow.resources.threads
                 exec_workflow.threading_type = rp.OpenMP
+                exec_workflow.use_mpi = True
                 # exec_workflow.mem_per_rank = np.ceil(
                 #     workflow.resources["memory"] / workflow.resources["ranks"]
                 # )  # this translates to memory per rank

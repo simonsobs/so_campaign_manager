@@ -1,12 +1,12 @@
 import os
 import threading as mt
-from importlib.resources import files
 from math import ceil, floor
 from pathlib import Path
 from time import sleep
-from typing import Dict, List
+from typing import Dict, List, Optional
 
 import radical.utils as ru
+import toml
 from slurmise.api import Slurmise
 from slurmise.job_data import JobData
 from slurmise.job_parse.file_parsers import FileMD5
@@ -17,6 +17,58 @@ from ..enactor import DryrunEnactor, RPEnactor
 from ..planner import HeftPlanner
 from ..resources import registered_resources
 from ..utils.states import CFINAL, States
+
+# Environment variable pointing to a persistent Slurmise directory, so that job
+# history accumulates across campaigns.
+SLURMISE_DIR_ENV = "SOCM_SLURMISE_DIR"
+
+
+def resolve_slurmise_dir(base_path: Optional[str] = None) -> str:
+    """
+    Return the directory Slurmise should use for its database and models.
+
+    Precedence: ``$SOCM_SLURMISE_DIR``, then ``<base_path>/slurmise_dir``,
+    then ``<cwd>/slurmise_dir``.
+
+    Parameters
+    ----------
+    base_path : str, optional
+        The campaign base path.
+
+    Returns
+    -------
+    str
+        The absolute path of the Slurmise directory.
+    """
+    env_dir = os.environ.get(SLURMISE_DIR_ENV)
+    if env_dir:
+        return os.path.abspath(os.path.expanduser(env_dir))
+    return os.path.abspath(os.path.join(base_path or os.getcwd(), "slurmise_dir"))
+
+
+def write_slurmise_toml(slurmise_dir: str, dest: Path) -> Path:
+    """
+    Write a minimal Slurmise config pointing at ``slurmise_dir``.
+
+    Slurmise only accepts a TOML path, so the config is written to disk. Job
+    specs are not needed: the Bookkeeper builds ``JobData`` from the workflow
+    fields and records it with ``raw_record``.
+
+    Parameters
+    ----------
+    slurmise_dir : str
+        Value for ``[slurmise] base_dir``.
+    dest : Path
+        Where to write the generated TOML file.
+
+    Returns
+    -------
+    Path
+        ``dest``, for passing to ``Slurmise(toml_path=...)``.
+    """
+    dest.parent.mkdir(parents=True, exist_ok=True)
+    dest.write_text(toml.dumps({"slurmise": {"base_dir": slurmise_dir}}))
+    return dest
 
 
 class Bookkeeper(object):
@@ -67,12 +119,15 @@ class Bookkeeper(object):
         self._objective = deadline
         self._exec_state_lock = ru.RLock("workflows_state_lock")
         self._monitor_lock = ru.RLock("monitor_list_lock")
-        self._slurmise = Slurmise(toml_path=files("socm.configs") / "slurmise.toml")
         # The time in the campaign's world. The first element is the actual time
         # of the campaign world. The second element is the
         # self._time = {"time": 0, "step": []}io
 
         path = os.getcwd() + "/" + self._session_id
+        slurmise_toml = write_slurmise_toml(
+            resolve_slurmise_dir(campaign.base_path), Path(path) / "slurmise.toml"
+        )
+        self._slurmise = Slurmise(toml_path=slurmise_toml)
 
         self._logger = ru.Logger(name=self._uid, path=path, level="DEBUG")
         self._prof = ru.Profiler(name=self._uid, path=path)

@@ -1,5 +1,6 @@
 import ast
-from typing import Dict, List
+from pathlib import Path
+from typing import Any, Dict, List, Union
 
 import networkx as nx
 
@@ -102,6 +103,86 @@ def get_query_from_file(file_path: str) -> str:
     query += ")"
 
     return query
+
+
+def read_par_file(file_path: Union[str, Path]) -> Dict[str, Any]:
+    """
+    Read an argparse ``@file`` (par file) into a dict of option name to value.
+
+    Follows argparse's default format: every line is exactly one argument, so
+    values may contain spaces (e.g. ``2025-01-01 00:00:00``). Supports
+    ``--key=value``, ``--key`` followed by a value line, bare ``--flag``
+    (True), ``--op.enable`` / ``--op.disable`` (``op`` -> True/False), blank
+    lines, ``#`` comment lines and nested ``@other.par`` includes, resolved
+    relative to the including file.
+
+    An option given more than once (e.g. ``--patch``) becomes a list of its
+    values in order. Passing every value back on the command line keeps
+    argparse semantics: append options get all of them, others the last one.
+
+    Parameters
+    ----------
+    file_path : str or Path
+        Path to the par file.
+
+    Returns
+    -------
+    dict
+        Option names without the leading ``--``. Values are strings (or lists
+        of strings for repeated options), except for flags and enable/disable
+        options, which are booleans.
+
+    Raises
+    ------
+    ValueError
+        If the file contains a value that does not follow an option.
+    """
+    file_path = Path(file_path)
+    tokens = _read_par_tokens(file_path)
+
+    args: Dict[str, Any] = {}
+
+    def _add(key: str, value: Any) -> None:
+        if key not in args:
+            args[key] = value
+        elif isinstance(args[key], list):
+            args[key].append(value)
+        else:
+            args[key] = [args[key], value]
+
+    i = 0
+    while i < len(tokens):
+        token = tokens[i]
+        if not token.startswith("--"):
+            raise ValueError(f"{file_path}: value {token!r} does not follow an option")
+        key, sep, value = token[2:].partition("=")
+        if sep:
+            _add(key, value)
+        elif key.endswith((".enable", ".disable")):
+            op_name, _, state = key.rpartition(".")
+            args[op_name] = state == "enable"
+        elif i + 1 < len(tokens) and not tokens[i + 1].startswith("--"):
+            _add(key, tokens[i + 1])
+            i += 1
+        else:
+            args[key] = True
+        i += 1
+
+    return args
+
+
+def _read_par_tokens(file_path: Path) -> List[str]:
+    """Return the arguments in a par file, one per line, expanding ``@`` includes."""
+    tokens = []
+    for line in file_path.read_text().splitlines():
+        line = line.strip()
+        if not line or line.startswith("#"):
+            continue
+        if line.startswith("@"):
+            tokens.extend(_read_par_tokens(file_path.parent / line[1:]))
+        else:
+            tokens.append(line)
+    return tokens
 
 
 def print_plan(graph: nx.DiGraph) -> None:

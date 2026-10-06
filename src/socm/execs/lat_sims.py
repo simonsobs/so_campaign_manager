@@ -1,10 +1,12 @@
 from argparse import ArgumentParser, Namespace
+from pathlib import Path
 
 import humanfriendly
 import yaml
 
 from socm.core.models import DAG, Campaign
-from socm.workflows import SpectraWorkflow
+from socm.utils.misc import read_par_file
+from socm.workflows import registered_workflows
 
 
 def get_parser(parser: ArgumentParser) -> ArgumentParser:
@@ -56,6 +58,12 @@ def _main(args: Namespace) -> None:
     campaign_dag = DAG()
     last_workflow_id = 1
     for workflow_name, workflow_config in config['stages'].items():
+
+        if workflow_name not in registered_workflows:
+            raise ValueError(
+                f"Unknown workflow '{workflow_name}'. Known: {sorted(registered_workflows)}"
+            )
+
         workflow_config["resources"]["memory"] = (
                 humanfriendly.parse_size(workflow_config["resources"]["memory"])
                 // 1000000
@@ -65,26 +73,23 @@ def _main(args: Namespace) -> None:
                 / 60
             )  # in minutes
 
-        workflow_base_path = None
+
         if "base-path" in workflow_config and workflow_config["base-path"]:
-            workflow_base_path = workflow_config["base-path"]
+            workflow_config["base_path"] = workflow_config["base-path"]
         elif "base-path" in config["campaign"] and config["campaign"]["base-path"]:
-            workflow_base_path = config["campaign"]["base-path"]
-
-        workflow_dict = {"name": workflow_name,
-                         "id": last_workflow_id,
-                         "executable": workflow_config['executable'],
-                         "subcommand": workflow_config['script'],
-                         "depends": workflow_config['depends'] if workflow_config['depends'] else [],
-                         "resources": workflow_config["resources"],
-                         "script_args": workflow_config.get('script-args', []),
-                         "script_flags": workflow_config.get('script-flags', []),
-                         "base_path": workflow_base_path
-                         }
+            workflow_config["base_path"] = config["campaign"]["base-path"]
+        workflow_factory = registered_workflows[workflow_name]
+        # Values from a par file are defaults; the stage config overrides them.
+        par_file = workflow_config.pop("param-file", None)
+        if par_file:
+            par_path = Path(par_file.removeprefix("file://"))
+            if not par_path.is_absolute():
+                par_path = Path(args.yaml).parent / par_path
+            workflow_config = {**read_par_file(par_path), **workflow_config}
         for arg_name, arg_value in workflow_config.get('script-kwargs', {}).items():
-            workflow_dict[arg_name] = arg_value
-
-        workflow = SpectraWorkflow(**workflow_dict)
+            workflow_config[arg_name] = arg_value
+        workflow_config["id"] = last_workflow_id
+        workflow = workflow_factory(**workflow_config)
 
         campaign_dag.add_workflow(workflow)
         last_workflow_id += 1

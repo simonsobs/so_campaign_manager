@@ -85,6 +85,7 @@ def _main(args: Namespace) -> None:
         execution_schema=config["campaign"]["execution_schema"],
         requested_resources=config["campaign"]["requested_resources"],
         target_resource=target_resource,
+        base_path=config["campaign"].get("base-path"),
     )
 
     # This main class to execute the campaign to a resource.
