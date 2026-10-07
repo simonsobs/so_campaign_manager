@@ -1,6 +1,7 @@
 from socm.workflows.get_schedule import GetScheduleWorkflow  # noqa: F401
 from socm.workflows.lat_simulation import LATSimWorkflow  # noqa: F401
 from socm.workflows.sat_simulation import SATSimWorkflow  # noqa: F401
+from socm.workflows.shell_script import ShellScriptWorkflow  # noqa: F401
 from socm.workflows.spectra import SpectraWorkflow  # noqa: F401
 
 registered_workflows = {
@@ -8,7 +9,7 @@ registered_workflows = {
     "get-schedule": GetScheduleWorkflow,
     "sat-sims": SATSimWorkflow,
     "lat-sims": LATSimWorkflow,
-
+    "shell-script": ShellScriptWorkflow,
 }
 
 subcampaign_map = {}

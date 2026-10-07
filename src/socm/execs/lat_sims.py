@@ -37,6 +37,86 @@ def get_parser(parser: ArgumentParser) -> ArgumentParser:
     )
     return parser
 
+
+def _resolve_path(value: str, config_dir: Path) -> str:
+    """Resolve a (possibly ``file://``) path relative to the config file's directory."""
+    path = Path(value.removeprefix("file://"))
+    if not path.is_absolute():
+        path = config_dir / path
+    return str(path)
+
+
+def build_dag(config: dict, config_dir: Path) -> DAG:
+    """
+    Build the campaign DAG from the ``stages`` section of a YAML config.
+
+    Each stage creates one workflow named after the stage. The workflow type
+    is the stage's ``type`` key, or the stage name when ``type`` is not given,
+    so several stages can share a type (e.g. ``shell-script``).
+
+    Parameters
+    ----------
+    config : dict
+        The parsed YAML configuration.
+    config_dir : Path
+        Directory of the YAML file; relative ``param-file`` and ``script``
+        paths are resolved against it.
+
+    Returns
+    -------
+    DAG
+        The workflows with their dependencies.
+    """
+    campaign_dag = DAG()
+    last_workflow_id = 1
+    for stage_name, workflow_config in config['stages'].items():
+        workflow_type = workflow_config.pop("type", stage_name)
+        if workflow_type not in registered_workflows:
+            raise ValueError(
+                f"Stage '{stage_name}': unknown workflow type '{workflow_type}'. "
+                f"Known: {sorted(registered_workflows)}"
+            )
+
+        workflow_config["resources"]["memory"] = (
+                humanfriendly.parse_size(workflow_config["resources"]["memory"])
+                // 1000000
+            )
+        workflow_config["resources"]["runtime"] = (
+                humanfriendly.parse_timespan(workflow_config["resources"]["runtime"])
+                / 60
+            )  # in minutes
+
+        stage_base_path = workflow_config.pop("base-path", None)
+        if stage_base_path:
+            workflow_config["base_path"] = stage_base_path
+        elif config["campaign"].get("base-path"):
+            workflow_config["base_path"] = config["campaign"]["base-path"]
+        workflow_factory = registered_workflows[workflow_type]
+        # Values from a par file are defaults; the stage config overrides them.
+        par_file = workflow_config.pop("param-file", None)
+        if par_file:
+            workflow_config = {**read_par_file(_resolve_path(par_file, config_dir)), **workflow_config}
+        if "script" in workflow_config:
+            workflow_config["script"] = _resolve_path(workflow_config["script"], config_dir)
+        for arg_name, arg_value in workflow_config.get('script-kwargs', {}).items():
+            workflow_config[arg_name] = arg_value
+        workflow_config["id"] = last_workflow_id
+        workflow_config["name"] = stage_name
+        workflow = workflow_factory(**workflow_config)
+
+        campaign_dag.add_workflow(workflow)
+        last_workflow_id += 1
+
+    for workflow in campaign_dag.workflows:
+        for parent_workflow in workflow.depends:
+            parent_id = campaign_dag.get_id_by_name(workflow_name=parent_workflow)
+            if parent_id is None:
+                raise ValueError(f"Stage '{workflow.name}' depends on unknown stage '{parent_workflow}'")
+            campaign_dag.add_dependency(child_id=workflow.id, parent_id=parent_id)
+
+    return campaign_dag
+
+
 def _main(args: Namespace) -> None:
     """
     Execute the power spectra campaign from a YAML configuration.
@@ -55,49 +135,7 @@ def _main(args: Namespace) -> None:
     with open(args.yaml) as f:
         config = yaml.safe_load(f)
 
-    campaign_dag = DAG()
-    last_workflow_id = 1
-    for workflow_name, workflow_config in config['stages'].items():
-
-        if workflow_name not in registered_workflows:
-            raise ValueError(
-                f"Unknown workflow '{workflow_name}'. Known: {sorted(registered_workflows)}"
-            )
-
-        workflow_config["resources"]["memory"] = (
-                humanfriendly.parse_size(workflow_config["resources"]["memory"])
-                // 1000000
-            )
-        workflow_config["resources"]["runtime"] = (
-                humanfriendly.parse_timespan(workflow_config["resources"]["runtime"])
-                / 60
-            )  # in minutes
-
-
-        if "base-path" in workflow_config and workflow_config["base-path"]:
-            workflow_config["base_path"] = workflow_config["base-path"]
-        elif "base-path" in config["campaign"] and config["campaign"]["base-path"]:
-            workflow_config["base_path"] = config["campaign"]["base-path"]
-        workflow_factory = registered_workflows[workflow_name]
-        # Values from a par file are defaults; the stage config overrides them.
-        par_file = workflow_config.pop("param-file", None)
-        if par_file:
-            par_path = Path(par_file.removeprefix("file://"))
-            if not par_path.is_absolute():
-                par_path = Path(args.yaml).parent / par_path
-            workflow_config = {**read_par_file(par_path), **workflow_config}
-        for arg_name, arg_value in workflow_config.get('script-kwargs', {}).items():
-            workflow_config[arg_name] = arg_value
-        workflow_config["id"] = last_workflow_id
-        workflow = workflow_factory(**workflow_config)
-
-        campaign_dag.add_workflow(workflow)
-        last_workflow_id += 1
-
-    for workflow in campaign_dag.workflows:
-        for parent_workflow in workflow.depends:
-            parent_id = campaign_dag.get_id_by_name(workflow_name=parent_workflow)
-            campaign_dag.add_dependency(child_id=workflow.id, parent_id=parent_id)
+    campaign_dag = build_dag(config, Path(args.yaml).parent)
 
     policy = config["campaign"].get("policy", "time")
     target_resource = config["campaign"].get("resource", "tiger3")
