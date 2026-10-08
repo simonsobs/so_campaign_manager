@@ -524,7 +524,7 @@ class Bookkeeper(object):
                         resource = self._unavail_resources[i]
                         finished.append((workflows_snapshot[i], resource))
 
-                        # self._record(workflows_snapshot[i])
+                        self._record(workflows_snapshot[i])
                         self._logger.info(
                             "Workflow %s finished",
                             workflows_snapshot[i].id,

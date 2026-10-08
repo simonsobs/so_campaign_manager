@@ -170,4 +170,4 @@ tmpdev/
 src/socm/__about__.py
 
 #socm generated files and folders
-socm*/
+socm.session.*/
