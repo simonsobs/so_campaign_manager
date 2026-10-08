@@ -3,8 +3,7 @@ from ..core import QosPolicy, Resource
 
 class LocalResource(Resource):
     """
-    TigerResource is a specialized Resource class for the Tiger HPC system.
-    It includes additional attributes specific to the Tiger system.
+    LocalResource is a specialized Resource class for the localhost.
     """
 
     name: str = "localhost"

@@ -69,6 +69,30 @@ def test_stage_name_is_type_without_type_key(tmp_path):
     assert isinstance(dag.workflows[0], ShellScriptWorkflow)
 
 
+def test_null_or_missing_depends(tmp_path):
+    stages = {
+        "a": _shell_stage("/a.sh", depends=None),
+        "b": _shell_stage("/b.sh"),  # no depends key
+        "c": _shell_stage("/c.sh", depends=["a", "b"]),
+    }
+    dag = build_dag(_config(stages), tmp_path)
+    by_name = {w.name: w for w in dag.workflows}
+
+    assert by_name["a"].depends == []
+    assert by_name["b"].depends == []
+    assert by_name["c"].depends == ["a", "b"]
+    assert dag.graph.has_edge(by_name["a"].id, by_name["c"].id)
+    assert dag.graph.has_edge(by_name["b"].id, by_name["c"].id)
+
+
+def test_script_kwargs_are_expanded_not_passed(tmp_path):
+    stage = _shell_stage("/a.sh", **{"script-kwargs": {"extra": "value"}})
+    workflow = build_dag(_config({"stage": stage}), tmp_path).workflows[0]
+
+    assert workflow.extra == "value"
+    assert "script-kwargs" not in workflow.model_dump()
+
+
 def test_unknown_type_raises(tmp_path):
     with pytest.raises(ValueError, match="unknown workflow type 'nope'"):
         build_dag(_config({"stage": {"type": "nope", "resources": dict(RESOURCES)}}), tmp_path)

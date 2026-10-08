@@ -98,10 +98,12 @@ def build_dag(config: dict, config_dir: Path) -> DAG:
             workflow_config = {**read_par_file(_resolve_path(par_file, config_dir)), **workflow_config}
         if "script" in workflow_config:
             workflow_config["script"] = _resolve_path(workflow_config["script"], config_dir)
-        for arg_name, arg_value in workflow_config.get('script-kwargs', {}).items():
+        for arg_name, arg_value in workflow_config.pop('script-kwargs', {}).items():
             workflow_config[arg_name] = arg_value
+
         workflow_config["id"] = last_workflow_id
         workflow_config["name"] = stage_name
+        workflow_config["depends"] = workflow_config.get("depends") or []
         workflow = workflow_factory(**workflow_config)
 
         campaign_dag.add_workflow(workflow)

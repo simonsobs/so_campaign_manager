@@ -117,10 +117,11 @@ class RPEnactor(Enactor):
                     rp.TaskDescription()
                 )  # Use workflow description and resources to create the TaskDescription
                 exec_workflow.uid = f"workflow.{workflow.id}"
-                if hasattr(workflow, 'base_path'):
+                if getattr(workflow, "base_path", None):
                     exec_workflow.sandbox = os.path.join(
                         workflow.base_path, f"{workflow.name}.{workflow.id}"
                     )
+
                 exec_workflow.executable = workflow.executable
                 exec_workflow.arguments = []
                 if workflow.subcommand:
