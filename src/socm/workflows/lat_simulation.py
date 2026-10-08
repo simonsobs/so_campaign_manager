@@ -1,6 +1,6 @@
 import shlex
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from pydantic import PrivateAttr, model_validator
 
@@ -37,21 +37,21 @@ class LATSimWorkflow(Workflow):
     output_dir: str
     name: str = "lat_sims"
     executable: str = "toast_so_sim"
-    schedule: Optional[str] = None
-    bands: Optional[str] = "LAT_f090"
-    wafer_slots: Optional[str] = "w25"
+    schedule: str | None = None
+    bands: str | None = "LAT_f090"
+    wafer_slots: str | None = "w25"
     sample_rate: int = 37
     sim_noise: bool = False
     scan_map: bool = False
     sim_atmosphere: bool = False
     sim_sss: bool = False
     sim_hwpss: bool = False
-    sim_hwpss_atmo_data: Optional[str] = None
+    sim_hwpss_atmo_data: str | None = None
     pixels_healpix_radec_nside: int = 512
-    filterbin_name: Optional[str] = None
-    processing_mask_file: Optional[str] = None
+    filterbin_name: str | None = None
+    processing_mask_file: str | None = None
 
-    _arg_translation: Dict[str, str] = PrivateAttr(_ARG_TRANSLATION)
+    _arg_translation: dict[str, str] = PrivateAttr(_ARG_TRANSLATION)
 
     @model_validator(mode="before")
     @classmethod
@@ -85,7 +85,7 @@ class LATSimWorkflow(Workflow):
             srun.append(self.subcommand)
         return shlex.join(srun + self.get_arguments())
 
-    def get_arguments(self, **kargs: Any) -> List[str]:
+    def get_arguments(self, **kargs: Any) -> list[str]:
         """
         Get the command-line arguments for the LAT simulation workflow.
 

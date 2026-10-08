@@ -2,11 +2,10 @@
 import os
 import threading as mt
 from copy import deepcopy
-from datetime import datetime
-from typing import Dict, List
+from datetime import UTC, datetime
 
 # Imports from dependent packages
-# import numpy as np  # noqa: F401
+# import numpy as np
 import radical.pilot as rp
 import radical.utils as ru
 
@@ -25,10 +24,10 @@ class RPEnactor(Enactor):
     """
 
     def __init__(self, sid: str):
-        super(RPEnactor, self).__init__(sid=sid)
+        super().__init__(sid=sid)
         # List with all the workflows that are executing and require to be
         # monitored. This list is atomic and requires a lock
-        self._to_monitor = list()
+        self._to_monitor = []
 
         os.environ["RADICAL_CONFIG_USER_DIR"] = os.path.join(
             os.path.dirname(__file__) + "/../configs/"
@@ -37,7 +36,7 @@ class RPEnactor(Enactor):
         # Lock to provide atomicity in the monitoring data structure
         self._monitoring_lock = ru.RLock("cm.monitor_lock")
         self._cb_lock = ru.RLock("enactor.cb_lock")
-        self._callbacks = dict()
+        self._callbacks = {}
 
         # Creating a thread to execute the monitoring method.
         self._monitoring_thread = None  # Private attribute that will hold the thread
@@ -86,7 +85,7 @@ class RPEnactor(Enactor):
         self._pilot.wait(state=rp.PMGR_ACTIVE)
         self._logger.info("Pilot is ready")
 
-    def enact(self, workflows: List[Workflow]) -> None:
+    def enact(self, workflows: list[Workflow]) -> None:
         """
         Submit workflows for execution via RADICAL-Pilot.
 
@@ -151,7 +150,7 @@ class RPEnactor(Enactor):
                         "state": States.EXECUTING,
                         "endpoint": exec_workflow,
                         "exec_thread": None,
-                        "start_time": datetime.now(),
+                        "start_time": datetime.now(UTC),
                         "end_time": None,
                     }
 
@@ -162,9 +161,8 @@ class RPEnactor(Enactor):
                         step_ids=[None],
                     )
                 # Execute the task.
-            except Exception as ex:
-                self._logger.error(f"Workflow {workflow} could not be executed")
-                self._logger.error(f"Exception raised {ex}", exc_info=True)
+            except Exception:
+                self._logger.exception(f"Workflow {workflow} could not be executed")
 
         self._rp_tmgr.submit_tasks(exec_workflows)
 
@@ -193,8 +191,8 @@ class RPEnactor(Enactor):
                 # It does not iterate correctly.
                 monitoring_list = deepcopy(self._to_monitor)
                 # self._logger.info("Monitoring workflows %s" % monitoring_list)
-                to_remove_wfs = list()
-                to_remove_sids = list()
+                to_remove_wfs = []
+                to_remove_sids = []
 
                 for workflow_id in monitoring_list:
                     if f"workflow.{workflow_id}" in workflows_executing:
@@ -207,7 +205,7 @@ class RPEnactor(Enactor):
                                 self._execution_status[workflow_id]["state"] = States.DONE
                                 self._execution_status[workflow_id][
                                     "end_time"
-                                ] = datetime.now()
+                                ] = datetime.now(UTC)
                                 self._logger.debug(
                                     "Workflow %s finished: %s, step_id: %s",
                                     workflow_id,
@@ -229,7 +227,7 @@ class RPEnactor(Enactor):
                             self._to_monitor.remove(wid)
         self._prof.prof("workflow_monitor_end", uid=self._uid)
 
-    def get_status(self, workflows: str | List[str] | None = None) -> Dict[str, States]:
+    def get_status(self, workflows: str | list[str] | None = None) -> dict[str, States]:
         """
         Get the execution state of one or more workflows.
 
@@ -244,7 +242,7 @@ class RPEnactor(Enactor):
             A dictionary mapping workflow IDs to their current state.
         """
 
-        status = dict()
+        status = {}
         if workflows is None:
             for workflow in self._execution_status:
                 status[workflow] = self._execution_status[workflow]["state"]
@@ -269,11 +267,7 @@ class RPEnactor(Enactor):
         """
 
         if workflow not in self._execution_status:
-            self._logger.warning(
-                "Has not enacted on workflow %s yet.",
-                workflow,
-                self._get_workflow_state(workflow),
-            )
+            self._logger.warning("Has not enacted on workflow %s yet.", workflow)
         else:
             self._execution_status[workflow]["state"] = new_state
 

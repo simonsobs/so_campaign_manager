@@ -64,6 +64,6 @@ def test_split_schedule_months_script(tmp_path, leading_space):
 
 
 def test_split_schedule_months_script_usage_error(tmp_path):
-    result = subprocess.run(["bash", str(SPLIT_SCRIPT)], capture_output=True, text=True)
+    result = subprocess.run(["bash", str(SPLIT_SCRIPT)], capture_output=True, text=True, check=False)
     assert result.returncode == 1
     assert "Usage" in result.stderr

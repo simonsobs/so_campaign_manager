@@ -1,6 +1,6 @@
 from collections.abc import Iterable
 from numbers import Number
-from typing import TYPE_CHECKING, Dict, List, NamedTuple, Optional, Tuple, Union, get_args, get_origin
+from typing import TYPE_CHECKING, NamedTuple, Union, get_args, get_origin
 
 import networkx as nx
 from pydantic import BaseModel, ConfigDict, Field, PrivateAttr, field_validator
@@ -13,9 +13,9 @@ class QosPolicy(BaseModel):
     """SLURM Quality of Service policy defining job limits."""
 
     name: str
-    max_walltime: Optional[int] = None  # in minutes
-    max_jobs: Optional[int] = None
-    max_cores: Optional[int] = None
+    max_walltime: int | None = None  # in minutes
+    max_jobs: int | None = None
+    max_cores: int | None = None
 
 
 class Resource(BaseModel):
@@ -25,8 +25,8 @@ class Resource(BaseModel):
     nodes: int
     cores_per_node: int
     memory_per_node: int
-    qos: List[QosPolicy] = Field(default_factory=list)
-    _existing_jobs: Dict[str, List[Tuple[str, int, int]]] = PrivateAttr(default_factory=dict)
+    qos: list[QosPolicy] = Field(default_factory=list)
+    _existing_jobs: dict[str, list[tuple[str, int, int]]] = PrivateAttr(default_factory=dict)
 
     def fits_in_qos(self, walltime: int, cores: int) -> QosPolicy | None:
         """
@@ -82,6 +82,7 @@ class Resource(BaseModel):
             return True
         return False
 
+
 class ResourceSpec(BaseModel):
     ranks: int = 1
     threads: int = 1
@@ -93,6 +94,7 @@ class ResourceSpec(BaseModel):
 
     def __getitem__(self, item):
         return getattr(self, item)
+
 
 class Workflow(BaseModel):
     """
@@ -106,10 +108,10 @@ class Workflow(BaseModel):
     executable: str = ""
     context: str = ""
     subcommand: str = ""
-    id: Optional[int] = None
-    environment: Optional[Dict[str, str]] = None
+    id: int | None = None
+    environment: dict[str, str] | None = None
     resources: ResourceSpec = Field(default_factory=ResourceSpec)
-    depends: List[str] = []
+    depends: list[str] = []
 
     model_config = {
         "extra": "allow",
@@ -127,7 +129,7 @@ class Workflow(BaseModel):
         """Return the full shell command to execute this workflow."""
         raise NotImplementedError("This method should be implemented in subclasses")
 
-    def get_arguments(self, **kargs) -> List[str]:
+    def get_arguments(self, **kargs) -> list[str]:
         """
         Return the command-line arguments for this workflow, one list entry
         per argument and without shell quoting. Enactors pass them to the
@@ -135,7 +137,7 @@ class Workflow(BaseModel):
         """
         raise NotImplementedError("This method should be implemented in subclasses")
 
-    def get_numeric_fields(self, avoid_attributes: List[str] | None = None) -> List[str]:
+    def get_numeric_fields(self, avoid_attributes: list[str] | None = None) -> list[str]:
         """
         Returns a list of field names that are either numeric types
         or iterable collections of numeric types.
@@ -173,13 +175,11 @@ class Workflow(BaseModel):
                         if isinstance(arg, type) and issubclass(arg, Number):
                             numeric_fields.append(field_name)
                             break
-                # Check for iterables of numbers
-                elif issubclass(origin, Iterable):
-                    # Check if it's a parameterized generic like List[int]
-                    if args and len(args) > 0:
-                        element_type = args[0]
-                        if isinstance(element_type, type) and issubclass(element_type, Number):
-                            numeric_fields.append(field_name)
+                # Check for parameterized iterables of numbers like List[int]
+                elif issubclass(origin, Iterable) and args:
+                    element_type = args[0]
+                    if isinstance(element_type, type) and issubclass(element_type, Number):
+                        numeric_fields.append(field_name)
 
         # Also check actual instance values for numeric fields not captured by annotations
         # Include model_extra for Pydantic v2 extra="allow" fields
@@ -199,7 +199,7 @@ class Workflow(BaseModel):
 
         return numeric_fields
 
-    def get_categorical_fields(self, avoid_attributes: List[str] | None = None) -> List[str]:
+    def get_categorical_fields(self, avoid_attributes: list[str] | None = None) -> list[str]:
         """
         Returns a list of field names that are either string types
         or iterable collections of string types.
@@ -236,13 +236,11 @@ class Workflow(BaseModel):
                         if isinstance(arg, type) and issubclass(arg, str):
                             categorical_fields.append(field_name)
                             break
-                # Check for iterables of numbers
-                elif issubclass(origin, Iterable):
-                    # Check if it's a parameterized generic like List[int]
-                    if args and len(args) > 0:
-                        element_type = args[0]
-                        if isinstance(element_type, type) and issubclass(element_type, str):
-                            categorical_fields.append(field_name)
+                # Check for parameterized iterables of strings like List[str]
+                elif issubclass(origin, Iterable) and args:
+                    element_type = args[0]
+                    if isinstance(element_type, type) and issubclass(element_type, str):
+                        categorical_fields.append(field_name)
 
         # Also check actual instance values for categorical fields not captured by annotations
         # Include model_extra for Pydantic v2 extra="allow" fields
@@ -262,7 +260,7 @@ class Workflow(BaseModel):
 
         return categorical_fields
 
-    def get_tasks(self) -> List["TaskDescription"]:
+    def get_tasks(self) -> list["TaskDescription"]:
         """
         Returns a list of TaskDescription objects for the workflow.
         This is a placeholder method and should be implemented in subclasses.
@@ -285,12 +283,12 @@ class DAG(BaseModel):
         self.graph.add_edge(parent_id, child_id)
 
     @property
-    def workflows(self) -> List[Workflow]:
+    def workflows(self) -> list[Workflow]:
         """Return workflows in topological order."""
         return [self.graph.nodes[n]["workflow"] for n in nx.topological_sort(self.graph)]
 
     @property
-    def levels(self) -> List[List[Workflow]]:
+    def levels(self) -> list[list[Workflow]]:
         """Return workflows grouped by dependency level (generation).
 
         Each level contains workflows whose dependencies are all satisfied
@@ -338,7 +336,7 @@ class Campaign(BaseModel):
     campaign_policy: str = "time"
     execution_schema: str = "batch"
     requested_resources: int = 0
-    base_path: Optional[str] = None
+    base_path: str | None = None
 
     @field_validator("workflows", mode="before")
     @classmethod
@@ -368,12 +366,12 @@ class PlanEntry(NamedTuple):
 
 class Batch(NamedTuple):
     """A group of workflows that execute within a single pilot submission."""
-    plan: List[PlanEntry]
+    plan: list[PlanEntry]
     graph: nx.DiGraph
 
 
 class PlanResult(NamedTuple):
     """Complete output of the planning phase."""
-    qos: Optional[QosPolicy]  # None for batch execution schema
+    qos: QosPolicy | None  # None for batch execution schema
     ncores: int
-    batches: List[Batch]  # Length 1 for single-submission campaigns
+    batches: list[Batch]  # Length 1 for single-submission campaigns

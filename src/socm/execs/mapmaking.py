@@ -36,6 +36,7 @@ def get_parser(parser: ArgumentParser) -> ArgumentParser:
     )
     return parser
 
+
 def _main(args: Namespace) -> None:
     """
     Execute the mapmaking campaign from a TOML configuration.

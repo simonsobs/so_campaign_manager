@@ -35,6 +35,7 @@ def get_parser(parser: ArgumentParser) -> ArgumentParser:
     )
     return parser
 
+
 def _main(args: Namespace) -> None:
     """
     Execute the power spectra campaign from a YAML configuration.
@@ -66,7 +67,7 @@ def _main(args: Namespace) -> None:
             )  # in minutes
 
         workflow_base_path = None
-        if "base-path" in workflow_config and workflow_config["base-path"]:
+        if workflow_config.get("base-path"):
             workflow_base_path = workflow_config["base-path"]
         elif "base-path" in config["campaign"] and config["campaign"]["base-path"]:
             workflow_base_path = config["campaign"]["base-path"]

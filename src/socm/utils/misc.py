@@ -1,11 +1,11 @@
 import ast
 from pathlib import Path
-from typing import Any, Dict, List, Union
+from typing import Any
 
 import networkx as nx
 
 
-def parse_comma_separated_fields(config: dict, fields_to_parse: List[str]) -> dict:
+def parse_comma_separated_fields(config: dict, fields_to_parse: list[str]) -> dict:
     """Convert comma-separated string values to lists."""
     for key, value in config.items():
         if isinstance(value, dict):
@@ -14,7 +14,8 @@ def parse_comma_separated_fields(config: dict, fields_to_parse: List[str]) -> di
             config[key] = [ast.literal_eval(item.strip()) for item in value.split(',')]
     return config
 
-def get_workflow_entries(campaign_dict: dict, subcampaign_map: Dict[str, list] | None = None) -> Dict[str, dict]:
+
+def get_workflow_entries(campaign_dict: dict, subcampaign_map: dict[str, list] | None = None) -> dict[str, dict]:
     """
     Extract workflow entries from a campaign dictionary using a predefined mapping.
 
@@ -105,7 +106,7 @@ def get_query_from_file(file_path: str) -> str:
     return query
 
 
-def read_par_file(file_path: Union[str, Path]) -> Dict[str, Any]:
+def read_par_file(file_path: str | Path) -> dict[str, Any]:
     """
     Read an argparse ``@file`` (par file) into a dict of option name to value.
 
@@ -140,7 +141,7 @@ def read_par_file(file_path: Union[str, Path]) -> Dict[str, Any]:
     file_path = Path(file_path)
     tokens = _read_par_tokens(file_path)
 
-    args: Dict[str, Any] = {}
+    args: dict[str, Any] = {}
 
     def _add(key: str, value: Any) -> None:
         if key not in args:
@@ -171,7 +172,7 @@ def read_par_file(file_path: Union[str, Path]) -> Dict[str, Any]:
     return args
 
 
-def _read_par_tokens(file_path: Path) -> List[str]:
+def _read_par_tokens(file_path: Path) -> list[str]:
     """Return the arguments in a par file, one per line, expanding ``@`` includes."""
     tokens = []
     for line in file_path.read_text().splitlines():

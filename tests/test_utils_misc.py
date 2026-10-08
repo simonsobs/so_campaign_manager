@@ -255,7 +255,6 @@ def test_get_query_from_file(mock_queryfile):
     assert result == expected
 
 
-
 def test_read_par_file_formats(tmp_path):
     """One argument per line: key=value, key + value line, flags, enable/disable, comments."""
     par = tmp_path / "sim.par"

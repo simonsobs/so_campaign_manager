@@ -1,7 +1,7 @@
 import shlex
 from datetime import datetime
 from pathlib import Path
-from typing import Any, List, Optional, Union
+from typing import Any
 
 from pydantic import model_validator
 
@@ -36,9 +36,11 @@ class GetScheduleWorkflow(Workflow):
     output_dir: str
     name: str = "sim_schedule"
     executable: str = "toast_ground_schedule"
-    start: datetime = datetime(2000, 1, 1)
-    stop: datetime = datetime(2000, 1, 1)
-    script_args: Optional[List[str]] = None
+    # Naive UTC on purpose: toast_ground_schedule expects "YYYY-MM-DD HH:MM:SS"
+    # without an offset, which is what a naive datetime's isoformat gives.
+    start: datetime = datetime(2000, 1, 1)  # noqa: DTZ001
+    stop: datetime = datetime(2000, 1, 1)  # noqa: DTZ001
+    script_args: list[str] | None = None
 
     @model_validator(mode="before")
     @classmethod
@@ -76,7 +78,7 @@ class GetScheduleWorkflow(Workflow):
         ]
         return shlex.join(srun + self.get_arguments())
 
-    def get_arguments(self, **kargs: Any) -> List[str]:
+    def get_arguments(self, **kargs: Any) -> list[str]:
         """
         Get the command-line arguments for the schedule workflow.
 
@@ -109,8 +111,8 @@ class GetScheduleWorkflow(Workflow):
 
     @classmethod
     def get_workflows(
-        cls, descriptions: Union[List[dict], dict]
-    ) -> List["GetScheduleWorkflow"]:
+        cls, descriptions: list[dict] | dict
+    ) -> list["GetScheduleWorkflow"]:
         """
         Create SpectraWorkflow instances from configuration descriptions.
 

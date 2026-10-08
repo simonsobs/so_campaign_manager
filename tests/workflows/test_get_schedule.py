@@ -1,5 +1,4 @@
 import shlex
-from datetime import datetime
 
 import pytest
 
@@ -47,8 +46,8 @@ def make_workflow(par_file):
 
 def test_par_maps_start_stop_out(make_workflow):
     workflow = make_workflow()
-    assert workflow.start == datetime(2025, 1, 1)
-    assert workflow.stop == datetime(2026, 1, 1)
+    assert workflow.start.isoformat(sep=" ") == "2025-01-01 00:00:00"
+    assert workflow.stop.isoformat(sep=" ") == "2026-01-01 00:00:00"
     assert workflow.output_dir == "schedules/schedule_lat.txt"
 
 

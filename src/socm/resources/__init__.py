@@ -1,6 +1,11 @@
-from .localhost import LocalResource  # noqa: F401
-from .perlmutter import PerlmutterResource  # noqa: F401
-from .tiger import TigerResource  # noqa: F401
-from .universe import UniverseResource  # noqa: F401
+from .localhost import LocalResource
+from .perlmutter import PerlmutterResource
+from .tiger import TigerResource
+from .universe import UniverseResource
 
-registered_resources = {"perlmutter": PerlmutterResource, "tiger3": TigerResource, "universe": UniverseResource, "localhost": LocalResource}
+registered_resources = {
+    "perlmutter": PerlmutterResource,
+    "tiger3": TigerResource,
+    "universe": UniverseResource,
+    "localhost": LocalResource,
+}

@@ -1,6 +1,6 @@
 import shlex
 from pathlib import Path
-from typing import Any, List, Union
+from typing import Any
 
 from pydantic import ConfigDict, Field
 
@@ -27,7 +27,7 @@ class ShellScriptWorkflow(Workflow):
     name: str = "shell_script"
     executable: str = "bash"
     script: str
-    script_args: List[str] = Field(default_factory=list, alias="script-args")
+    script_args: list[str] = Field(default_factory=list, alias="script-args")
 
     def get_command(self, **kargs: Any) -> str:
         """
@@ -46,7 +46,7 @@ class ShellScriptWorkflow(Workflow):
         ]
         return shlex.join(srun + self.get_arguments())
 
-    def get_arguments(self, **kargs: Any) -> List[str]:
+    def get_arguments(self, **kargs: Any) -> list[str]:
         """
         Get the script path followed by its positional arguments.
 
@@ -58,7 +58,7 @@ class ShellScriptWorkflow(Workflow):
         return [_resolve_file_uri(self.script)] + [_resolve_file_uri(str(arg)) for arg in self.script_args]
 
     @classmethod
-    def get_workflows(cls, descriptions: Union[List[dict], dict]) -> List["ShellScriptWorkflow"]:
+    def get_workflows(cls, descriptions: list[dict] | dict) -> list["ShellScriptWorkflow"]:
         """
         Create ShellScriptWorkflow instances from configuration descriptions.
 
