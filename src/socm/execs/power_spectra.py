@@ -1,4 +1,3 @@
-import os
 from argparse import ArgumentParser, Namespace
 
 import humanfriendly
@@ -36,6 +35,7 @@ def get_parser(parser: ArgumentParser) -> ArgumentParser:
     )
     return parser
 
+
 def _main(args: Namespace) -> None:
     """
     Execute the power spectra campaign from a YAML configuration.
@@ -66,8 +66,8 @@ def _main(args: Namespace) -> None:
                 / 60
             )  # in minutes
 
-        workflow_base_path = os.getcwd()
-        if "base-path" in workflow_config and workflow_config["base-path"]:
+        workflow_base_path = None
+        if workflow_config.get("base-path"):
             workflow_base_path = workflow_config["base-path"]
         elif "base-path" in config["campaign"] and config["campaign"]["base-path"]:
             workflow_base_path = config["campaign"]["base-path"]
@@ -106,6 +106,7 @@ def _main(args: Namespace) -> None:
         execution_schema=config["campaign"]["execution_schema"],
         requested_resources=config["campaign"]["requested_resources"],
         target_resource=target_resource,
+        base_path=config["campaign"].get("base-path"),
     )
 
     # This main class to execute the campaign to a resource.

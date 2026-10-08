@@ -2,9 +2,17 @@ import shlex
 from pathlib import Path
 from typing import Any
 
-from pydantic import PrivateAttr
+from pydantic import PrivateAttr, model_validator
 
 from ..core.models import Workflow
+
+# Workflow field name -> toast_so_sim option name.
+_ARG_TRANSLATION = {
+    "sim_hwpss_atmo_data": "sim_hwpss.atmo_data",
+    "pixels_healpix_radec_nside": "pixels_healpix_radec.nside",
+    "filterbin_name": "filterbin.name",
+    "processing_mask_file": "processing_mask.file",
+}
 
 # Workflow fields that are not toast_so_sim options.
 _NOT_ARGUMENTS = {
@@ -21,16 +29,16 @@ _NOT_ARGUMENTS = {
 }
 
 
-class SATSimWorkflow(Workflow):
+class LATSimWorkflow(Workflow):
     """
     A workflow for simulating SAT observations.
     """
 
     output_dir: str
-    name: str = "sat_sims"
+    name: str = "lat_sims"
     executable: str = "toast_so_sim"
     schedule: str | None = None
-    bands: str | None = "SAT_f090"
+    bands: str | None = "LAT_f090"
     wafer_slots: str | None = "w25"
     sample_rate: int = 37
     sim_noise: bool = False
@@ -43,16 +51,26 @@ class SATSimWorkflow(Workflow):
     filterbin_name: str | None = None
     processing_mask_file: str | None = None
 
-    _arg_translation: dict[str, str] = PrivateAttr(
-        {
-            "sim_hwpss_atmo_data": "sim_hwpss.atmo_data",
-            "pixels_healpix_radec_nside": "pixels_healpix_radec.nside",
-            "filterbin_name": "filterbin.name",
-            "processing_mask_file": "processing_mask.file",
-        }
-    )
+    _arg_translation: dict[str, str] = PrivateAttr(_ARG_TRANSLATION)
+
+    @model_validator(mode="before")
+    @classmethod
+    def _untranslate_option_names(cls, data: Any) -> Any:
+        """Map command-line option names (e.g. from a par file) to field names."""
+        if isinstance(data, dict):
+            reverse = {option: field for field, option in _ARG_TRANSLATION.items()}
+            data = {reverse.get(k, k): v for k, v in data.items()}
+        return data
 
     def get_command(self, **kargs: Any) -> str:
+        """
+        Get the full shell command to run the LAT simulation workflow.
+
+        Returns
+        -------
+        str
+            The complete srun command string with arguments.
+        """
         if self.resources is None:
             raise ValueError("Resources must be set before calling get_command")
         srun = [
@@ -68,8 +86,16 @@ class SATSimWorkflow(Workflow):
         return shlex.join(srun + self.get_arguments())
 
     def get_arguments(self, **kargs: Any) -> list[str]:
-        """One entry per argument, without shell quoting."""
+        """
+        Get the command-line arguments for the LAT simulation workflow.
+
+        Returns
+        -------
+        list of str
+            One entry per argument, without shell quoting.
+        """
         arguments = ["--out", self.output_dir, f"--job_group_size={self.resources.ranks}"]
+
         for k, v in sorted(self.model_dump().items()):
             if k in _NOT_ARGUMENTS or v is None:
                 continue

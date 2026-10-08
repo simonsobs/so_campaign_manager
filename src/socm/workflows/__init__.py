@@ -1,14 +1,22 @@
-from socm.workflows.spectra import SpectraWorkflow  # noqa: F401
+from socm.workflows.get_schedule import GetScheduleWorkflow
+from socm.workflows.lat_simulation import LATSimWorkflow
+from socm.workflows.sat_simulation import SATSimWorkflow
+from socm.workflows.shell_script import ShellScriptWorkflow
+from socm.workflows.spectra import SpectraWorkflow
 
 registered_workflows = {
     "power-spectra": SpectraWorkflow,
+    "get-schedule": GetScheduleWorkflow,
+    "sat-sims": SATSimWorkflow,
+    "lat-sims": LATSimWorkflow,
+    "shell-script": ShellScriptWorkflow,
 }
 
 subcampaign_map = {}
 
 try:
-    from socm.workflows.ml_mapmaking import MLMapmakingWorkflow  # noqa: F401
-    from socm.workflows.ml_null_tests import (  # noqa: F401
+    from socm.workflows.ml_mapmaking import MLMapmakingWorkflow
+    from socm.workflows.ml_null_tests import (
         DayNightNullTestWorkflow,
         DirectionNullTestWorkflow,
         ElevationNullTestWorkflow,
@@ -20,10 +28,8 @@ try:
         TimeNullTestWorkflow,
         WaferNullTestWorkflow,
     )
-    from socm.workflows.sat_simulation import SATSimWorkflow  # noqa: F401
 
     registered_workflows.update({
-        "sat-sims": SATSimWorkflow,
         "ml-mapmaking": MLMapmakingWorkflow,
         "ml-null-tests.mission-tests": TimeNullTestWorkflow,
         "ml-null-tests.wafer-tests": WaferNullTestWorkflow,

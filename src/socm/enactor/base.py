@@ -1,5 +1,4 @@
 import os
-from typing import Dict, List
 
 import radical.utils as ru
 
@@ -7,7 +6,7 @@ from socm.core import Resource, Workflow
 from socm.utils.states import States
 
 
-class Enactor(object):
+class Enactor:
     """
     The Enactor is responsible for executing workflows on resources.
 
@@ -28,7 +27,7 @@ class Enactor(object):
 
     def __init__(self, sid=None):
 
-        self._worflows = list()  # A list of workflows IDs
+        self._worflows = []  # A list of workflows IDs
         # This will a hash table of workflows. The table will include the
         # following:
         # 'workflowsID': {'state': The state of the workflow based on the WFM,
@@ -37,7 +36,7 @@ class Enactor(object):
         #                 'start_time': Epoch of when the workflow is submitted
         #                               to the WMF,
         #                 'end_time': Epoch of when the workflow finished.}
-        self._execution_status = dict()  # This will create a hash table of workflows
+        self._execution_status = {}  # This will create a hash table of workflows
 
         self._uid = ru.generate_id("enactor.%(counter)04d", mode=ru.ID_CUSTOM, ns=sid)
 
@@ -65,7 +64,7 @@ class Enactor(object):
         """
         raise NotImplementedError("setup is not implemented")
 
-    def enact(self, workflows: List[Workflow]) -> None:
+    def enact(self, workflows: list[Workflow]) -> None:
         """
         Submit workflows for execution.
 
@@ -81,7 +80,7 @@ class Enactor(object):
 
         raise NotImplementedError("_monitor is not implemented")
 
-    def get_status(self, workflows: str | List[str] | None = None) -> Dict[str, States]:
+    def get_status(self, workflows: str | list[str] | None = None) -> dict[str, States]:
         """
         Get the execution state of one or more workflows.
 
@@ -96,7 +95,7 @@ class Enactor(object):
             A dictionary mapping workflow IDs to their current state.
         """
 
-        status = dict()
+        status = {}
         if workflows is None:
             for workflow in self._execution_status:
                 status[workflow] = self._execution_status[workflow]["state"]
@@ -121,11 +120,7 @@ class Enactor(object):
         """
 
         if workflow not in self._execution_status:
-            self._logger.warning(
-                "Has not enacted on workflow %s yet.",
-                workflow,
-                self._get_workflow_state(workflow),
-            )
+            self._logger.warning("Has not enacted on workflow %s yet.", workflow)
         else:
             self._execution_status[workflow]["state"] = new_state
 
