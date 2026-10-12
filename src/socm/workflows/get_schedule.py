@@ -38,7 +38,7 @@ class GetScheduleWorkflow(Workflow):
     executable: str = "toast_ground_schedule"
     # Naive UTC on purpose: toast_ground_schedule expects "YYYY-MM-DD HH:MM:SS"
     # without an offset, which is what a naive datetime's isoformat gives.
-    start: datetime = datetime(2000, 1, 1)  # noqa: DTZ001
+    start: datetime = datetime(2000, 1, 1)
     stop: datetime = datetime(2000, 1, 1)  # noqa: DTZ001
     script_args: list[str] | None = None
 
