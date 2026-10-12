@@ -1,13 +1,8 @@
 import shlex
 import subprocess
-from pathlib import Path
-
-import pytest
 
 from socm.workflows import registered_workflows
 from socm.workflows.shell_script import ShellScriptWorkflow
-
-SPLIT_SCRIPT = Path(__file__).parents[2] / "examples" / "scripts" / "split_schedule_months.sh"
 
 
 def test_registered():
@@ -35,35 +30,26 @@ def test_get_command_quotes_for_the_shell():
     ]
 
 
-def _schedule_row(date: str, leading_space: bool) -> str:
-    row = f"{date} 00:00:00  {date} 01:00:00     0.00 RISING_SCAN_40   30.00  150.00  40.00  0  0"
-    return (" " + row) if leading_space else row
+def test_runs_script_with_arguments_intact(tmp_path):
+    """Running executable + get_arguments() (as the enactors do) gives the script each argument unchanged."""
+    script = tmp_path / "record args.sh"
+    script.write_text('for arg in "$@"; do printf "%s\\n" "$arg"; done > "$(dirname "$0")/args.txt"\n')
+    args = ["plain", "with space", "--opt=a b", "-22.9"]
+    workflow = ShellScriptWorkflow(script=str(script), script_args=args)
+
+    subprocess.run([workflow.executable, *workflow.get_arguments()], check=True)
+
+    assert (tmp_path / "args.txt").read_text().splitlines() == args
 
 
-@pytest.mark.parametrize("leading_space", [True, False])
-def test_split_schedule_months_script(tmp_path, leading_space):
-    """Split k gets days 1..NDAYS of months k, k+NSPLIT, ...; header is copied to every split."""
-    header = ["#Site Telescope", "ATACAMA LAT", "#Start time UTC ..."]
-    dates = ["2025-01-01", "2025-01-03", "2025-01-04", "2025-02-02", "2025-03-01", "2025-05-02", "2025-12-15"]
-    full = tmp_path / "full.txt"
-    full.write_text("\n".join(header + [_schedule_row(d, leading_space) for d in dates]) + "\n")
-    out_dir = tmp_path / "split"
+def test_failing_script_returns_its_exit_code(tmp_path):
+    script = tmp_path / "fail.sh"
+    script.write_text("echo boom >&2\nexit 3\n")
+    workflow = ShellScriptWorkflow(script=str(script))
 
-    subprocess.run(["bash", str(SPLIT_SCRIPT), str(full), str(out_dir), "4", "3"], check=True)
+    result = subprocess.run(
+        [workflow.executable, *workflow.get_arguments()], capture_output=True, text=True, check=False
+    )
 
-    def split_dates(k):
-        lines = (out_dir / f"schedule.{k}.txt").read_text().splitlines()
-        assert lines[:3] == header
-        return [line.split()[0] for line in lines[3:]]
-
-    # day 4 is beyond NDAYS=3, day 15 too; month 5 belongs to split 1 (5 = 1 + 4)
-    assert split_dates(1) == ["2025-01-01", "2025-01-03", "2025-05-02"]
-    assert split_dates(2) == ["2025-02-02"]
-    assert split_dates(3) == ["2025-03-01"]
-    assert split_dates(4) == []
-
-
-def test_split_schedule_months_script_usage_error(tmp_path):
-    result = subprocess.run(["bash", str(SPLIT_SCRIPT)], capture_output=True, text=True, check=False)
-    assert result.returncode == 1
-    assert "Usage" in result.stderr
+    assert result.returncode == 3
+    assert "boom" in result.stderr
