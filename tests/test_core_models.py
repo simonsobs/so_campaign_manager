@@ -1,5 +1,6 @@
 """Tests for socm.core.models module."""
 
+from typing import ClassVar
 from unittest.mock import patch
 
 import pytest
@@ -7,7 +8,7 @@ import pytest
 
 # Mock pydantic BaseModel for testing
 class MockBaseModel:
-    model_fields = {}
+    model_fields: ClassVar[dict] = {}
 
     def __init__(self, **kwargs):
         for k, v in kwargs.items():
@@ -234,3 +235,25 @@ def test_workflow_extra_attributes():
 
     assert workflow.extra_field == "extra_value"
     assert workflow.another_extra == 123
+
+
+def test_field_detection_accepts_both_union_spellings():
+    """Optional[X] and X | None are both recognised when picking Slurmise features."""
+    from typing import Optional
+
+    from socm.core.models import Workflow
+
+    class Fields(Workflow):
+        old_str: Optional[str] = "a"  # noqa: UP045 - deliberately the typing.Optional spelling
+        new_str: str | None = "b"
+        old_int: Optional[int] = 1  # noqa: UP045
+        new_int: int | None = 2
+        unset: str | None = None
+
+    workflow = Fields(name="fields")
+
+    categorical = workflow.get_categorical_fields(avoid_attributes=["name", "executable", "context", "subcommand"])
+    numeric = workflow.get_numeric_fields(avoid_attributes=["id"])
+    assert {"old_str", "new_str"} <= set(categorical)
+    assert {"old_int", "new_int"} <= set(numeric)
+    assert "unset" not in categorical

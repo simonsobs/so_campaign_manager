@@ -1,6 +1,8 @@
 """Tests for socm.utils.misc module."""
 
-from socm.utils.misc import get_query_from_file, get_workflow_entries
+import pytest
+
+from socm.utils.misc import get_query_from_file, get_workflow_entries, read_par_file
 
 
 def test_get_workflow_entries_empty_dict():
@@ -251,3 +253,61 @@ def test_get_query_from_file(mock_queryfile):
     expected = "obs_id IN ('1','2','3')"
     result = get_query_from_file(mock_queryfile)
     assert result == expected
+
+
+def test_read_par_file_formats(tmp_path):
+    """One argument per line: key=value, key + value line, flags, enable/disable, comments."""
+    par = tmp_path / "sim.par"
+    par.write_text(
+        "# comment line\n"
+        "--bands=LAT_f090,LAT_f150\n"
+        "--sample_rate\n"
+        "37\n"
+        "\n"
+        "--sim_noise.enable\n"
+        "--sim_atmosphere.disable\n"
+        "--start\n"
+        "2025-01-01 00:00:00\n"
+        "--site-lat\n"
+        "-22.958064\n"
+        "--verbose\n"
+    )
+    assert read_par_file(par) == {
+        "bands": "LAT_f090,LAT_f150",
+        "sample_rate": "37",
+        "sim_noise": True,
+        "sim_atmosphere": False,
+        "start": "2025-01-01 00:00:00",
+        "site-lat": "-22.958064",
+        "verbose": True,
+    }
+
+
+def test_read_par_file_repeated_option_becomes_list(tmp_path):
+    par = tmp_path / "sched.par"
+    par.write_text("--patch\nA,1\n--patch=B,2\n--patch\nC,3\n")
+    assert read_par_file(par) == {"patch": ["A,1", "B,2", "C,3"]}
+
+
+def test_read_par_file_nested_include(tmp_path):
+    """Nested @includes resolve relative to the including file, in place."""
+    (tmp_path / "sub").mkdir()
+    (tmp_path / "sub" / "base.par").write_text("--bands=LAT_f090\n--patch=A\n")
+    par = tmp_path / "main.par"
+    par.write_text("@sub/base.par\n--patch=B\n")
+    assert read_par_file(par) == {"bands": "LAT_f090", "patch": ["A", "B"]}
+
+
+def test_read_par_file_flag_before_include(tmp_path):
+    """A bare flag followed by an @include is a flag, not a key with the include as value."""
+    (tmp_path / "other.par").write_text("--bands=LAT_f090\n")
+    par = tmp_path / "main.par"
+    par.write_text("--verbose\n@other.par\n")
+    assert read_par_file(par) == {"verbose": True, "bands": "LAT_f090"}
+
+
+def test_read_par_file_stray_value_raises(tmp_path):
+    par = tmp_path / "bad.par"
+    par.write_text("stray_value\n")
+    with pytest.raises(ValueError, match="stray_value"):
+        read_par_file(par)

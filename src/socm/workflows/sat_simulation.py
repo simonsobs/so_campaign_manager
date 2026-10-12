@@ -1,9 +1,24 @@
+import shlex
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Any
 
 from pydantic import PrivateAttr
 
 from ..core.models import Workflow
+
+# Workflow fields that are not toast_so_sim options.
+_NOT_ARGUMENTS = {
+    "name",
+    "output_dir",
+    "executable",
+    "id",
+    "environment",
+    "resources",
+    "depends",
+    "base_path",
+    "context",
+    "subcommand",
+}
 
 
 class SATSimWorkflow(Workflow):
@@ -14,21 +29,21 @@ class SATSimWorkflow(Workflow):
     output_dir: str
     name: str = "sat_sims"
     executable: str = "toast_so_sim"
-    schedule: Optional[str] = None
-    bands: Optional[str] = "SAT_f090"
-    wafer_slots: Optional[str] = "w25"
+    schedule: str | None = None
+    bands: str | None = "SAT_f090"
+    wafer_slots: str | None = "w25"
     sample_rate: int = 37
     sim_noise: bool = False
     scan_map: bool = False
     sim_atmosphere: bool = False
     sim_sss: bool = False
     sim_hwpss: bool = False
-    sim_hwpss_atmo_data: Optional[str] = None
+    sim_hwpss_atmo_data: str | None = None
     pixels_healpix_radec_nside: int = 512
-    filterbin_name: Optional[str] = None
-    processing_mask_file: Optional[str] = None
+    filterbin_name: str | None = None
+    processing_mask_file: str | None = None
 
-    _arg_translation: Dict[str, str] = PrivateAttr(
+    _arg_translation: dict[str, str] = PrivateAttr(
         {
             "sim_hwpss_atmo_data": "sim_hwpss.atmo_data",
             "pixels_healpix_radec_nside": "pixels_healpix_radec.nside",
@@ -38,50 +53,31 @@ class SATSimWorkflow(Workflow):
     )
 
     def get_command(self, **kargs: Any) -> str:
-        """
-        Get the full shell command to run the SAT simulation workflow.
-
-        Returns
-        -------
-        str
-            The complete srun command string with arguments.
-        """
         if self.resources is None:
             raise ValueError("Resources must be set before calling get_command")
-        command = f"srun --cpu_bind=cores --export=ALL --ntasks-per-node={self.resources.ranks} --cpus-per-task={self.resources.threads} {self.executable} {self.subcommand} --job_group_size={self.resources.ranks} "
-        command += self.get_arguments()
+        srun = [
+            "srun",
+            "--cpu_bind=cores",
+            "--export=ALL",
+            f"--ntasks-per-node={self.resources.ranks}",
+            f"--cpus-per-task={self.resources.threads}",
+            self.executable,
+        ]
+        if self.subcommand:
+            srun.append(self.subcommand)
+        return shlex.join(srun + self.get_arguments())
 
-        return command.strip()
-
-    def get_arguments(self, **kargs: Any) -> str:
-        """
-        Get the command-line arguments for the SAT simulation workflow.
-
-        Returns
-        -------
-        str
-            The argument string for the workflow command.
-        """
-        arguments = f"--out {self.output_dir} "
-        sorted_workflow = dict(sorted(self.model_dump().items()))
-
-        for k, v in sorted_workflow.items():
+    def get_arguments(self, **kargs: Any) -> list[str]:
+        """One entry per argument, without shell quoting."""
+        arguments = ["--out", self.output_dir, f"--job_group_size={self.resources.ranks}"]
+        for k, v in sorted(self.model_dump().items()):
+            if k in _NOT_ARGUMENTS or v is None:
+                continue
+            option = self._arg_translation.get(k, k)
+            if isinstance(v, bool):
+                arguments.append(f"--{option}.enable" if v else f"--{option}.disable")
+                continue
             if isinstance(v, str) and v.startswith("file://"):
                 v = Path(v.split("file://")[-1]).absolute()
-            if k not in [
-                "name",
-                "output_dir",
-                "executable",
-                "id",
-                "environment",
-                "resources",
-                "depends",
-            ]:
-                if isinstance(v, bool):
-                    if v:
-                        arguments += f"--{k}.enable "
-                    else:
-                        arguments += f"--{k}.disable "
-                else:
-                    arguments += f"--{self._arg_translation.get(k, k)}={v} "
-        return arguments.strip()
+            arguments.append(f"--{option}={v}")
+        return arguments

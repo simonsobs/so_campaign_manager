@@ -19,6 +19,7 @@ dependencies = [
     "click",
     "slurmise; sys_platform != 'darwin'",
     "humanfriendly",
+    "loguru"
 ]
 
 [project.optional-dependencies]
@@ -41,10 +42,6 @@ fmt-check = "ruff format --check . && ruff check ."
 
 [tool.setuptools]
 include-package-data = true
-
-[tool.setuptools.package-data]
-# This installs the file with the package
-"socm" = ["configs/*.toml"]
 
 [project.scripts]
 socm = "socm.__main__:main"
@@ -72,6 +69,14 @@ skip = ["docs", ".github", ".vscode", "container", "env", "env311", "build"]
 [tool.ruff]
 line-length = 120
 exclude = ["docs", ".github", ".vscode", "container", "env", "env311", "build"]
+
+[tool.ruff.lint]
+# Logging uses loguru's "{}" placeholders; these rules assume stdlib "%s" formatting.
+ignore = ["PLE1205", "PLE1206"]
+
+[tool.ruff.lint.per-file-ignores]
+# These tests deliberately use typing.Optional/Union annotations to test field-type detection.
+"tests/test_core_models_mocked.py" = ["UP007", "UP045"]
 
 [tool.mypy]
 python_version = "3.11"

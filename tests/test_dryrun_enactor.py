@@ -38,7 +38,7 @@ def sample_resource():
     )
 
 
-@mock.patch("radical.utils.Logger")
+@mock.patch("socm.enactor.base.get_logger")
 @mock.patch("radical.utils.Profiler")
 def test_init_creates_required_attributes(mocked_profiler, mocked_logger):
     """Test that __init__ creates all required attributes."""
@@ -65,7 +65,7 @@ def test_init_creates_required_attributes(mocked_profiler, mocked_logger):
     assert enactor._resource is None
 
 
-@mock.patch("radical.utils.Logger")
+@mock.patch("socm.enactor.base.get_logger")
 @mock.patch("radical.utils.Profiler")
 def test_init_sets_radical_config(mocked_profiler, mocked_logger):
     """Test that __init__ sets RADICAL_CONFIG_USER_DIR environment variable."""
@@ -77,7 +77,7 @@ def test_init_sets_radical_config(mocked_profiler, mocked_logger):
     assert "configs" in os.environ["RADICAL_CONFIG_USER_DIR"]
 
 
-@mock.patch("radical.utils.Logger")
+@mock.patch("socm.enactor.base.get_logger")
 @mock.patch("radical.utils.Profiler")
 def test_setup_stores_resource(mocked_profiler, mocked_logger, sample_resource):
     """Test that setup() stores the resource."""
@@ -87,7 +87,7 @@ def test_setup_stores_resource(mocked_profiler, mocked_logger, sample_resource):
 
     assert enactor._resource == sample_resource
 
-@mock.patch("radical.utils.Logger")
+@mock.patch("socm.enactor.base.get_logger")
 @mock.patch("radical.utils.Profiler")
 @mock.patch("threading.Thread")
 def test_enact_single_workflow(mocked_thread, mocked_profiler, mocked_logger, sample_workflows):
@@ -120,7 +120,7 @@ def test_enact_single_workflow(mocked_thread, mocked_profiler, mocked_logger, sa
     # Cleanup
     enactor.terminate()
 
-@mock.patch("radical.utils.Logger")
+@mock.patch("socm.enactor.base.get_logger")
 @mock.patch("radical.utils.Profiler")
 @mock.patch("threading.Thread")
 def test_enact_multiple_workflows(mocked_thread, mocked_profiler, mocked_logger, sample_workflows):
@@ -147,7 +147,7 @@ def test_enact_multiple_workflows(mocked_thread, mocked_profiler, mocked_logger,
     # Cleanup
     enactor.terminate()
 
-@mock.patch("radical.utils.Logger")
+@mock.patch("socm.enactor.base.get_logger")
 @mock.patch("radical.utils.Profiler")
 @mock.patch("threading.Thread")
 def test_enact_duplicate_workflow(mocked_thread, mocked_profiler, mocked_logger, sample_workflows):
@@ -173,7 +173,7 @@ def test_enact_duplicate_workflow(mocked_thread, mocked_profiler, mocked_logger,
 
     # Verify warning was logged (access the logger instance via return_value)
     mocked_logger.return_value.info.assert_any_call(
-        "Workflow %s is in state %s",
+        "Workflow {} is in state {}",
         workflow,
         States.EXECUTING.name,
     )
@@ -181,7 +181,7 @@ def test_enact_duplicate_workflow(mocked_thread, mocked_profiler, mocked_logger,
     # Cleanup
     enactor.terminate()
 
-@mock.patch("radical.utils.Logger")
+@mock.patch("socm.enactor.base.get_logger")
 @mock.patch("radical.utils.Profiler")
 @mock.patch("threading.Thread")
 def test_enact_with_callback(mocked_thread, mocked_profiler, mocked_logger, sample_workflows):
@@ -211,7 +211,7 @@ def test_enact_with_callback(mocked_thread, mocked_profiler, mocked_logger, samp
     # Cleanup
     enactor.terminate()
 
-@mock.patch("radical.utils.Logger")
+@mock.patch("socm.enactor.base.get_logger")
 @mock.patch("radical.utils.Profiler")
 @mock.patch("threading.Thread")
 def test_enact_profiling_events(mocked_thread, mocked_profiler, mocked_logger, sample_workflows):
@@ -234,7 +234,7 @@ def test_enact_profiling_events(mocked_thread, mocked_profiler, mocked_logger, s
 
 
 
-@mock.patch("radical.utils.Logger")
+@mock.patch("socm.enactor.base.get_logger")
 @mock.patch("radical.utils.Profiler")
 def test_monitor_completes_workflows(mocked_profiler, mocked_logger, sample_workflows):
     """Test that monitor thread transitions workflows to DONE state."""
@@ -255,7 +255,7 @@ def test_monitor_completes_workflows(mocked_profiler, mocked_logger, sample_work
     # Cleanup
     enactor.terminate()
 
-@mock.patch("radical.utils.Logger")
+@mock.patch("socm.enactor.base.get_logger")
 @mock.patch("radical.utils.Profiler")
 def test_monitor_calls_callbacks_on_completion(mocked_profiler, mocked_logger, sample_workflows):
     """Test that monitor calls callbacks when workflows complete."""\
@@ -283,7 +283,7 @@ def test_monitor_calls_callbacks_on_completion(mocked_profiler, mocked_logger, s
     # Cleanup
     enactor.terminate()
 
-@mock.patch("radical.utils.Logger")
+@mock.patch("socm.enactor.base.get_logger")
 @mock.patch("radical.utils.Profiler")
 def test_monitor_handles_multiple_workflows(mocked_profiler, mocked_logger, sample_workflows):
     """Test that monitor can handle multiple workflows simultaneously."""
@@ -303,7 +303,7 @@ def test_monitor_handles_multiple_workflows(mocked_profiler, mocked_logger, samp
     # Cleanup
     enactor.terminate()
 
-@mock.patch("radical.utils.Logger")
+@mock.patch("socm.enactor.base.get_logger")
 @mock.patch("radical.utils.Profiler")
 def test_monitor_profiling_events(mocked_profiler, mocked_logger, sample_workflows):
     """Test that monitor logs profiling events."""
@@ -325,7 +325,7 @@ def test_monitor_profiling_events(mocked_profiler, mocked_logger, sample_workflo
     enactor.terminate()
 
 
-@mock.patch("radical.utils.Logger")
+@mock.patch("socm.enactor.base.get_logger")
 @mock.patch("radical.utils.Profiler")
 @mock.patch("threading.Thread")
 def test_get_status_no_arguments(mocked_thread, mocked_profiler, mocked_logger, sample_workflows):
@@ -350,7 +350,7 @@ def test_get_status_no_arguments(mocked_thread, mocked_profiler, mocked_logger, 
     # Cleanup
     enactor.terminate()
 
-@mock.patch("radical.utils.Logger")
+@mock.patch("socm.enactor.base.get_logger")
 @mock.patch("radical.utils.Profiler")
 @mock.patch("threading.Thread")
 def test_get_status_single_workflow(mocked_thread, mocked_profiler, mocked_logger, sample_workflows):
@@ -375,7 +375,7 @@ def test_get_status_single_workflow(mocked_thread, mocked_profiler, mocked_logge
     # Cleanup
     enactor.terminate()
 
-@mock.patch("radical.utils.Logger")
+@mock.patch("socm.enactor.base.get_logger")
 @mock.patch("radical.utils.Profiler")
 @mock.patch("threading.Thread")
 def test_get_status_list_of_workflows(mocked_thread, mocked_profiler, mocked_logger, sample_workflows):
@@ -401,7 +401,7 @@ def test_get_status_list_of_workflows(mocked_thread, mocked_profiler, mocked_log
     # Cleanup
     enactor.terminate()
 
-@mock.patch("radical.utils.Logger")
+@mock.patch("socm.enactor.base.get_logger")
 @mock.patch("radical.utils.Profiler")
 def test_update_status(mocked_profiler, mocked_logger, sample_workflows):
     """Test update_status() changes workflow state."""
@@ -419,7 +419,7 @@ def test_update_status(mocked_profiler, mocked_logger, sample_workflows):
     # Cleanup
     enactor.terminate()
 
-@mock.patch("radical.utils.Logger")
+@mock.patch("socm.enactor.base.get_logger")
 @mock.patch("radical.utils.Profiler")
 def test_update_status_non_existent_workflow(mocked_profiler, mocked_logger):
     """Test update_status() logs warning for non-existent workflow."""
@@ -436,7 +436,7 @@ def test_update_status_non_existent_workflow(mocked_profiler, mocked_logger):
     enactor.terminate()
 
 
-@mock.patch("radical.utils.Logger")
+@mock.patch("socm.enactor.base.get_logger")
 @mock.patch("radical.utils.Profiler")
 def test_register_state_cb(mocked_profiler, mocked_logger):
     """Test registering a state callback."""
@@ -452,7 +452,7 @@ def test_register_state_cb(mocked_profiler, mocked_logger):
     assert "test_callback" in enactor._callbacks
     assert enactor._callbacks["test_callback"] == callback
 
-@mock.patch("radical.utils.Logger")
+@mock.patch("socm.enactor.base.get_logger")
 @mock.patch("radical.utils.Profiler")
 def test_register_multiple_callbacks(mocked_profiler, mocked_logger):
     """Test registering multiple callbacks."""
@@ -473,7 +473,7 @@ def test_register_multiple_callbacks(mocked_profiler, mocked_logger):
     assert "callback1" in enactor._callbacks
     assert "callback2" in enactor._callbacks
 
-@mock.patch("radical.utils.Logger")
+@mock.patch("socm.enactor.base.get_logger")
 @mock.patch("radical.utils.Profiler")
 def test_callbacks_are_thread_safe(mocked_profiler, mocked_logger, sample_workflows):
     """Test that callback registration uses locking."""
@@ -492,7 +492,7 @@ def test_callbacks_are_thread_safe(mocked_profiler, mocked_logger, sample_workfl
     assert "test_callback" in enactor._callbacks
 
 
-@mock.patch("radical.utils.Logger")
+@mock.patch("socm.enactor.base.get_logger")
 @mock.patch("radical.utils.Profiler")
 def test_terminate_stops_monitoring_thread(mocked_profiler, mocked_logger, sample_workflows):
     """Test that terminate() stops the monitoring thread."""
@@ -515,7 +515,7 @@ def test_terminate_stops_monitoring_thread(mocked_profiler, mocked_logger, sampl
     assert not enactor._monitoring_thread.is_alive()
     assert enactor._terminate_monitor.is_set()
 
-@mock.patch("radical.utils.Logger")
+@mock.patch("socm.enactor.base.get_logger")
 @mock.patch("radical.utils.Profiler")
 def test_terminate_logs_profiling_events(mocked_profiler, mocked_logger, sample_workflows):
     """Test that terminate() logs profiling events."""
@@ -531,7 +531,7 @@ def test_terminate_logs_profiling_events(mocked_profiler, mocked_logger, sample_
     mocked_profiler.return_value.prof.assert_any_call("monitor_terminate", uid=enactor._uid)
     mocked_profiler.return_value.prof.assert_any_call("monitor_terminated", uid=enactor._uid)
 
-@mock.patch("radical.utils.Logger")
+@mock.patch("socm.enactor.base.get_logger")
 @mock.patch("radical.utils.Profiler")
 def test_terminate_without_monitoring_thread(mocked_profiler, mocked_logger):
     """Test that terminate() works when no monitoring thread exists."""
@@ -546,7 +546,7 @@ def test_terminate_without_monitoring_thread(mocked_profiler, mocked_logger):
 
 
 
-@mock.patch("radical.utils.Logger")
+@mock.patch("socm.enactor.base.get_logger")
 @mock.patch("radical.utils.Profiler")
 def test_enact_with_exception(mocked_profiler, mocked_logger, sample_workflows):
     """Test that enact handles exceptions gracefully."""
@@ -563,13 +563,13 @@ def test_enact_with_exception(mocked_profiler, mocked_logger, sample_workflows):
         enactor.enact([workflow])
 
         # Verify error was logged
-        mocked_logger.return_value.error.assert_called()
+        mocked_logger.return_value.exception.assert_called()
 
     # Cleanup
     if enactor._monitoring_thread and enactor._monitoring_thread.is_alive():
         enactor.terminate()
 
-@mock.patch("radical.utils.Logger")
+@mock.patch("socm.enactor.base.get_logger")
 @mock.patch("radical.utils.Profiler")
 def test_concurrent_enact_calls(mocked_profiler, mocked_logger, sample_workflows):
     """Test that multiple enact calls work correctly."""
@@ -591,7 +591,7 @@ def test_concurrent_enact_calls(mocked_profiler, mocked_logger, sample_workflows
     # Cleanup
     enactor.terminate()
 
-@mock.patch("radical.utils.Logger")
+@mock.patch("socm.enactor.base.get_logger")
 @mock.patch("radical.utils.Profiler")
 def test_monitoring_with_empty_list(mocked_profiler, mocked_logger):
     """Test that monitoring handles empty workflow list gracefully."""
