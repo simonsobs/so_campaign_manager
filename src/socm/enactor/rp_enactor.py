@@ -102,7 +102,7 @@ class RPEnactor(Enactor):
             # proceed.
             if workflow.id in self._execution_status:
                 self._logger.info(
-                    "Workflow %s is in state %s",
+                    "Workflow {} is in state {}",
                     workflow,
                     self._get_workflow_state(workflow.id).name,
                 )
@@ -128,7 +128,7 @@ class RPEnactor(Enactor):
                     exec_workflow.arguments += [workflow.subcommand]
                 exec_workflow.arguments += workflow.get_arguments()
                 self._logger.debug(
-                    "Workflow %s arguments: %s", workflow.id, exec_workflow.arguments
+                    "Workflow {} arguments: {}", workflow.id, exec_workflow.arguments
                 )
 
                 exec_workflow.ranks = workflow.resources.ranks
@@ -141,7 +141,7 @@ class RPEnactor(Enactor):
                 exec_workflow.post_exec = "echo ${SLURM_JOB_ID}.${SLURM_STEP_ID}"
                 if workflow.environment:
                     exec_workflow.environment = workflow.environment
-                self._logger.info("Enacting workflow %s", workflow.id)
+                self._logger.info("Enacting workflow {}", workflow.id)
                 exec_workflows.append(exec_workflow)
                 # Lock the monitoring list and update it, as well as update
                 # the state of the workflow.
@@ -208,7 +208,7 @@ class RPEnactor(Enactor):
                                     "end_time"
                                 ] = datetime.now(UTC)
                                 self._logger.debug(
-                                    "Workflow %s finished: %s, step_id: %s",
+                                    "Workflow {} finished: {}, step_id: {}",
                                     workflow_id,
                                     self._execution_status[workflow_id]["end_time"],
                                     rp_workflow.stdout.split()[-1],
@@ -268,7 +268,7 @@ class RPEnactor(Enactor):
         """
 
         if workflow not in self._execution_status:
-            self._logger.warning("Has not enacted on workflow %s yet.", workflow)
+            self._logger.warning("Has not enacted on workflow {} yet.", workflow)
         else:
             self._execution_status[workflow]["state"] = new_state
 

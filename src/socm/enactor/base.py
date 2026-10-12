@@ -3,6 +3,7 @@ import os
 import radical.utils as ru
 
 from socm.core import Resource, Workflow
+from socm.utils.log import get_logger
 from socm.utils.states import States
 
 
@@ -21,7 +22,7 @@ class Enactor:
     _execution_status : dict
         A hash table that holds the state and execution status of each
         workflow.
-    _logger : ru.Logger
+    _logger : loguru.Logger
         A logging object.
     """
 
@@ -44,7 +45,7 @@ class Enactor:
         # print(path)
         name = self._uid
 
-        self._logger = ru.Logger(name=self._uid, path=path, level="DEBUG")
+        self._logger = get_logger(self._uid, path)
         self._prof = ru.Profiler(name=name, path=path)
 
     def setup(self, resource: Resource, walltime: int, cores: int, execution_schema: str | None = None) -> None:
@@ -120,7 +121,7 @@ class Enactor:
         """
 
         if workflow not in self._execution_status:
-            self._logger.warning("Has not enacted on workflow %s yet.", workflow)
+            self._logger.warning("Has not enacted on workflow {} yet.", workflow)
         else:
             self._execution_status[workflow]["state"] = new_state
 

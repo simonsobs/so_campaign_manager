@@ -1,3 +1,4 @@
+import types
 from collections.abc import Iterable
 from numbers import Number
 from typing import TYPE_CHECKING, NamedTuple, Union, get_args, get_origin
@@ -7,6 +8,9 @@ from pydantic import BaseModel, ConfigDict, Field, PrivateAttr, field_validator
 
 if TYPE_CHECKING:
     from radical.pilot import TaskDescription
+
+# typing.Optional[X]/Union[X, Y] and PEP 604 X | Y have different origins.
+_UNION_TYPES = (Union, types.UnionType)
 
 
 class QosPolicy(BaseModel):
@@ -170,7 +174,7 @@ class Workflow(BaseModel):
                 args = get_args(field_type)
 
                 # Check for Optional numeric types
-                if origin is Union:
+                if origin in _UNION_TYPES:
                     for arg in args:
                         if isinstance(arg, type) and issubclass(arg, Number):
                             numeric_fields.append(field_name)
@@ -231,7 +235,7 @@ class Workflow(BaseModel):
                 args = get_args(field_type)
 
                 # Check for Optional numeric types
-                if origin is Union:
+                if origin in _UNION_TYPES:
                     for arg in args:
                         if isinstance(arg, type) and issubclass(arg, str):
                             categorical_fields.append(field_name)

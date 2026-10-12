@@ -1,6 +1,7 @@
 from argparse import ArgumentParser, Namespace
 
 from socm.execs import SUBCOMMANDS
+from socm.utils.log import configure_console
 
 
 def get_parser() -> ArgumentParser:
@@ -36,6 +37,10 @@ def main() -> None:
     for k in top_args:
         delattr(args, k)
     top_args = Namespace(**top_args)
+
+    # Component logs go to the session log files; only warnings and errors reach
+    # the terminal unless SOCM_LOG_LEVEL says otherwise.
+    configure_console()
 
     module = SUBCOMMANDS[top_args._pipemod]
     _main = getattr(module, '_main', None)

@@ -15,6 +15,7 @@ from ..core import Campaign, PlanEntry, Workflow
 from ..enactor import DryrunEnactor, RPEnactor
 from ..planner import HeftPlanner
 from ..resources import registered_resources
+from ..utils.log import get_logger
 from ..utils.states import CFINAL, States
 
 # Environment variable pointing to a persistent Slurmise directory, so that job
@@ -128,7 +129,7 @@ class Bookkeeper:
         )
         self._slurmise = Slurmise(toml_path=slurmise_toml)
 
-        self._logger = ru.Logger(name=self._uid, path=path, level="DEBUG")
+        self._logger = get_logger(self._uid, path)
         self._prof = ru.Profiler(name=self._uid, path=path)
         self._logger.debug(f"Deadline {deadline}")
         self._planner = HeftPlanner(
@@ -306,7 +307,7 @@ class Bookkeeper:
             cmd=workflow.get_command(),
         )
         self._logger.debug(
-            "Workflow %s finished with metadata: %s and jobdata: %s",
+            "Workflow {} finished with metadata: {} and jobdata: {}",
             workflow.id,
             workflow_metadata,
             workflow_jobdata,
@@ -324,7 +325,7 @@ class Bookkeeper:
         new_state : States
             The new execution state for the workflows.
         """
-        self._logger.debug("Workflow %s to state %s", workflow_ids, new_state.name)
+        self._logger.debug("Workflow {} to state {}", workflow_ids, new_state.name)
         with self._exec_state_lock:
             for workflow_id in workflow_ids:
                 self._workflows_state[workflow_id] = new_state
@@ -345,7 +346,7 @@ class Bookkeeper:
         step_ids : list[str]
             Corresponding SLURM job/step IDs (format: ``slurm_id.step_id``).
         """
-        self._logger.debug("Workflow %s with slurmid %s", workflow_ids, step_ids)
+        self._logger.debug("Workflow {} with slurmid {}", workflow_ids, step_ids)
         with self._exec_state_lock:
             for workflow_id, step_id in zip(workflow_ids, step_ids):
                 self._workflows_execids[workflow_id] = step_id
@@ -488,7 +489,7 @@ class Bookkeeper:
                                 f"Total number of workflows to monitor {len(workflows)}"
                             )
                         self._logger.debug(
-                            "Things monitored: %s, %s, %s",
+                            "Things monitored: {}, {}, {}",
                             self._workflows_to_monitor,
                             self._unavail_resources,
                             self._est_end_times,
@@ -523,7 +524,7 @@ class Bookkeeper:
 
                         self._record(workflows_snapshot[i])
                         self._logger.info(
-                            "Workflow %s finished",
+                            "Workflow {} finished",
                             workflows_snapshot[i].id,
                         )
 

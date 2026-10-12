@@ -70,6 +70,14 @@ skip = ["docs", ".github", ".vscode", "container", "env", "env311", "build"]
 line-length = 120
 exclude = ["docs", ".github", ".vscode", "container", "env", "env311", "build"]
 
+[tool.ruff.lint]
+# Logging uses loguru's "{}" placeholders; these rules assume stdlib "%s" formatting.
+ignore = ["PLE1205", "PLE1206"]
+
+[tool.ruff.lint.per-file-ignores]
+# These tests deliberately use typing.Optional/Union annotations to test field-type detection.
+"tests/test_core_models_mocked.py" = ["UP007", "UP045"]
+
 [tool.mypy]
 python_version = "3.11"
 warn_return_any = true

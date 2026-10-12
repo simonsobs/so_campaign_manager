@@ -1,6 +1,6 @@
 from functools import lru_cache
 from pathlib import Path
-from typing import Any, List, Optional, Union
+from typing import Any
 
 from sotodlib.core import Context
 
@@ -25,17 +25,17 @@ class MLMapmakingWorkflow(Workflow):
     executable: str = "so-site-pipeline"
     subcommand: str = "make-ml-map"
     datasize: int = 0
-    comps: Optional[str] = "TQU"
-    wafers: Optional[str] = None
-    bands: Optional[str] = None
-    nmat: Optional[str] = "corr"
-    max_dets: Optional[int] = None
-    site: Optional[str] = "so_lat"
-    downsample: Union[int, List[int]] = 1
-    maxiter: Union[int, List[int]] = 500
+    comps: str | None = "TQU"
+    wafers: str | None = None
+    bands: str | None = None
+    nmat: str | None = "corr"
+    max_dets: int | None = None
+    site: str | None = "so_lat"
+    downsample: int | list[int] = 1
+    maxiter: int | list[int] = 500
     tiled: int = 1
 
-    def model_post_init(self, __context: Any) -> None:
+    def model_post_init(self, context: Any, /) -> None:
         """
         Post-initialization to load observation context and compute total data size.
         """
@@ -64,7 +64,7 @@ class MLMapmakingWorkflow(Workflow):
 
         return command.strip()
 
-    def get_arguments(self) -> List[str]:
+    def get_arguments(self) -> list[str]:
         """
         Get the list of command-line arguments for the ML mapmaking workflow.
 
@@ -105,8 +105,8 @@ class MLMapmakingWorkflow(Workflow):
 
     @classmethod
     def get_workflows(
-        cls, descriptions: Union[List[dict], dict]
-    ) -> List["MLMapmakingWorkflow"]:
+        cls, descriptions: list[dict] | dict
+    ) -> list["MLMapmakingWorkflow"]:
         """
         Create MLMapmakingWorkflow instances from configuration descriptions.
 
