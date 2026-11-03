@@ -1,16 +1,16 @@
 repos:
   - repo: https://github.com/pycqa/isort
-    rev: 6.0.1
+    rev: 9.0.2
     hooks:
       - id: isort
 
   - repo: https://github.com/charliermarsh/ruff-pre-commit
-    rev: v0.12.5
+    rev: v0.16.10
     hooks:
       - id: ruff
 
   - repo: https://github.com/pre-commit/pre-commit-hooks
-    rev: v5.0.0
+    rev: v6.0.0
     hooks:
       - id: check-yaml
         args: [--unsafe]
@@ -23,7 +23,7 @@ repos:
 
 # Replace commitsar with conventional commit checker
   - repo: https://github.com/compilerla/conventional-pre-commit
-    rev: v2.1.1
+    rev: v4.4.0
     hooks:
       - id: conventional-pre-commit
         stages: [commit-msg]

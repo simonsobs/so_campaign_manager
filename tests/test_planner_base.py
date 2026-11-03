@@ -5,14 +5,13 @@ from unittest.mock import Mock, patch
 import pytest
 
 
+@patch("socm.planner.base.get_logger")
 @patch("socm.planner.base.ru")
 @patch("socm.planner.base.os")
-def test_planner_initialization(
-    mock_os, mock_ru):
+def test_planner_initialization(mock_os, mock_ru, mock_get_logger):
     """Test Planner class initialization."""
     # Mock the dependencies
     mock_ru.generate_id.return_value = "planner.0001"
-    mock_ru.Logger.return_value = Mock()
     mock_ru.ID_CUSTOM = "custom"
     mock_os.getcwd.return_value = "/test/path"
 
@@ -41,15 +40,15 @@ def test_planner_initialization(
 
     # Verify that utilities were called
     mock_ru.generate_id.assert_called_once()
-    mock_ru.Logger.assert_called_once()
+    mock_get_logger.assert_called_once_with("planner.0001", "/test/path/test_session")
 
 
+@patch("socm.planner.base.get_logger")
 @patch("socm.planner.base.ru")
 @patch("socm.planner.base.os")
-def test_planner_initialization_with_none_values(mock_os, mock_ru):
+def test_planner_initialization_with_none_values(mock_os, mock_ru, mock_get_logger):
     """Test Planner initialization with None values."""
     mock_ru.generate_id.return_value = "planner.0002"
-    mock_ru.Logger.return_value = Mock()
     mock_ru.ID_CUSTOM = "custom"
     mock_os.getcwd.return_value = "/test/path"
 
@@ -64,12 +63,12 @@ def test_planner_initialization_with_none_values(mock_os, mock_ru):
     assert isinstance(planner._plan, list)
 
 
+@patch("socm.planner.base.get_logger")
 @patch("socm.planner.base.ru")
 @patch("socm.planner.base.os")
-def test_planner_plan_not_implemented(mock_os, mock_ru):
+def test_planner_plan_not_implemented(mock_os, mock_ru, mock_get_logger):
     """Test that plan method raises NotImplementedError."""
     mock_ru.generate_id.return_value = "planner.0003"
-    mock_ru.Logger.return_value = Mock()
     mock_ru.ID_CUSTOM = "custom"
     mock_os.getcwd.return_value = "/test/path"
 
@@ -80,12 +79,12 @@ def test_planner_plan_not_implemented(mock_os, mock_ru):
     with pytest.raises(NotImplementedError, match="Plan method is not implemented"):
         planner.plan()
 
+@patch("socm.planner.base.get_logger")
 @patch("socm.planner.base.ru")
 @patch("socm.planner.base.os")
-def test_planner_replan_not_implemented(mock_os, mock_ru):
+def test_planner_replan_not_implemented(mock_os, mock_ru, mock_get_logger):
     """Test that replan method raises NotImplementedError."""
     mock_ru.generate_id.return_value = "planner.0003"
-    mock_ru.Logger.return_value = Mock()
     mock_ru.ID_CUSTOM = "custom"
     mock_os.getcwd.return_value = "/test/path"
 

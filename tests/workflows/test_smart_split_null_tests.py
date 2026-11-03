@@ -196,7 +196,7 @@ def _obs_info_azs(az_list):
 def test_get_anames_plain():
     obs = _obs_info_azs([90, 270])
     wf = _make_wf(mode="plain")
-    anames, arrays, ais = wf._get_anames(obs)
+    anames, arrays, _ais = wf._get_anames(obs)
     assert set(anames.values()) == {"arr"}
     assert arrays == ["arr"]
 

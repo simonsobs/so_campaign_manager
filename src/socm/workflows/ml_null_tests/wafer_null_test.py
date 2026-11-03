@@ -1,6 +1,5 @@
 from datetime import timedelta
 from pathlib import Path
-from typing import Dict, List, Optional, Union
 
 import numpy as np
 from pydantic import PrivateAttr
@@ -17,12 +16,12 @@ class WaferNullTestWorkflow(NullTestWorkflow):
     for each wafer.
     """
 
-    chunk_nobs: Optional[int] = None
-    chunk_duration: Optional[timedelta] = None
+    chunk_nobs: int | None = None
+    chunk_duration: timedelta | None = None
     nsplits: int = 8
     name: str = "wafer_null_test_workflow"
 
-    _wafer_list_per_telescope: Dict[str, List[str]] = PrivateAttr(
+    _wafer_list_per_telescope: dict[str, list[str]] = PrivateAttr(
         {
             "sat": [
                 "st1:ws0",
@@ -93,8 +92,8 @@ class WaferNullTestWorkflow(NullTestWorkflow):
     )
 
     def _get_splits(
-        self, ctx: Context, obs_info: Dict[str, Dict[str, Union[float, str]]]
-    ) -> Dict[str, List[str]]:
+        self, ctx: Context, obs_info: dict[str, dict[str, float | str]]
+    ) -> dict[str, list[str]]:
         """
         Split observations by wafer slot with time-interleaved chunks.
 
@@ -123,7 +122,7 @@ class WaferNullTestWorkflow(NullTestWorkflow):
                 "Splitting by duration is not implemented yet. Please set chunk_nobs."
             )
 
-        tube_slots = set([v["tube_slot"] for v in obs_info.values()])
+        tube_slots = {v["tube_slot"] for v in obs_info.values()}
         if len(tube_slots) > 1:
             raise ValueError(
                 f"All observations must be from the same tube slot. Found: {tube_slots}"
@@ -131,7 +130,7 @@ class WaferNullTestWorkflow(NullTestWorkflow):
         final_splits = {}
         for tube_wafer in self._wafer_list_per_telescope[self.site]:
             tube_slot, wafer = tube_wafer.split(":")
-            wafer_obs_info = dict()
+            wafer_obs_info = {}
             for k, v in obs_info.items():
                 if (
                     v["wafer_list"] is not None
@@ -157,7 +156,7 @@ class WaferNullTestWorkflow(NullTestWorkflow):
         return final_splits
 
     @classmethod
-    def get_workflows(cls, desc=None) -> List[NullTestWorkflow]:
+    def get_workflows(cls, desc=None) -> list[NullTestWorkflow]:
         """
         Create NullTestWorkflow instances for each wafer and split.
 
@@ -191,9 +190,8 @@ class WaferNullTestWorkflow(NullTestWorkflow):
                 query_file = Path(desc["output_dir"]) / "query.txt"
                 query_file.parent.mkdir(parents=True, exist_ok=True)
                 with open(query_file, "w") as f:
-                    for oid in split:
-                        f.write(f"{oid}\n")
-                desc["query"] = f"file://{str(query_file.absolute())}"
+                    f.writelines(f"{oid}\n" for oid in split)
+                desc["query"] = f"file://{query_file.absolute()!s}"
                 desc["chunk_nobs"] = 1
                 workflow = NullTestWorkflow(**desc)
                 workflows.append(workflow)

@@ -1,13 +1,13 @@
 import os
-from typing import Dict, List, Tuple
 
 import networkx as nx
 import radical.utils as ru
 
 from ..core import DAG, Campaign, PlanEntry, PlanResult, Resource
+from ..utils.log import get_logger
 
 
-class Planner(object):
+class Planner:
     """
     Base planner that computes an execution plan for a campaign.
 
@@ -24,7 +24,7 @@ class Planner(object):
         self,
         campaign: Campaign | None = None,
         resources: Resource | None = None,
-        resource_requirements: Dict[int, Dict[str, float]] | None = None,
+        resource_requirements: dict[int, dict[str, float]] | None = None,
         policy: str | None = None,
         sid: str | None = None,
         objective: int | None = None
@@ -34,17 +34,17 @@ class Planner(object):
         self._resource_requirements = resource_requirements
         self._policy = policy
         self._objective = objective
-        self._plan: List[PlanEntry] = []
+        self._plan: list[PlanEntry] = []
         self._uid = ru.generate_id("planner.%(counter)04d", mode=ru.ID_CUSTOM, ns=sid)
         sid = sid if sid is not None else ru.generate_id("planner.%(counter)04d", mode=ru.ID_CUSTOM)
         path = os.getcwd() + "/" + sid
-        self._logger = ru.Logger(name=self._uid, level="DEBUG", path=path)
+        self._logger = get_logger(self._uid, path)
 
     def plan(
         self,
         campaign: DAG | None = None,
         resources: range | None = None,
-        resource_requirements: Dict[int, Dict[str, float]] | None = None,
+        resource_requirements: dict[int, dict[str, float]] | None = None,
         start_time: int = 0,
         **kargs,
     ) -> PlanResult:
@@ -75,9 +75,9 @@ class Planner(object):
         self,
         campaign: DAG | None = None,
         resources: range | None = None,
-        resource_requirements: Dict[int, Dict[str, float]] | None = None,
+        resource_requirements: dict[int, dict[str, float]] | None = None,
         start_time: int = 0,
-    ) -> Tuple[List[PlanEntry], nx.DiGraph]:
+    ) -> tuple[list[PlanEntry], nx.DiGraph]:
         """
         Recalculate the execution plan, typically after workflow completion.
 
@@ -94,7 +94,7 @@ class Planner(object):
 
         Returns
         -------
-        Tuple[List[PlanEntry], nx.DiGraph]
+        tuple[list[PlanEntry], nx.DiGraph]
             A tuple containing the updated plan entries and the dependency graph.
         """
         raise NotImplementedError("Replan method is not implemented")

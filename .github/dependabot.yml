@@ -26,3 +26,11 @@ updates:
       all-deps-security:
         applies-to: security-updates
         patterns: ["*"]
+
+  - package-ecosystem: "pre-commit"
+    directory: "/"
+    schedule:
+      interval: "monthly"
+    groups:
+      all-actions:
+        patterns: ["*"]

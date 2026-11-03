@@ -1,6 +1,7 @@
 """Tests for socm.core.models module with comprehensive mocking."""
 
 import sys
+from typing import ClassVar
 from unittest.mock import Mock, patch
 
 import pytest
@@ -11,7 +12,7 @@ from socm.core.models import ResourceSpec
 class MockBaseModel:
     """Mock pydantic BaseModel for testing."""
 
-    model_fields = {}
+    model_fields: ClassVar[dict] = {}
 
     def __init__(self, **kwargs):
         # Set attributes from kwargs
@@ -348,7 +349,7 @@ def test_workflow_get_numeric_fields_edge_cases():
 
 def test_workflow_get_numeric_fields_with_model_fields():
     """Test get_numeric_fields using model_fields annotation checking."""
-    from typing import List, Optional, Union
+    from typing import Optional, Union
 
     from socm.core.models import Workflow
 
@@ -362,8 +363,8 @@ def test_workflow_get_numeric_fields_with_model_fields():
         "count": MockFieldInfo(int),
         "rate": MockFieldInfo(float),
         "name": MockFieldInfo(str),
-        "tags": MockFieldInfo(List[str]),
-        "scores": MockFieldInfo(List[int]),
+        "tags": MockFieldInfo(list[str]),
+        "scores": MockFieldInfo(list[int]),
         "mixed_union": MockFieldInfo(Union[str, int]),
         "numeric_union": MockFieldInfo(Union[int, float]),
     }
@@ -398,7 +399,7 @@ def test_workflow_get_numeric_fields_with_model_fields():
 
 def test_workflow_get_categorical_fields_with_model_fields():
     """Test get_categorical_fields using model_fields annotation checking."""
-    from typing import List, Optional, Union
+    from typing import Optional, Union
 
     from socm.core.models import Workflow
 
@@ -409,9 +410,9 @@ def test_workflow_get_categorical_fields_with_model_fields():
     fake_fields = {
         "name": MockFieldInfo(str),
         "status": MockFieldInfo(Optional[str]),
-        "tags": MockFieldInfo(List[str]),
+        "tags": MockFieldInfo(list[str]),
         "count": MockFieldInfo(int),
-        "numbers": MockFieldInfo(List[int]),
+        "numbers": MockFieldInfo(list[int]),
         "mixed_union": MockFieldInfo(Union[str, int]),
         "string_union": MockFieldInfo(Union[str, bool]),
     }
@@ -473,7 +474,7 @@ def test_workflow_get_fields_with_none_values_in_model():
 
 def test_workflow_get_fields_type_checking_edge_cases():
     """Test edge cases in type checking logic."""
-    from typing import List, Union
+    from typing import Union
 
     from socm.core.models import Workflow
 
@@ -483,8 +484,8 @@ def test_workflow_get_fields_type_checking_edge_cases():
 
     fake_fields = {
         "simple_list": MockFieldInfo(list),  # Non-parameterized list
-        "empty_args": MockFieldInfo(List),  # List without type args
-        "complex_nested": MockFieldInfo(List[List[int]]),  # Nested generic
+        "empty_args": MockFieldInfo(list),  # List without type args
+        "complex_nested": MockFieldInfo(list[list[int]]),  # Nested generic
         "non_iterable_origin": MockFieldInfo(Union[int, str]),  # Union is not iterable
     }
 

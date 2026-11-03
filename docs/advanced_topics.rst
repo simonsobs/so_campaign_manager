@@ -497,84 +497,34 @@ Create custom enactor for different execution environments:
 Resource Prediction and Slurmise Integration
 ---------------------------------------------
 
-Advanced Resource Estimation
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Recording Job History
+~~~~~~~~~~~~~~~~~~~~~
 
-Slurmise uses machine learning to predict resource requirements:
+After each workflow finishes, the Bookkeeper records its runtime, memory and
+input parameters in a Slurmise database. The parameters come from the workflow
+itself: numeric fields are recorded as numerical features, the remaining fields
+as categorical ones, and ``file://`` arguments by their MD5 checksum. No
+Slurmise job specification is needed.
 
-**Configuring Slurmise**
+The database lives in the first of:
 
-Create or modify ``src/socm/configs/slurmise.toml``:
+1. ``$SOCM_SLURMISE_DIR``, if set
+2. ``<campaign base-path>/slurmise_dir``
+3. ``<current directory>/slurmise_dir``
 
-.. code-block:: toml
+Set ``SOCM_SLURMISE_DIR`` to a persistent location so that job history
+accumulates across campaigns:
 
-   [slurmise]
-   # Model configuration
-   model_type = "random_forest"
-   model_path = "/path/to/trained/model.pkl"
+.. code-block:: bash
 
-   # Feature engineering
-   numeric_features = ["data_size", "num_observations", "num_detectors"]
-   categorical_features = ["band", "site", "wafer"]
+   export SOCM_SLURMISE_DIR=/scratch/gpfs/SIMONSOBS/users/$USER/slurmise_dir
 
-   # Prediction targets
-   targets = ["walltime", "memory", "cpu_efficiency"]
+The Slurmise configuration used by each run is written to
+``<session_id>/slurmise.toml``.
 
-   # Training data
-   training_data_path = "/path/to/historical/jobs.csv"
+.. note::
 
-**Using Slurmise Predictions**
-
-In your workflow or planner:
-
-.. code-block:: python
-
-   from slurmise import ResourcePredictor
-
-   # Initialize predictor
-   predictor = ResourcePredictor.from_config("configs/slurmise.toml")
-
-   # Prepare feature vector
-   features = {
-       'data_size': workflow.data_size_gb,
-       'num_observations': workflow.num_obs,
-       'band': workflow.bands,
-       'site': workflow.site,
-   }
-
-   # Get predictions
-   predictions = predictor.predict(features)
-
-   # Use predictions
-   estimated_walltime = predictions['walltime']  # seconds
-   estimated_memory = predictions['memory']  # MB
-   estimated_cores = predictions['cpu_cores']
-
-**Training Slurmise Models**
-
-Train custom models on your historical job data:
-
-.. code-block:: python
-
-   from slurmise import ModelTrainer
-
-   # Load training data
-   trainer = ModelTrainer(
-       data_path="historical_jobs.csv",
-       features=["data_size", "num_obs", "band"],
-       target="walltime"
-   )
-
-   # Train model
-   model = trainer.train(algorithm="random_forest")
-
-   # Evaluate
-   metrics = trainer.evaluate(model)
-   print(f"R² score: {metrics['r2']}")
-   print(f"RMSE: {metrics['rmse']}")
-
-   # Save model
-   trainer.save_model(model, "walltime_predictor.pkl")
+   Using Slurmise predictions to size workflows is not yet integrated.
 
 Multi-Campaign Orchestration
 -----------------------------
