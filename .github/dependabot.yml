@@ -12,6 +12,9 @@ updates:
     groups:
       all-deps:
         patterns: ["*"]
+      all-deps-security:
+        applies-to: security-updates
+        patterns: ["*"]
 
   - package-ecosystem: "github-actions"
     directory: "/"
@@ -19,6 +22,9 @@ updates:
       interval: "weekly"
     groups:
       all-actions:
+        patterns: ["*"]
+      all-deps-security:
+        applies-to: security-updates
         patterns: ["*"]
 
   - package-ecosystem: "pre-commit"
