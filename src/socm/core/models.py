@@ -137,7 +137,7 @@ class Workflow(BaseModel):
         """
         Return the command-line arguments for this workflow, one list entry
         per argument and without shell quoting. Enactors pass them to the
-        executable as-is; ``get_command`` quotes them with ``shlex.join``.
+        executable as-is; subclasses must shell-quote them in ``get_command``.
         """
         raise NotImplementedError("This method should be implemented in subclasses")
 

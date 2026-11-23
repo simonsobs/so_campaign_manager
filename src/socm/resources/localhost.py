@@ -14,5 +14,11 @@ class LocalResource(Resource):
 
     def __init__(self, **data):
         super().__init__(**data)
-        self.qos = [QosPolicy(name="default", max_walltime=6000, max_jobs=1, max_cores=8),
-                    ]
+        self.qos = [
+            QosPolicy(
+                name="default",
+                max_walltime=6000,
+                max_jobs=1,
+                max_cores=self.nodes * self.cores_per_node,
+            )
+        ]
