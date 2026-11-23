@@ -160,3 +160,21 @@ def test_get_command_uses_total_ranks():
         "--distribution=block:block", "--cpu-bind=none", "/envs/lat/bin/toast_so_sim",
     ]
     assert tokens[7:9] == ["--out", "out dir"]
+
+
+def test_included_par_file_overrides_scalar_field(tmp_path):
+    """A repeated option that targets a scalar field keeps its last value, as argparse does."""
+    (tmp_path / "base.par").write_text("--sample_rate=37\n--bands=LAT_f090\n")
+    (tmp_path / "sim.par").write_text("@base.par\n--sample_rate=100\n")
+    workflow = LATSimWorkflow(output_dir="o", **read_par_file(tmp_path / "sim.par"))
+    arguments = workflow.get_arguments()
+
+    assert workflow.sample_rate == 100
+    assert "--sample_rate=100" in arguments
+    assert "--sample_rate=37" not in arguments
+
+
+def test_list_fields_keep_every_value():
+    workflow = LATSimWorkflow(output_dir="o", depends=["get-schedule", "split-schedule"])
+
+    assert workflow.depends == ["get-schedule", "split-schedule"]

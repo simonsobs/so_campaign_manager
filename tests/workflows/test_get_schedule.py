@@ -81,3 +81,12 @@ def test_get_arguments_is_unquoted_list(make_workflow):
     assert "--start=2025-01-01 00:00:00" in arguments
     assert "--stop=2026-01-01 00:00:00" in arguments
     assert not any("'" in arg for arg in arguments)
+
+
+def test_repeated_start_keeps_last_value(tmp_path):
+    par = tmp_path / "schedule.par"
+    par.write_text("--out=/s/full.txt\n--start\n2025-01-01 00:00:00\n--start\n2025-06-01 00:00:00\n")
+    workflow = GetScheduleWorkflow(**read_par_file(par))
+
+    assert workflow.start.isoformat(sep=" ") == "2025-06-01 00:00:00"
+    assert workflow.get_arguments().count("--start=2025-06-01 00:00:00") == 1

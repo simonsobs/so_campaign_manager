@@ -1,7 +1,7 @@
 import types
 from collections.abc import Iterable
 from numbers import Number
-from typing import TYPE_CHECKING, NamedTuple, Union, get_args, get_origin
+from typing import TYPE_CHECKING, Any, NamedTuple, Union, get_args, get_origin
 
 import networkx as nx
 from pydantic import BaseModel, ConfigDict, Field, PrivateAttr, field_validator
@@ -11,6 +11,16 @@ if TYPE_CHECKING:
 
 # typing.Optional[X]/Union[X, Y] and PEP 604 X | Y have different origins.
 _UNION_TYPES = (Union, types.UnionType)
+
+
+def _accepts_list(annotation) -> bool:
+    """Whether a field annotation can hold a list (``list[str]``, ``list[str] | None``, ``Any``, ...)."""
+    if annotation is Any or annotation in (list, tuple, set, frozenset):
+        return True
+    origin = get_origin(annotation)
+    if origin in _UNION_TYPES:
+        return any(_accepts_list(arg) for arg in get_args(annotation))
+    return origin in (list, tuple, set, frozenset)
 
 
 class QosPolicy(BaseModel):
@@ -120,6 +130,19 @@ class Workflow(BaseModel):
     model_config = {
         "extra": "allow",
     }
+
+    @field_validator("*", mode="before")
+    @classmethod
+    def _last_value_for_scalar_fields(cls, value, info):
+        """
+        Keep the last value when an option repeated in a par file targets a
+        scalar field, as argparse does for non-append options. ``read_par_file``
+        returns repeated options as lists; options that are not fields keep them.
+        """
+        field = cls.model_fields.get(info.field_name)
+        if isinstance(value, list) and value and field is not None and not _accepts_list(field.annotation):
+            return value[-1]
+        return value
 
     def __hash__(self):
         return hash(self.id)
