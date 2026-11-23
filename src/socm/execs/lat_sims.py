@@ -1,5 +1,6 @@
 import copy
 import itertools
+import re
 from argparse import ArgumentParser, Namespace
 from pathlib import Path
 from string import Template
@@ -14,6 +15,9 @@ from socm.workflows import registered_workflows
 
 # Stage keys that keep their matrix placeholders as written.
 _NOT_SUBSTITUTED = {"type", "depends"}
+
+# A value that is nothing but one ``${var}`` (or ``$var``) placeholder.
+_WHOLE_PLACEHOLDER = re.compile(r"\$(?:\{(?P<braced>[_a-zA-Z][_a-zA-Z0-9]*)\}|(?P<named>[_a-zA-Z][_a-zA-Z0-9]*))")
 
 
 def get_parser(parser: ArgumentParser) -> ArgumentParser:
@@ -59,8 +63,16 @@ def _substitute(value: Any, variables: dict[str, Any]) -> Any:
     Fill ``${var}`` placeholders in every string of ``value`` (nested dicts and
     lists included). Unknown names such as ``$SCRATCH`` are left as they are,
     and so is toast's own ``{wafer_slot}`` placeholder.
+
+    A placeholder that is the whole value and names a boolean gives the
+    boolean itself, so ``sim_noise: ${noise}`` still becomes an enable/disable
+    toggle. Inside a larger string, values are inserted as text.
     """
     if isinstance(value, str):
+        match = _WHOLE_PLACEHOLDER.fullmatch(value)
+        name = match and (match["braced"] or match["named"])
+        if name and isinstance(variables.get(name), bool):
+            return variables[name]
         return Template(value).safe_substitute(variables)
     if isinstance(value, dict):
         return {k: _substitute(v, variables) for k, v in value.items()}
@@ -94,7 +106,8 @@ def _expand_matrix(stage_name: str, stage_config: dict) -> list[tuple[str, dict[
     """
     matrix = stage_config.get("matrix")
     if not matrix:
-        return [(stage_name, {}, copy.deepcopy(stage_config))]
+        # `matrix: {}` or `matrix: null` means no matrix; the key must not reach the workflow.
+        return [(stage_name, {}, {k: copy.deepcopy(v) for k, v in stage_config.items() if k != "matrix"})]
     if not isinstance(matrix, dict) or not all(isinstance(v, list) and v for v in matrix.values()):
         raise ValueError(f"Stage '{stage_name}': matrix must map axis names to non-empty lists")
 

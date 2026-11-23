@@ -313,3 +313,30 @@ def test_stage_output_dir_overrides_get_schedule_par_out(tmp_path):
 
     assert workflow.output_dir == "/new/schedule.txt"
     assert workflow.get_arguments().count("--out") == 1
+
+
+def test_boolean_matrix_value_stays_boolean(tmp_path):
+    """A whole-value placeholder keeps the boolean, so it still becomes an enable/disable toggle."""
+    stage = _lat_stage(
+        {"noise": [True, False]},
+        output_dir="/out/noise_${noise}",
+        sim_sss="$noise",
+        operators={"sim_noise": "${noise}", "sim_atmosphere": {"enable": "${noise}"}},
+    )
+    by_name = {w.name: w for w in build_dag(_config({"lat": stage}), tmp_path).workflows}
+
+    on = by_name["lat.True"].get_arguments()
+    off = by_name["lat.False"].get_arguments()
+    assert {"--sim_noise.enable", "--sim_atmosphere.enable", "--sim_sss.enable"} <= set(on)
+    assert {"--sim_noise.disable", "--sim_atmosphere.disable", "--sim_sss.disable"} <= set(off)
+    assert on[:2] == ["--out", "/out/noise_True"]  # inside a larger string it is text
+    assert not any(arg.startswith("--sim_noise=") for arg in on + off)
+
+
+def test_empty_matrix_is_no_matrix(tmp_path):
+    for matrix in ({}, None):
+        (workflow,) = build_dag(_config({"lat": _lat_stage(matrix, output_dir="/out")}), tmp_path).workflows
+
+        assert workflow.name == "lat"
+        assert "matrix" not in workflow.model_dump()
+        assert not any(arg.startswith("--matrix") for arg in workflow.get_arguments())
