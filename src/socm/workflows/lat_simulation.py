@@ -2,16 +2,19 @@ import shlex
 from pathlib import Path
 from typing import Any
 
-from pydantic import PrivateAttr, model_validator
+from pydantic import model_validator
 
 from ..core.models import Workflow
 
-# Workflow field name -> toast_so_sim option name.
-_ARG_TRANSLATION = {
-    "sim_hwpss_atmo_data": "sim_hwpss.atmo_data",
-    "pixels_healpix_radec_nside": "pixels_healpix_radec.nside",
-    "filterbin_name": "filterbin.name",
-    "processing_mask_file": "processing_mask.file",
+# toast_so_sim option name -> workflow field name.
+_OPTION_TO_FIELD = {
+    "out": "output_dir",
+}
+
+# toast_so_sim options that are plain flags. Every other boolean is an
+# operator toggle and becomes --<op>.enable / --<op>.disable.
+_FLAGS = {
+    "sort_schedule",
 }
 
 # Workflow fields that are not toast_so_sim options.
@@ -26,40 +29,69 @@ _NOT_ARGUMENTS = {
     "base_path",
     "context",
     "subcommand",
+    "job_group_size",
 }
+
+
+def _flatten_operators(operators: dict[str, Any]) -> dict[str, Any]:
+    """
+    Turn an ``operators`` mapping into toast_so_sim option names, the same
+    representation ``read_par_file`` returns.
+
+    ``{"sim_noise": True}`` stays ``{"sim_noise": True}``, and
+    ``{"mlmapmaker": {"enable": True, "nmat_mode": "load"}}`` becomes
+    ``{"mlmapmaker": True, "mlmapmaker.nmat_mode": "load"}``.
+    """
+    options: dict[str, Any] = {}
+    for op, value in operators.items():
+        if not isinstance(value, dict):
+            options[op] = value
+            continue
+        for trait, trait_value in value.items():
+            if trait == "enable":
+                options[op] = trait_value
+            else:
+                options[f"{op}.{trait}"] = trait_value
+    return options
 
 
 class LATSimWorkflow(Workflow):
     """
-    A workflow for simulating SAT observations.
+    A workflow for simulating LAT observations with ``toast_so_sim``.
+
+    Only the options every LAT run sets are fields. Any other toast option is
+    passed through under its command-line name: ``op: bool`` for
+    ``--op.enable``/``--op.disable`` and ``"op.trait": value`` for
+    ``--op.trait=value``. Those options can come from a par file, from flat
+    keys in the stage config, or from an ``operators`` mapping.
     """
 
     output_dir: str
     name: str = "lat_sims"
     executable: str = "toast_so_sim"
+    config: str | None = None
     schedule: str | None = None
-    bands: str | None = "LAT_f090"
-    wafer_slots: str | None = "w25"
-    sample_rate: int = 37
-    sim_noise: bool = False
-    scan_map: bool = False
-    sim_atmosphere: bool = False
-    sim_sss: bool = False
-    sim_hwpss: bool = False
-    sim_hwpss_atmo_data: str | None = None
-    pixels_healpix_radec_nside: int = 512
-    filterbin_name: str | None = None
-    processing_mask_file: str | None = None
-
-    _arg_translation: dict[str, str] = PrivateAttr(_ARG_TRANSLATION)
+    sort_schedule: bool = False
+    bands: str | None = None
+    tube_slots: str | None = None
+    sample_rate: int | None = None
+    job_group_size: int = 1
 
     @model_validator(mode="before")
     @classmethod
-    def _untranslate_option_names(cls, data: Any) -> Any:
-        """Map command-line option names (e.g. from a par file) to field names."""
+    def _normalize_options(cls, data: Any) -> Any:
+        """
+        Map toast_so_sim option names to fields (``--out`` -> ``output_dir``)
+        and flatten an ``operators`` mapping into option names. Flat keys
+        given next to ``operators`` take precedence.
+        """
         if isinstance(data, dict):
-            reverse = {option: field for field, option in _ARG_TRANSLATION.items()}
-            data = {reverse.get(k, k): v for k, v in data.items()}
+            data = dict(data)
+            for option, field in _OPTION_TO_FIELD.items():
+                if option in data:
+                    data[field] = data.pop(option)
+            for key, value in _flatten_operators(data.pop("operators", None) or {}).items():
+                data.setdefault(key, value)
         return data
 
     def get_command(self, **kargs: Any) -> str:
@@ -75,10 +107,11 @@ class LATSimWorkflow(Workflow):
             raise ValueError("Resources must be set before calling get_command")
         srun = [
             "srun",
-            "--cpu_bind=cores",
             "--export=ALL",
-            f"--ntasks-per-node={self.resources.ranks}",
+            f"--ntasks={self.resources.ranks}",
             f"--cpus-per-task={self.resources.threads}",
+            "--distribution=block:block",
+            "--cpu-bind=none",
             self.executable,
         ]
         if self.subcommand:
@@ -94,16 +127,40 @@ class LATSimWorkflow(Workflow):
         list of str
             One entry per argument, without shell quoting.
         """
-        arguments = ["--out", self.output_dir, f"--job_group_size={self.resources.ranks}"]
+        arguments = ["--out", self.output_dir, f"--job_group_size={self.job_group_size}"]
 
         for k, v in sorted(self.model_dump().items()):
             if k in _NOT_ARGUMENTS or v is None:
                 continue
-            option = self._arg_translation.get(k, k)
             if isinstance(v, bool):
-                arguments.append(f"--{option}.enable" if v else f"--{option}.disable")
+                if k in _FLAGS:
+                    if v:
+                        arguments.append(f"--{k}")
+                else:
+                    arguments.append(f"--{k}.enable" if v else f"--{k}.disable")
                 continue
-            if isinstance(v, str) and v.startswith("file://"):
-                v = Path(v.split("file://")[-1]).absolute()
-            arguments.append(f"--{option}={v}")
+            # Repeated options are stored as lists.
+            for item in v if isinstance(v, list) else [v]:
+                if isinstance(item, str) and item.startswith("file://"):
+                    item = Path(item.removeprefix("file://")).absolute()
+                arguments.append(f"--{k}={item}")
         return arguments
+
+    @classmethod
+    def get_workflows(cls, descriptions: list[dict] | dict) -> list["LATSimWorkflow"]:
+        """
+        Create LATSimWorkflow instances from configuration descriptions.
+
+        Parameters
+        ----------
+        descriptions : dict or list of dict
+            One or more workflow configuration dictionaries.
+
+        Returns
+        -------
+        list of LATSimWorkflow
+            The instantiated workflow objects.
+        """
+        if isinstance(descriptions, dict):
+            descriptions = [descriptions]
+        return [cls(**desc) for desc in descriptions]

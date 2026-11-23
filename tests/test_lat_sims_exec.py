@@ -2,7 +2,7 @@ import pytest
 import yaml
 
 from socm.execs.lat_sims import build_dag
-from socm.workflows import GetScheduleWorkflow, ShellScriptWorkflow
+from socm.workflows import GetScheduleWorkflow, LATSimWorkflow, ShellScriptWorkflow
 
 RESOURCES = {"memory": "1G", "ranks": 1, "threads": 1, "runtime": "5m"}
 
@@ -108,3 +108,32 @@ def test_stage_base_path_is_not_left_as_a_field(tmp_path):
     workflow = dag.workflows[0]
     assert workflow.base_path == "/base"
     assert "base-path" not in workflow.model_dump()
+
+
+def test_lat_sims_stage_with_par_file(tmp_path):
+    """A lat-sims stage reads its par file; stage keys override par file values."""
+    (tmp_path / "noise.par").write_text(
+        "--sim_noise.enable\n"
+        "--mlmapmaker.nmat_mode=cache\n"
+        "--sort_schedule\n"
+    )
+    stage = {
+        "type": "lat-sims",
+        "param-file": "./noise.par",
+        "output_dir": "/scratch/LAT_f090/i6/split_1/noise",
+        "bands": "LAT_f090",
+        "tube_slots": "i6",
+        "mlmapmaker.nmat_mode": "load",
+        "resources": {"memory": "1G", "ranks": 272, "threads": 7, "runtime": "40h"},
+    }
+    dag = build_dag(_config({"lat-noise": stage}), tmp_path)
+    (workflow,) = dag.workflows
+    arguments = workflow.get_arguments()
+
+    assert isinstance(workflow, LATSimWorkflow)
+    assert workflow.name == "lat-noise"
+    assert "--sim_noise.enable" in arguments
+    assert "--sort_schedule" in arguments
+    assert "--mlmapmaker.nmat_mode=load" in arguments  # stage wins
+    assert "--mlmapmaker.nmat_mode=cache" not in arguments
+    assert "--tube_slots=i6" in arguments
