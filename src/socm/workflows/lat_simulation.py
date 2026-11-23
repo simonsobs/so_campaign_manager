@@ -77,22 +77,25 @@ class LATSimWorkflow(Workflow):
     sample_rate: int | None = None
     job_group_size: int = 1
 
-    @model_validator(mode="before")
     @classmethod
-    def _normalize_options(cls, data: Any) -> Any:
+    def normalize_options(cls, options: dict[str, Any]) -> dict[str, Any]:
         """
         Map toast_so_sim option names to fields (``--out`` -> ``output_dir``)
-        and flatten an ``operators`` mapping into option names. Flat keys
-        given next to ``operators`` take precedence.
+        and flatten an ``operators`` mapping into option names. Within one
+        source, flat keys given next to ``operators`` take precedence.
         """
-        if isinstance(data, dict):
-            data = dict(data)
-            for option, field in _OPTION_TO_FIELD.items():
-                if option in data:
-                    data[field] = data.pop(option)
-            for key, value in _flatten_operators(data.pop("operators", None) or {}).items():
-                data.setdefault(key, value)
-        return data
+        options = dict(options)
+        for option, field in _OPTION_TO_FIELD.items():
+            if option in options:
+                options[field] = options.pop(option)
+        for key, value in _flatten_operators(options.pop("operators", None) or {}).items():
+            options.setdefault(key, value)
+        return options
+
+    @model_validator(mode="before")
+    @classmethod
+    def _normalize(cls, data: Any) -> Any:
+        return cls.normalize_options(data) if isinstance(data, dict) else data
 
     def get_command(self, **kargs: Any) -> str:
         """

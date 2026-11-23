@@ -178,3 +178,12 @@ def test_list_fields_keep_every_value():
     workflow = LATSimWorkflow(output_dir="o", depends=["get-schedule", "split-schedule"])
 
     assert workflow.depends == ["get-schedule", "split-schedule"]
+
+
+def test_normalize_options_is_idempotent():
+    options = {"out": "/o", "operators": {"scan_alm": {"enable": True, "file": "/m.fits"}}, "sim_noise": False}
+    once = LATSimWorkflow.normalize_options(options)
+
+    assert once == {"output_dir": "/o", "scan_alm": True, "scan_alm.file": "/m.fits", "sim_noise": False}
+    assert LATSimWorkflow.normalize_options(once) == once
+    assert "operators" in options  # the input is not modified

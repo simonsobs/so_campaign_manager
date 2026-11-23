@@ -284,3 +284,32 @@ def test_relative_config_dir_gives_absolute_script_path(tmp_path, monkeypatch):
     dag = build_dag(_config({"split": _shell_stage("scripts/split.sh")}), Path("configs"))
 
     assert dag.workflows[0].script == str(tmp_path / "configs" / "scripts" / "split.sh")
+
+
+def test_stage_overrides_par_file_whatever_form_each_uses(tmp_path):
+    """--out in the par file loses to the stage's output_dir; flat par options lose to the stage's operators."""
+    (tmp_path / "noise.par").write_text("--out=/old\n--mlmapmaker.nmat_mode=cache\n--sim_noise.enable\n")
+    stage = {
+        "type": "lat-sims",
+        "param-file": "./noise.par",
+        "output_dir": "/new",
+        "operators": {"mlmapmaker": {"nmat_mode": "load"}, "sim_noise": False},
+        "resources": dict(RESOURCES),
+    }
+    (workflow,) = build_dag(_config({"lat-noise": stage}), tmp_path).workflows
+    arguments = workflow.get_arguments()
+
+    assert arguments[:2] == ["--out", "/new"]
+    assert "--mlmapmaker.nmat_mode=load" in arguments
+    assert "--mlmapmaker.nmat_mode=cache" not in arguments
+    assert "--sim_noise.disable" in arguments
+    assert "--sim_noise.enable" not in arguments
+
+
+def test_stage_output_dir_overrides_get_schedule_par_out(tmp_path):
+    (tmp_path / "schedule.par").write_text("--out=/old/schedule.txt\n--equalize-time\n")
+    stage = {"param-file": "./schedule.par", "output_dir": "/new/schedule.txt", "resources": dict(RESOURCES)}
+    (workflow,) = build_dag(_config({"get-schedule": stage}), tmp_path).workflows
+
+    assert workflow.output_dir == "/new/schedule.txt"
+    assert workflow.get_arguments().count("--out") == 1

@@ -146,9 +146,13 @@ def _build_workflow(
     elif config["campaign"].get("base-path"):
         workflow_config["base_path"] = config["campaign"]["base-path"]
     # Values from a par file are defaults; the stage config overrides them.
+    # Each source is normalized first, so `--out` in the par file cannot beat
+    # `output_dir` in the stage, nor a flat par option the stage's `operators`.
+    workflow_config = workflow_factory.normalize_options(workflow_config)
     par_file = workflow_config.pop("param-file", None)
     if par_file:
-        workflow_config = {**read_par_file(_resolve_path(par_file, config_dir)), **workflow_config}
+        par_options = workflow_factory.normalize_options(read_par_file(_resolve_path(par_file, config_dir)))
+        workflow_config = {**par_options, **workflow_config}
     if "script" in workflow_config:
         workflow_config["script"] = _resolve_path(workflow_config["script"], config_dir)
     for arg_name, arg_value in workflow_config.pop('script-kwargs', {}).items():

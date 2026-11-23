@@ -42,20 +42,23 @@ class GetScheduleWorkflow(Workflow):
     stop: datetime = datetime(2000, 1, 1)  # noqa: DTZ001
     script_args: list[str] | None = None
 
-    @model_validator(mode="before")
     @classmethod
-    def _untranslate_option_names(cls, data: Any) -> Any:
+    def normalize_options(cls, options: dict[str, Any]) -> dict[str, Any]:
         """
         Map toast_ground_schedule options (e.g. from a par file) to the fields
         that ``get_command`` and ``get_arguments`` always emit, so they are not
-        passed twice. An explicit ``--out`` wins over the default output_dir.
+        passed twice.
         """
-        if isinstance(data, dict):
-            data = dict(data)
-            for option, field in _OPTION_TO_FIELD.items():
-                if option in data:
-                    data[field] = data.pop(option)
-        return data
+        options = dict(options)
+        for option, field in _OPTION_TO_FIELD.items():
+            if option in options:
+                options[field] = options.pop(option)
+        return options
+
+    @model_validator(mode="before")
+    @classmethod
+    def _normalize(cls, data: Any) -> Any:
+        return cls.normalize_options(data) if isinstance(data, dict) else data
 
     def get_command(self, **kargs: Any) -> str:
         """
