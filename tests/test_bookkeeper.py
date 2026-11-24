@@ -347,3 +347,82 @@ def test_work_terminate_event_skips_teardown(mock_sleep):
     bk.work()
 
     bk._enactor.teardown.assert_not_called()
+
+
+# ─── failed workflows ────────────────────────────────────────────────────────
+
+def _chain_batch(plan):
+    """A batch where workflow 2 depends on workflow 1."""
+    batch = _batch(plan, [1, 2])
+    batch.graph.add_edge(1, 2)
+    return batch
+
+
+@patch("socm.bookkeeper.bookkeeper.sleep")
+def test_work_does_not_enact_children_of_a_failed_workflow(mock_sleep):
+    wf1, wf2 = _wf(1), _wf(2)
+    bk = _make_bk([_chain_batch([_entry(wf1, 0, 30), _entry(wf2, 30, 60)])])
+
+    def mock_enact(workflows):
+        bk.state_update_cb(workflow_ids=[w.id for w in workflows], new_state=States.FAILED)
+    bk._enactor.enact.side_effect = mock_enact
+    # The child stays NEW, so the batch never finishes; stop after a few polls.
+    mock_sleep.side_effect = lambda _: mock_sleep.call_count >= 3 and bk._terminate_event.set()
+
+    bk.work()
+
+    bk._enactor.enact.assert_called_once_with(workflows=[wf1])
+    assert bk._workflows_state == {1: States.FAILED, 2: States.NEW}
+
+
+@patch("socm.bookkeeper.bookkeeper.sleep")
+def test_work_enacts_children_of_a_done_workflow(mock_sleep):
+    wf1, wf2 = _wf(1), _wf(2)
+    bk = _make_bk([_chain_batch([_entry(wf1, 0, 30), _entry(wf2, 30, 60)])])
+
+    def mock_enact(workflows):
+        bk.state_update_cb(workflow_ids=[w.id for w in workflows], new_state=States.DONE)
+    bk._enactor.enact.side_effect = mock_enact
+
+    bk.work()
+
+    assert [c.kwargs["workflows"] for c in bk._enactor.enact.call_args_list] == [[wf1], [wf2]]
+
+
+def test_run_ends_failed_when_a_workflow_fails():
+    wf1, wf2 = _wf(1), _wf(2)
+    bk = _make_bk([])
+    bk._campaign["campaign"].workflows = [wf1, wf2]
+    bk.terminate = MagicMock()
+    bk.monitor = MagicMock()
+
+    def work():
+        bk.state_update_cb(workflow_ids=[1], new_state=States.FAILED)
+        bk._planning_done.set()
+    bk.work = work
+
+    bk.run()
+
+    assert bk.get_campaign_state() == States.FAILED
+    bk.terminate.assert_called_once()
+
+
+def test_monitor_does_not_record_failed_workflows():
+    wf1, wf2 = _wf(1), _wf(2)
+    bk = _make_bk([])
+    bk._workflows_state = {1: States.DONE, 2: States.FAILED}
+    bk._workflows_to_monitor = [wf1, wf2]
+    bk._unavail_resources = [(range(2), 1), (range(2), 1)]
+    bk._record = MagicMock()
+
+    thread = mt.Thread(target=bk.monitor)
+    thread.start()
+    for _ in range(500):
+        if not bk._workflows_to_monitor:
+            break
+        mt.Event().wait(0.01)
+    bk._terminate_event.set()
+    thread.join(timeout=5)
+
+    assert bk._workflows_to_monitor == []
+    bk._record.assert_called_once_with(wf1)

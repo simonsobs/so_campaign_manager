@@ -521,8 +521,8 @@ class Bookkeeper:
                     if self._workflows_state[workflows_snapshot[i].id] in CFINAL:
                         resource = self._unavail_resources[i]
                         finished.append((workflows_snapshot[i], resource))
-
-                        self._record(workflows_snapshot[i])
+                        if self._workflows_state[workflows_snapshot[i].id] == States.DONE:
+                            self._record(workflows_snapshot[i])
                         self._logger.info(
                             "Workflow {} finished",
                             workflows_snapshot[i].id,
@@ -626,7 +626,11 @@ class Bookkeeper:
                     elif self._workflows_state[workflow.id] not in CFINAL:
                         cont = True
 
-                if not cont and not self._workflows_to_monitor:
+                if (
+                    self._campaign["state"] is not States.FAILED
+                    and not cont
+                    and not self._workflows_to_monitor
+                ):
                     self._campaign["state"] = States.DONE
 
             if self._campaign["state"] not in CFINAL:
