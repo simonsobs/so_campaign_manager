@@ -1,6 +1,5 @@
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
-from typing import Dict, List, Optional, Union
 
 import numpy as np
 import pytz
@@ -19,14 +18,14 @@ class DayNightNullTestWorkflow(NullTestWorkflow):
     It creates time-interleaved splits with nsplits=2 as specified.
     """
 
-    chunk_nobs: Optional[int] = None
-    chunk_duration: Optional[timedelta] = None
+    chunk_nobs: int | None = None
+    chunk_duration: timedelta | None = None
     nsplits: int = 2  # Fixed to 2 as specified in the issue
     name: str = "day_night_null_test_workflow"
 
     def _get_splits(
-        self, ctx: Context, obs_info: Dict[str, Dict[str, Union[float, str]]]
-    ) -> Dict[str, List[List[str]]]:
+        self, ctx: Context, obs_info: dict[str, dict[str, float | str]]
+    ) -> dict[str, list[list[str]]]:
         """
         Split observations based on day/night.
 
@@ -59,7 +58,7 @@ class DayNightNullTestWorkflow(NullTestWorkflow):
         day_night_splits = {"day": [], "night": []}
         for obs_id, obs_meta in obs_info.items():
             obs_time = datetime.fromtimestamp(
-                timestamp=obs_meta["start_time"], tz=timezone.utc
+                timestamp=obs_meta["start_time"], tz=UTC
             )  # Assuming time is in ISO format
 
             # Determine if it's day or night using the sun position
@@ -99,7 +98,7 @@ class DayNightNullTestWorkflow(NullTestWorkflow):
         return final_splits
 
     @classmethod
-    def get_workflows(cls, desc=None) -> List[NullTestWorkflow]:
+    def get_workflows(cls, desc=None) -> list[NullTestWorkflow]:
         """
         Create NullTestWorkflow instances for each day/night split.
 
@@ -133,9 +132,8 @@ class DayNightNullTestWorkflow(NullTestWorkflow):
                 query_file = Path(desc_copy["output_dir"]) / "query.txt"
                 query_file.parent.mkdir(parents=True, exist_ok=True)
                 with open(query_file, "w") as f:
-                    for oid in split:
-                        f.write(f"{oid}\n")
-                desc_copy["query"] = f"file://{str(query_file.absolute())}"
+                    f.writelines(f"{oid}\n" for oid in split)
+                desc_copy["query"] = f"file://{query_file.absolute()!s}"
                 desc_copy["chunk_nobs"] = 1
 
                 workflow = NullTestWorkflow(**desc_copy)

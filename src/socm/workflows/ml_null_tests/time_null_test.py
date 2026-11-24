@@ -1,6 +1,5 @@
 from datetime import timedelta
 from pathlib import Path
-from typing import Dict, List, Optional, Union
 
 import numpy as np
 from sotodlib.core import Context
@@ -13,14 +12,14 @@ class TimeNullTestWorkflow(NullTestWorkflow):
     A workflow for time null tests.
     """
 
-    chunk_nobs: Optional[int] = None
-    chunk_duration: Optional[timedelta] = None
+    chunk_nobs: int | None = None
+    chunk_duration: timedelta | None = None
     nsplits: int = 8
     name: str = "time_null_test_workflow"
 
     def _get_splits(
-        self, ctx: Context, obs_info: Dict[str, Dict[str, Union[float, str]]]
-    ) -> List[List[str]]:
+        self, ctx: Context, obs_info: dict[str, dict[str, float | str]]
+    ) -> list[list[str]]:
         """
         Distribute the observations across splits based on the context and observation IDs.
         """
@@ -46,7 +45,7 @@ class TimeNullTestWorkflow(NullTestWorkflow):
         return splits
 
     @classmethod
-    def get_workflows(cls, desc=None) -> List[NullTestWorkflow]:
+    def get_workflows(cls, desc=None) -> list[NullTestWorkflow]:
         """
         Create a list of NullTestWorkflows instances from the provided descriptions.
         """
@@ -66,9 +65,8 @@ class TimeNullTestWorkflow(NullTestWorkflow):
             query_file = Path(desc["output_dir"]) / "query.txt"
             query_file.parent.mkdir(parents=True, exist_ok=True)
             with open(query_file, "w") as f:
-                for oid in split:
-                    f.write(f"{oid}\n")
-            desc["query"] = f"file://{str(query_file.absolute())}"
+                f.writelines(f"{oid}\n" for oid in split)
+            desc["query"] = f"file://{query_file.absolute()!s}"
             desc["chunk_nobs"] = 1
             workflow = NullTestWorkflow(**desc)
             workflows.append(workflow)

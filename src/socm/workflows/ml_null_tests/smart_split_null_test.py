@@ -1,7 +1,6 @@
 import warnings
 from math import ceil
 from pathlib import Path
-from typing import Dict, List, Optional, Union
 
 import numpy as np
 from scipy.ndimage import uniform_filter
@@ -27,7 +26,7 @@ _SMART_FIELDS = frozenset({
 def _label_unique(patterns: np.ndarray, atol: float) -> np.ndarray:
     """Assign integer labels so rows within *atol* of an existing centroid share a label."""
     labels = np.full(len(patterns), -1, dtype=int)
-    centroids: List[np.ndarray] = []
+    centroids: list[np.ndarray] = []
     for i, row in enumerate(patterns):
         for lid, cent in enumerate(centroids):
             if np.all(np.abs(row - cent) <= atol):
@@ -90,11 +89,11 @@ class SmartSplitNullTestWorkflow(NullTestWorkflow):
     nopt: int = 2000
     opt_mode: str = "linear"
     scanpat_tol: float = 1.0
-    constraint: Optional[str] = None
+    constraint: str | None = None
     rad: float = 0.7
     res: float = 0.5
     weight: str = "plain"
-    prefix: Optional[str] = None
+    prefix: str | None = None
     name: str = "smart_split_null_test_workflow"
 
     # ------------------------------------------------------------------
@@ -107,13 +106,13 @@ class SmartSplitNullTestWorkflow(NullTestWorkflow):
         return toks[0], float(toks[1]) if len(toks) > 1 else 1.0
 
     def _build_blocks(
-        self, obs_info: Dict[str, Dict[str, Union[float, str]]]
-    ) -> List[List[str]]:
+        self, obs_info: dict[str, dict[str, float | str]]
+    ) -> list[list[str]]:
         block_mode, block_size = self._parse_block_params()
         if block_mode == "tod":
             return [[oid] for oid in obs_info]
         elif block_mode == "day":
-            groups: Dict[int, List[str]] = {}
+            groups: dict[int, list[str]] = {}
             for oid, meta in obs_info.items():
                 key = int(int(meta["start_time"]) // 86400 // block_size)
                 groups.setdefault(key, []).append(oid)
@@ -126,7 +125,7 @@ class SmartSplitNullTestWorkflow(NullTestWorkflow):
     # ------------------------------------------------------------------
 
     def _get_anames(
-        self, obs_info: Dict[str, Dict[str, Union[float, str]]]
+        self, obs_info: dict[str, dict[str, float | str]]
     ):
         """Return ``(aname_per_obs, unique_array_list, obs_to_array_index)``."""
         base = f"{self.prefix}_arr" if self.prefix else "arr"
@@ -158,8 +157,8 @@ class SmartSplitNullTestWorkflow(NullTestWorkflow):
     # ------------------------------------------------------------------
 
     def _compute_scan_radec(
-        self, obs_info: Dict[str, Dict[str, Union[float, str]]]
-    ) -> Dict[str, tuple]:
+        self, obs_info: dict[str, dict[str, float | str]]
+    ) -> dict[str, tuple]:
         """Batch-convert all observation scan paths from AltAz to ICRS.
 
         Returns a dict mapping obs_id to ``(ra_deg_array, dec_deg_array)``.
@@ -176,11 +175,11 @@ class SmartSplitNullTestWorkflow(NullTestWorkflow):
             lat=city.latitude * u.deg, lon=city.longitude * u.deg, height=_SO_ALT * u.m
         )
 
-        obs_ids: List[str] = list(obs_info.keys())
-        all_az: List[np.ndarray] = []
-        all_el: List[np.ndarray] = []
-        all_t: List[np.ndarray] = []
-        npts_per_obs: List[int] = []
+        obs_ids: list[str] = list(obs_info.keys())
+        all_az: list[np.ndarray] = []
+        all_el: list[np.ndarray] = []
+        all_t: list[np.ndarray] = []
+        npts_per_obs: list[int] = []
 
         for oid in obs_ids:
             meta = obs_info[oid]
@@ -213,14 +212,14 @@ class SmartSplitNullTestWorkflow(NullTestWorkflow):
         ras: np.ndarray = np.asarray(icrs.ra.deg, dtype=np.float64)
         decs: np.ndarray = np.asarray(icrs.dec.deg, dtype=np.float64)
 
-        result: Dict[str, tuple] = {}
+        result: dict[str, tuple] = {}
         i = 0
         for oid, npts in zip(obs_ids, npts_per_obs):
             result[oid] = (ras[i:i + npts], decs[i:i + npts])
             i += npts
         return result
 
-    def _build_grid(self, scan_radec: Dict[str, tuple]):
+    def _build_grid(self, scan_radec: dict[str, tuple]):
         """Determine the RA/Dec grid parameters from all scan paths.
 
         Returns ``(ra_min, dec_min, ny, nx, ra_median)`` where
@@ -241,15 +240,15 @@ class SmartSplitNullTestWorkflow(NullTestWorkflow):
         dec_min = float(np.min(all_decs)) - pad
         dec_max = float(np.max(all_decs)) + pad
 
-        ny = max(1, int(ceil((dec_max - dec_min) / self.res)))
-        nx = max(1, int(ceil((ra_max - ra_min) / self.res)))
+        ny = max(1, ceil((dec_max - dec_min) / self.res))
+        nx = max(1, ceil((ra_max - ra_min) / self.res))
         return ra_min, dec_min, ny, nx, ra_med
 
     def _obs_hitmap(
         self,
         oid: str,
-        obs_info: Dict[str, Dict[str, Union[float, str]]],
-        scan_radec: Dict[str, tuple],
+        obs_info: dict[str, dict[str, float | str]],
+        scan_radec: dict[str, tuple],
         ra_min: float,
         dec_min: float,
         ny: int,
@@ -279,11 +278,11 @@ class SmartSplitNullTestWorkflow(NullTestWorkflow):
 
     def _build_block_hits(
         self,
-        blocks: List[List[str]],
-        obs_info: Dict[str, Dict[str, Union[float, str]]],
-        ais: Dict[str, int],
+        blocks: list[list[str]],
+        obs_info: dict[str, dict[str, float | str]],
+        ais: dict[str, int],
         narray: int,
-        scan_radec: Dict[str, tuple],
+        scan_radec: dict[str, tuple],
         ra_min: float,
         dec_min: float,
         ny: int,
@@ -352,7 +351,7 @@ class SmartSplitNullTestWorkflow(NullTestWorkflow):
     # ------------------------------------------------------------------
 
     def _load_constraint(
-        self, blocks: List[List[str]]
+        self, blocks: list[list[str]]
     ) -> np.ndarray:
         """Return block ownership array (``-1`` = free) from *constraint* dir."""
         block_ownership = np.full(len(blocks), -1, dtype=int)
@@ -383,8 +382,8 @@ class SmartSplitNullTestWorkflow(NullTestWorkflow):
     # ------------------------------------------------------------------
 
     def _get_splits(
-        self, ctx: Context, obs_info: Dict[str, Dict[str, Union[float, str]]]
-    ) -> List[List[str]]:
+        self, ctx: Context, obs_info: dict[str, dict[str, float | str]]
+    ) -> list[list[str]]:
         """Assign observations to *nsplits* balanced groups.
 
         Algorithm
@@ -398,7 +397,7 @@ class SmartSplitNullTestWorkflow(NullTestWorkflow):
         """
         if len(obs_info) < self.nsplits:
             obs_list = list(obs_info.keys())
-            splits: List[List[str]] = [[] for _ in range(self.nsplits)]
+            splits: list[list[str]] = [[] for _ in range(self.nsplits)]
             for i, oid in enumerate(obs_list):
                 splits[i % self.nsplits].append(oid)
             return splits
@@ -455,7 +454,7 @@ class SmartSplitNullTestWorkflow(NullTestWorkflow):
             split_hits[best] += bhits
             block_assignments[bi] = best
 
-        result: List[List[str]] = [[] for _ in range(self.nsplits)]
+        result: list[list[str]] = [[] for _ in range(self.nsplits)]
         for bi, block in enumerate(blocks):
             result[int(block_assignments[bi])].extend(block)
 
@@ -466,7 +465,7 @@ class SmartSplitNullTestWorkflow(NullTestWorkflow):
     # ------------------------------------------------------------------
 
     @classmethod
-    def get_workflows(cls, desc: Optional[dict] = None) -> List[NullTestWorkflow]:
+    def get_workflows(cls, desc: dict | None = None) -> list[NullTestWorkflow]:
         """Create one NullTestWorkflow per non-empty smart-split group."""
         smart_workflow = cls(**(desc or {}))
 
@@ -478,7 +477,7 @@ class SmartSplitNullTestWorkflow(NullTestWorkflow):
             if k not in _SMART_FIELDS
         }
 
-        workflows: List[NullTestWorkflow] = []
+        workflows: list[NullTestWorkflow] = []
         for split in smart_workflow._splits:
             if not split:
                 continue
@@ -490,8 +489,7 @@ class SmartSplitNullTestWorkflow(NullTestWorkflow):
             query_file = Path(desc_copy["output_dir"]) / "query.txt"
             query_file.parent.mkdir(parents=True, exist_ok=True)
             with open(query_file, "w") as fh:
-                for oid in split:
-                    fh.write(f"{oid}\n")
+                fh.writelines(f"{oid}\n" for oid in split)
             desc_copy["query"] = f"file://{query_file.absolute()!s}"
             desc_copy["chunk_nobs"] = 1
             workflows.append(NullTestWorkflow(**dict(desc_copy)))

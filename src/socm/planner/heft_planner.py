@@ -1,5 +1,3 @@
-from typing import Dict, List, Tuple
-
 import networkx as nx
 import numpy as np
 
@@ -19,16 +17,16 @@ class HeftPlanner(Planner):
         IEEE Transactions on Parallel and Distributed Systems, 13(3), 260-274.
 
     Attributes:
-        _estimated_walltime: List of estimated execution times (walltime) for each workflow
-        _estimated_cpus: List of estimated CPU requirements for each workflow
-        _estimated_memory: List of estimated memory requirements for each workflow
+        _estimated_walltime: list of estimated execution times (walltime) for each workflow
+        _estimated_cpus: list of estimated CPU requirements for each workflow
+        _estimated_memory: list of estimated memory requirements for each workflow
     """
 
     def __init__(
         self,
         campaign: Campaign | None = None,
         resources: Resource | None = None,
-        resource_requirements: Dict[int, Dict[str, float]] | None = None,
+        resource_requirements: dict[int, dict[str, float]] | None = None,
         policy: str | None = None,
         sid: str | None = None,
         objective: int | None = None
@@ -42,9 +40,9 @@ class HeftPlanner(Planner):
             objective=objective
         )
         # Initialize estimation tables (populated during planning)
-        self._estimated_walltime: List[float] = []
-        self._estimated_cpus: List[int] = []
-        self._estimated_memory: List[float] = []
+        self._estimated_walltime: list[float] = []
+        self._estimated_cpus: list[int] = []
+        self._estimated_memory: list[float] = []
 
     def _get_free_memory(self, start_time: float, num_nodes: float) -> float:
         """Calculate available memory at a given time.
@@ -64,7 +62,7 @@ class HeftPlanner(Planner):
         )
         return total_memory - used_memory
 
-    def _get_max_ncores(self, resource_requirements: Dict[int, Dict[str, float]]) -> int:
+    def _get_max_ncores(self, resource_requirements: dict[int, dict[str, float]]) -> int:
         """Get the maximum number of cores required by any single workflow."""
         return max(values["req_cpus"] for values in resource_requirements.values())
 
@@ -83,14 +81,14 @@ class HeftPlanner(Planner):
     def _binary_search_resources(
         self,
         campaign: DAG,
-        resource_requirements: Dict[int, Dict[str, float]],
+        resource_requirements: dict[int, dict[str, float]],
         lower_bound: int,
         upper_bound: int
-    ) -> Tuple[int, List[PlanEntry], nx.DiGraph] | None:
+    ) -> tuple[int, list[PlanEntry], nx.DiGraph] | None:
         """Binary search for minimum resources that satisfy the deadline.
 
         Returns:
-            Tuple of (ncores, plan, graph) if successful, None otherwise.
+            tuple of (ncores, plan, graph) if successful, None otherwise.
         """
         best_ncores = None
         best_plan = None
@@ -121,7 +119,7 @@ class HeftPlanner(Planner):
             return best_ncores, best_plan, best_graph
         return None
 
-    def _build_batch_subgraph(self, graph: nx.DiGraph, workflow_ids: List[int | None]) -> nx.DiGraph:
+    def _build_batch_subgraph(self, graph: nx.DiGraph, workflow_ids: list[int | None]) -> nx.DiGraph:
         """Extract the subgraph for a batch, dropping cross-batch edges.
 
         Args:
@@ -142,8 +140,8 @@ class HeftPlanner(Planner):
         return subgraph
 
     def _split_plan_into_batches(
-        self, plan: List[PlanEntry], graph: nx.DiGraph, max_walltime: float
-    ) -> List[Batch]:
+        self, plan: list[PlanEntry], graph: nx.DiGraph, max_walltime: float
+    ) -> list[Batch]:
         """Split a plan into batches where each batch fits within max_walltime.
 
         Entries are assigned to batches greedily by end_time. A new batch starts
@@ -157,11 +155,11 @@ class HeftPlanner(Planner):
             max_walltime: Maximum duration (in plan time units) per batch
 
         Returns:
-            List of Batch objects
+            list of Batch objects
         """
         sorted_plan = sorted(plan, key=lambda e: e.end_time)
-        batches: List[Batch] = []
-        current_batch: List[PlanEntry] = []
+        batches: list[Batch] = []
+        current_batch: list[PlanEntry] = []
         batch_start = 0.0
 
         for entry in sorted_plan:
@@ -193,7 +191,7 @@ class HeftPlanner(Planner):
     def _plan_with_qos_optimization(
         self,
         campaign: DAG,
-        resource_requirements: Dict[int, Dict[str, float]],
+        resource_requirements: dict[int, dict[str, float]],
         requested_resources: int,
     ) -> PlanResult:
         """Find optimal QoS and resource allocation for the campaign.
@@ -269,7 +267,7 @@ class HeftPlanner(Planner):
         return PlanResult(qos=best_qos, ncores=ncores, batches=batches)
 
     def _get_plan_graph(
-        self, plan: List[PlanEntry], resources: range
+        self, plan: list[PlanEntry], resources: range
     ) -> nx.DiGraph:
         """Build dependency graph from the execution plan.
 
@@ -311,7 +309,7 @@ class HeftPlanner(Planner):
     def plan(
         self,
         campaign: DAG | None = None,
-        resource_requirements: Dict[int, Dict[str, float]] | None = None,
+        resource_requirements: dict[int, dict[str, float]] | None = None,
         execution_schema: str | None = None,
         requested_resources: int | None = None
     ) -> PlanResult:
@@ -326,7 +324,7 @@ class HeftPlanner(Planner):
         ----------
         campaign : DAG | None
             The campaign DAG to plan
-        resource_requirements : Dict[int, Dict[str, float]] | None
+        resource_requirements : dict[int, dict[str, float]] | None
             Per-workflow resource requirements keyed by workflow ID.
         execution_schema : str | None
             'batch' for fixed resources, 'remote' for optimized allocation
@@ -347,7 +345,7 @@ class HeftPlanner(Planner):
     def _plan_batch_mode(
         self,
         campaign: DAG,
-        resource_requirements: Dict[int, Dict[str, float]],
+        resource_requirements: dict[int, dict[str, float]],
         requested_resources: int
     ) -> PlanResult:
         """Plan execution for batch mode with fixed resources (single batch, no QoS)."""
@@ -359,8 +357,8 @@ class HeftPlanner(Planner):
         self._logger.info(f"Plan to execute {plan} with {requested_resources} cores")
         return PlanResult(qos=None, ncores=requested_resources, batches=[Batch(plan=plan, graph=plan_graph)])
 
-    def _initialize_resource_estimates(self, resource_requirements: Dict[int, Dict[str, float]], widxs: List[int]
-    ) -> Dict[str, List[float]]:
+    def _initialize_resource_estimates(self, resource_requirements: dict[int, dict[str, float]], widxs: list[int]
+    ) -> dict[str, list[float]]:
         """Extract and store resource requirement estimates from workflows."""
         estimated_walltime = []
         estimated_cpus = []
@@ -374,11 +372,11 @@ class HeftPlanner(Planner):
                 "estimated_cpus": estimated_cpus,
                 "estimated_memory": estimated_memory}
 
-    def _get_sorted_workflow_indices(self, estimated_walltime: List[float]) -> List[int]:
+    def _get_sorted_workflow_indices(self, estimated_walltime: list[float]) -> list[int]:
         """Get workflow indices sorted by execution time (longest first).
 
         Returns:
-            List of workflow indices in descending order of execution time
+            list of workflow indices in descending order of execution time
         """
         return [
             idx for idx, _ in sorted(
@@ -389,7 +387,7 @@ class HeftPlanner(Planner):
         ]
 
     def _initialize_resource_free_times(
-        self, resources: range, start_time: float | int | list | np.ndarray
+        self, resources: range, start_time: float | list | np.ndarray
     ) -> np.ndarray:
         """Initialize array tracking when each resource becomes available.
 
@@ -410,22 +408,22 @@ class HeftPlanner(Planner):
     def _find_best_resource_slot(
         self,
         workflow_idx: int,
-        resource_requirements: Dict[str, List[float]],
+        resource_requirements: dict[str, list[float]],
         resources: range,
         resource_free: np.ndarray,
         earlier_start: float
-    ) -> Tuple[int, float]:
+    ) -> tuple[int, float]:
         """Find the best resource slot for a workflow.
 
         Args:
             workflow_idx: Index of the workflow to schedule
-            resource_requirements: Dict of estimated resource lists
+            resource_requirements: dict of estimated resource lists
             resources: Available resource cores
             resource_free: Array tracking when each core becomes available
             earlier_start: Earliest allowed start time (from dependency constraints)
 
         Returns:
-            Tuple of (best_core_index, earliest_start_time)
+            tuple of (best_core_index, earliest_start_time)
         """
         walltime = resource_requirements["estimated_walltime"][workflow_idx]
         memory_required = resource_requirements["estimated_memory"][workflow_idx]
@@ -465,9 +463,9 @@ class HeftPlanner(Planner):
         self,
         campaign: DAG | None = None,
         resources: range | None = None,
-        resource_requirements: Dict[int, Dict[str, float]] | None = None,
+        resource_requirements: dict[int, dict[str, float]] | None = None,
         start_time: float = 0.0,
-    ) -> Tuple[List[PlanEntry], nx.DiGraph]:
+    ) -> tuple[list[PlanEntry], nx.DiGraph]:
         """Implement the core HEFT scheduling algorithm.
 
         Args:
@@ -477,7 +475,7 @@ class HeftPlanner(Planner):
             start_time: Initial time or per-core availability times
 
         Returns:
-            Tuple of (execution_plan, dependency_graph)
+            tuple of (execution_plan, dependency_graph)
         """
         workflow_levels = campaign.levels if campaign else self._campaign.workflows.levels
 
@@ -488,7 +486,7 @@ class HeftPlanner(Planner):
         )
         resource_requirements = resource_requirements if resource_requirements else self._resource_requirements
         # Reset plan for fresh scheduling
-        self._plan: List[PlanEntry] = []
+        self._plan: list[PlanEntry] = []
 
         # Track when each core becomes available
         resource_free = self._initialize_resource_free_times(cores, start_time)
@@ -535,7 +533,7 @@ class HeftPlanner(Planner):
 
         # Sort plan by workflow ID for consistent ordering
         self._plan = sorted(self._plan, key=lambda entry: entry.workflow.id)
-        self._logger.debug("Potential plan %s", self._plan)
+        self._logger.debug("Potential plan {}", self._plan)
 
         return self._plan, plan_graph
 
@@ -543,9 +541,9 @@ class HeftPlanner(Planner):
         self,
         campaign: DAG | None = None,
         resources: range | None = None,
-        resource_requirements: Dict[int, Dict[str, float]] | None = None,
+        resource_requirements: dict[int, dict[str, float]] | None = None,
         start_time: float = 0.0,
-    ) -> Tuple[List[PlanEntry], nx.DiGraph]:
+    ) -> tuple[list[PlanEntry], nx.DiGraph]:
         """Recalculate the execution plan with updated parameters.
 
         Args:
@@ -555,7 +553,7 @@ class HeftPlanner(Planner):
             start_time: New start time or per-core availability
 
         Returns:
-            Tuple of (execution_plan, dependency_graph)
+            tuple of (execution_plan, dependency_graph)
         """
         if campaign and resources and resource_requirements:
             self._logger.debug("Replanning with updated parameters")
