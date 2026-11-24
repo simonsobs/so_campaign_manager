@@ -118,7 +118,8 @@ def _expand_matrix(
     ``environment``, and socm's own stage keys) values are always inserted as
     text; Pydantic converts them for typed fields. Everywhere else, i.e. in
     pass-through options and ``operators``, a whole-value placeholder naming
-    a boolean keeps the boolean.
+    a boolean keeps the boolean. ``script-kwargs`` entries become options of
+    their own, so each is classified by its own name rather than as a group.
 
     Parameters
     ----------

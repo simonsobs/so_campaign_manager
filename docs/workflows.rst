@@ -272,8 +272,11 @@ works for every workflow type.
   All of its keys become variables, and it must set the axis's own key.
 * **Booleans:** a boolean axis value placed as the whole value of a toast option or an
   ``operators`` entry stays a boolean, so ``sim_noise: ${noise}`` is still a toggle.
-  In declared fields, such as ``script-args`` and ``environment``, and inside longer
-  strings, it is inserted as text.
+  The same holds for a ``script-kwargs`` entry, since each entry becomes an option of
+  its own: ``equalize-time: ${equalize}`` gives ``--equalize-time`` when true and
+  nothing when false. In declared fields, such as ``script-args`` and ``environment``,
+  including declared fields given under ``script-kwargs``, and inside longer strings,
+  it is inserted as text.
 * **Dependencies:** ``depends: [parent]`` links each workflow to the workflows of the
   parent stage that have the same values on the axes the two stages share. In the
   example, each ``lat-signal`` run waits only for its own ``lat-noise`` run, and every
