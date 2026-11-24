@@ -14,7 +14,7 @@ from socm.enactor.base import Enactor
 from socm.utils.states import States
 
 states_map = {rp.DONE: States.DONE,
-              rp.CANCELED: States.CANCELED,
+              rp.CANCELED: States.FAILED,
               rp.FAILED: States.FAILED}
 
 
