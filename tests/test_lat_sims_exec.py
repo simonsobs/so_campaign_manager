@@ -369,3 +369,21 @@ def test_boolean_matrix_value_is_text_in_declared_fields(tmp_path):
     assert lat.sort_schedule is True  # a declared bool field: Pydantic converts the text
     assert lat.environment == {"NOISE": "True"}
     assert {"--sort_schedule", "--sim_noise.enable"} <= set(lat.get_arguments())
+
+
+def test_matrix_bool_in_script_kwargs_stays_a_flag(tmp_path):
+    """A boolean placeholder in script-kwargs gives a bare flag, or nothing when false."""
+    stage = {
+        "type": "get-schedule",
+        "output_dir": "/s/${equalize}.txt",
+        "matrix": {"equalize": [True, False], "day": [1]},
+        "script-kwargs": {"equalize-time": "${equalize}", "start": "2025-01-0${day}"},
+        "resources": dict(RESOURCES),
+    }
+    by_name = {w.name: w for w in build_dag(_config({"gs": stage}), tmp_path).workflows}
+
+    on, off = by_name["gs.True.1"].get_arguments(), by_name["gs.False.1"].get_arguments()
+    assert "--equalize-time" in on
+    assert not any(a.startswith("--equalize-time") for a in off)
+    assert "--start=2025-01-01 00:00:00" in on   # declared field still gets text
+    assert by_name["gs.True.1"].output_dir == "/s/True.txt"
