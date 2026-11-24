@@ -2,6 +2,7 @@ import copy
 import itertools
 import re
 from argparse import ArgumentParser, Namespace
+from collections.abc import Set as AbstractSet
 from pathlib import Path
 from string import Template
 from typing import Any
@@ -15,6 +16,9 @@ from socm.workflows import registered_workflows
 
 # Stage keys that keep their matrix placeholders as written.
 _NOT_SUBSTITUTED = {"type", "depends"}
+
+# Stage keys socm reads itself; like declared workflow fields, they get text.
+_TEXT_STAGE_KEYS = {"param-file", "base-path", "script-kwargs"}
 
 # A value that is nothing but one ``${var}`` (or ``$var``) placeholder.
 _WHOLE_PLACEHOLDER = re.compile(r"\$(?:\{(?P<braced>[_a-zA-Z][_a-zA-Z0-9]*)\}|(?P<named>[_a-zA-Z][_a-zA-Z0-9]*))")
@@ -58,30 +62,39 @@ def _resolve_path(value: str, config_dir: Path) -> str:
     return str(path.resolve())
 
 
-def _substitute(value: Any, variables: dict[str, Any]) -> Any:
+def _substitute(value: Any, variables: dict[str, Any], keep_bools: bool = False) -> Any:
     """
     Fill ``${var}`` placeholders in every string of ``value`` (nested dicts and
     lists included). Unknown names such as ``$SCRATCH`` are left as they are,
     and so is toast's own ``{wafer_slot}`` placeholder.
 
-    A placeholder that is the whole value and names a boolean gives the
-    boolean itself, so ``sim_noise: ${noise}`` still becomes an enable/disable
-    toggle. Inside a larger string, values are inserted as text.
+    Values are inserted as text. With ``keep_bools``, a placeholder that is
+    the whole value and names a boolean gives the boolean itself, so
+    ``sim_noise: ${noise}`` still becomes an enable/disable toggle.
     """
     if isinstance(value, str):
         match = _WHOLE_PLACEHOLDER.fullmatch(value)
         name = match and (match["braced"] or match["named"])
-        if name and isinstance(variables.get(name), bool):
+        if keep_bools and name and isinstance(variables.get(name), bool):
             return variables[name]
         return Template(value).safe_substitute(variables)
     if isinstance(value, dict):
-        return {k: _substitute(v, variables) for k, v in value.items()}
+        return {k: _substitute(v, variables, keep_bools) for k, v in value.items()}
     if isinstance(value, list):
-        return [_substitute(v, variables) for v in value]
+        return [_substitute(v, variables, keep_bools) for v in value]
     return value
 
 
-def _expand_matrix(stage_name: str, stage_config: dict) -> list[tuple[str, dict[str, Any], dict]]:
+def _field_keys(workflow_factory: type[Workflow]) -> set[str]:
+    """Names and aliases of the declared fields of a workflow class."""
+    keys = set(workflow_factory.model_fields)
+    keys.update(field.alias for field in workflow_factory.model_fields.values() if field.alias)
+    return keys
+
+
+def _expand_matrix(
+    stage_name: str, stage_config: dict, text_keys: AbstractSet[str] = frozenset()
+) -> list[tuple[str, dict[str, Any], dict]]:
     """
     Expand a stage into one workflow config per combination of its ``matrix``.
 
@@ -91,12 +104,20 @@ def _expand_matrix(stage_name: str, stage_config: dict) -> list[tuple[str, dict[
     is a copy of the stage with ``${var}`` filled in, except in ``type`` and
     ``depends``.
 
+    Under ``text_keys`` (declared workflow fields such as ``script-args`` or
+    ``environment``, and socm's own stage keys) values are always inserted as
+    text; Pydantic converts them for typed fields. Everywhere else, i.e. in
+    pass-through options and ``operators``, a whole-value placeholder naming
+    a boolean keeps the boolean.
+
     Parameters
     ----------
     stage_name : str
         Name of the stage; workflows are named ``<stage>.<v1>.<v2>...``.
     stage_config : dict
         The stage from the YAML config. It is not modified.
+    text_keys : set of str, optional
+        Stage keys whose values are always substituted as text.
 
     Returns
     -------
@@ -125,7 +146,7 @@ def _expand_matrix(stage_name: str, stage_config: dict) -> list[tuple[str, dict[
         variables.update(axis_values)
 
         workflow_config = {
-            key: value if key in _NOT_SUBSTITUTED else _substitute(value, variables)
+            key: value if key in _NOT_SUBSTITUTED else _substitute(value, variables, key not in text_keys)
             for key, value in stage_config.items()
             if key != "matrix"
         }
@@ -220,7 +241,8 @@ def build_dag(config: dict, config_dir: Path) -> DAG:
             )
 
         stages[stage_name] = []
-        for name, axis_values, workflow_config in _expand_matrix(stage_name, stage_config):
+        text_keys = _field_keys(registered_workflows[workflow_type]) | _TEXT_STAGE_KEYS
+        for name, axis_values, workflow_config in _expand_matrix(stage_name, stage_config, text_keys):
             if name in names:
                 raise ValueError(f"Stage '{stage_name}': more than one workflow is named '{name}'")
             names.add(name)

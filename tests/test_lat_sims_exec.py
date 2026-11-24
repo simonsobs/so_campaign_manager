@@ -340,3 +340,32 @@ def test_empty_matrix_is_no_matrix(tmp_path):
         assert workflow.name == "lat"
         assert "matrix" not in workflow.model_dump()
         assert not any(arg.startswith("--matrix") for arg in workflow.get_arguments())
+
+
+def test_boolean_matrix_value_is_text_in_declared_fields(tmp_path):
+    """script-args (list[str]) and environment (dict[str, str]) receive text; toast options keep the boolean."""
+    stages = {
+        "split": _shell_stage(
+            "split.sh",
+            matrix={"noise": [True, False]},
+            **{"script-args": ["${noise}"]},
+            environment={"NOISE": "${noise}"},
+        ),
+        "lat": _lat_stage(
+            {"noise": [True]},
+            output_dir="/out",
+            sort_schedule="${noise}",
+            sim_noise="${noise}",
+            environment={"NOISE": "$noise"},
+        ),
+    }
+    by_name = {w.name: w for w in build_dag(_config(stages), tmp_path).workflows}
+
+    split_on = by_name["split.True"]
+    assert split_on.script_args == ["True"]
+    assert split_on.environment == {"NOISE": "True"}
+    assert by_name["split.False"].get_arguments()[1:] == ["False"]
+    lat = by_name["lat.True"]
+    assert lat.sort_schedule is True  # a declared bool field: Pydantic converts the text
+    assert lat.environment == {"NOISE": "True"}
+    assert {"--sort_schedule", "--sim_noise.enable"} <= set(lat.get_arguments())
