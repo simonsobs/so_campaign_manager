@@ -91,6 +91,11 @@ class LATSimWorkflow(Workflow):
     ``--op.trait=value`` and a boolean ``"op.trait": bool`` for toast's
     ``--op.trait``/``--op.no_trait``. Those options can come from a par file,
     from flat keys in the stage config, or from an ``operators`` mapping.
+
+    Toast defines one flag per boolean trait, the one that changes its
+    default: ``--op.trait`` when the default is False, ``--op.no_trait`` when
+    it is True. Set a boolean trait only to the opposite of its default;
+    otherwise toast rejects the flag as unrecognized.
     """
 
     output_dir: str
