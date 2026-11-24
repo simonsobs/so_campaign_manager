@@ -426,3 +426,39 @@ def test_monitor_does_not_record_failed_workflows():
 
     assert bk._workflows_to_monitor == []
     bk._record.assert_called_once_with(wf1)
+
+
+@patch("socm.bookkeeper.bookkeeper.sleep", lambda _: mt.Event().wait(0.01))
+def test_shutdown_does_not_hang_with_a_failed_workflow_and_a_running_sibling():
+    """
+    The enactor stops reporting states on terminate(), so a sibling that is still
+    running never reaches a final state. Shutdown must not wait for it.
+    """
+    wf1, wf2 = _wf(1), _wf(2)
+    bk = _make_bk([])
+    bk._campaign["campaign"].workflows = [wf1, wf2]
+
+    def work():
+        with bk._monitor_lock:
+            bk._workflows_to_monitor += [wf1, wf2]
+            bk._unavail_resources += [(range(2), 1), (range(2), 1)]
+        bk.state_update_cb(workflow_ids=[2], new_state=States.EXECUTING)
+        bk.state_update_cb(workflow_ids=[1], new_state=States.FAILED)
+        bk._planning_done.set()
+    bk.work = work
+
+    runner = mt.Thread(target=bk.run, daemon=True)
+    runner.start()
+    runner.join(timeout=5)
+    hung = runner.is_alive()
+    if hung:
+        # Let a stuck monitor thread exit, so it does not block the test session.
+        with bk._monitor_lock:
+            bk._workflows_to_monitor.clear()
+        runner.join(timeout=5)
+
+    assert not hung, "Bookkeeper.run() did not return after a workflow failed"
+    assert bk.get_campaign_state() == States.FAILED
+    assert bk._workflows_state[2] == States.EXECUTING
+    bk._enactor.terminate.assert_called_once()
+    assert not bk._monitoring_thread.is_alive()

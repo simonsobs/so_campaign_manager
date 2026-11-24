@@ -512,7 +512,7 @@ class Bookkeeper:
         """
         self._logger.info("Monitor thread started")
         while not self._terminate_event.is_set():
-            while self._workflows_to_monitor:
+            while self._workflows_to_monitor and not self._terminate_event.is_set():
                 self._prof.prof("workflow_monitor", uid=self._uid)
                 with self._monitor_lock:
                     workflows_snapshot = list(self._workflows_to_monitor)
