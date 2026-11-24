@@ -105,7 +105,7 @@ def _expand_matrix(stage_name: str, stage_config: dict) -> list[tuple[str, dict[
         A stage without a matrix gives a single entry named after the stage.
     """
     matrix = stage_config.get("matrix")
-    if not matrix:
+    if matrix is None or matrix == {}:
         # `matrix: {}` or `matrix: null` means no matrix; the key must not reach the workflow.
         return [(stage_name, {}, {k: copy.deepcopy(v) for k, v in stage_config.items() if k != "matrix"})]
     if not isinstance(matrix, dict) or not all(isinstance(v, list) and v for v in matrix.values()):
