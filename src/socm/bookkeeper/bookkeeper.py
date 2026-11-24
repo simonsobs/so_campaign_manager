@@ -400,8 +400,14 @@ class Bookkeeper:
                 self._campaign["state"] = States.FAILED
         else:
             for plan_batch in self._plan_result.batches:
-                if self._terminate_event.is_set():
-                    break
+                # Checked under the lock run() sets final states with, so a
+                # campaign that just failed never starts another batch.
+                with self._exec_state_lock:
+                    if self._terminate_event.is_set() or self._campaign["state"] in CFINAL:
+                        break
+                    if self._campaign["state"] != States.EXECUTING:
+                        self._campaign["state"] = States.EXECUTING
+                        self._logger.debug("Campaign state to EXECUTING")
 
                 wf_id_lookup = {plan_entry.workflow.id: plan_entry for plan_entry in plan_batch.plan}
                 self._update_checkpoints(plan_batch.plan)
@@ -421,11 +427,6 @@ class Bookkeeper:
                     cores=self._plan_result.ncores,
                     execution_schema=self._campaign["campaign"].execution_schema,
                 )
-
-                with self._exec_state_lock:
-                    if self._campaign["state"] != States.EXECUTING:
-                        self._campaign["state"] = States.EXECUTING
-                        self._logger.debug("Campaign state to EXECUTING")
 
                 self._current_batch_wf_ids = set(plan_batch.graph.nodes())
                 self._batch_finished.clear()
@@ -577,13 +578,12 @@ class Bookkeeper:
         self._logger.info("Start terminating procedure")
         self._prof.prof("str_bookkeper_terminating", uid=self._uid)
 
-        # Terminate enactor as well.
+        # Stop the threads first, so work() cannot start another batch while
+        # the enactor shuts down.
+        self._terminate_event.set()
+
         self._enactor.terminate()
-
-        # Terminate your threads.
         self._logger.debug("Enactor terminated, terminating threads")
-
-        self._terminate_event.set()  # Thread event to terminate.
 
         self._prof.prof("monitor_bookkeper_terminate", uid=self._uid)
         if self._monitoring_thread:
@@ -629,25 +629,30 @@ class Bookkeeper:
 
             self._prof.prof("bookkeper_wait", uid=self._uid)
             while self._campaign["state"] not in CFINAL:
-                # Check if all workflows are in a final state.
-                cont = False
+                # Check if all workflows are in a final state. The lock keeps
+                # work() from starting another batch while the state changes.
+                with self._exec_state_lock:
+                    cont = False
 
-                for workflow in self._campaign["campaign"].workflows:
-                    if self._workflows_state[workflow.id] is States.FAILED:
-                        self._campaign["state"] = States.FAILED
-                        break
-                    elif self._workflows_state[workflow.id] not in CFINAL:
-                        cont = True
+                    for workflow in self._campaign["campaign"].workflows:
+                        if self._workflows_state[workflow.id] is States.FAILED:
+                            self._campaign["state"] = States.FAILED
+                            break
+                        elif self._workflows_state[workflow.id] not in CFINAL:
+                            cont = True
 
-                if (
-                    self._campaign["state"] is not States.FAILED
-                    and not cont
-                    and not self._workflows_to_monitor
-                ):
+                    if (
+                        self._campaign["state"] is not States.FAILED
+                        and not cont
+                        and not self._workflows_to_monitor
+                    ):
+                        self._campaign["state"] = States.DONE
+                if self._campaign["state"] not in CFINAL:
+                    sleep(0.1)  # Outside the lock, so callbacks can update states.
+
+            with self._exec_state_lock:
+                if self._campaign["state"] not in CFINAL:
                     self._campaign["state"] = States.DONE
-
-            if self._campaign["state"] not in CFINAL:
-                self._campaign["state"] = States.DONE
             self._prof.prof("bookkeper_stopping", uid=self._uid)
         except Exception:
             # Top level of the bookkeeper thread: log any failure and always terminate.

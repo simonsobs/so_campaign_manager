@@ -485,3 +485,38 @@ def test_monitor_records_workflows_that_finished_during_shutdown():
     bk._record.assert_called_once_with(wf1)
     assert bk._workflows_to_monitor == [wf2]
     assert bk._unavail_resources == [(range(2, 4), 1)]
+
+
+@patch("socm.bookkeeper.bookkeeper.sleep")
+def test_work_does_not_start_a_queued_batch_after_the_campaign_failed(mock_sleep):
+    """
+    run() marks the campaign FAILED and starts shutdown while work() finishes a
+    batch. The next batch must not be set up, and FAILED must not be overwritten.
+    """
+    wf1, wf2 = _wf(1), _wf(2)
+    full_plan = [_entry(wf1, 0, 30), _entry(wf2, 30, 60)]
+    bk = _make_bk([_batch(full_plan, [1]), _batch(full_plan, [2])])
+
+    def mock_enact(workflows):
+        bk.state_update_cb(workflow_ids=[w.id for w in workflows], new_state=States.FAILED)
+        with bk._exec_state_lock:   # what run() does when it sees the failure
+            bk._campaign["state"] = States.FAILED
+    bk._enactor.enact.side_effect = mock_enact
+
+    bk.work()
+
+    bk._enactor.setup.assert_called_once()   # only the first batch
+    bk._enactor.enact.assert_called_once_with(workflows=[wf1])
+    assert bk._campaign["state"] == States.FAILED
+
+
+def test_terminate_signals_the_threads_before_shutting_down_the_enactor():
+    bk = _make_bk([])
+    bk._monitoring_thread = None
+    bk._work_thread = None
+    event_set_when_enactor_terminated = []
+    bk._enactor.terminate.side_effect = lambda: event_set_when_enactor_terminated.append(bk._terminate_event.is_set())
+
+    bk.terminate()
+
+    assert event_set_when_enactor_terminated == [True]
