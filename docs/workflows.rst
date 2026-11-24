@@ -121,6 +121,166 @@ Power spectrum estimation workflow using PSpipe.
 * Scales with the number of map products being cross-correlated
 * Some stages (e.g. mode-coupling matrix) are MPI-parallel and benefit from many ranks
 
+LAT Simulations
+~~~~~~~~~~~~~~~
+
+LAT simulation campaigns are described as a DAG of stages in a YAML file and run
+with ``socm lat-sims``:
+
+.. code-block:: bash
+
+   socm lat-sims -y lat_campaign.yml            # add --dry-run to plan without running
+
+**Purpose:** Generate an observing schedule, split it, and run ``toast_so_sim`` for
+every split, band, tube and signal component, with each signal run waiting for the
+noise run it loads noise matrices from.
+
+**Workflow types** (selected with a stage's ``type``; the stage name is used when
+``type`` is not given):
+
+* ``get-schedule``: runs ``toast_ground_schedule``. Its options usually come from a
+  par file; ``output_dir`` is passed as ``--out``.
+* ``shell-script``: runs ``bash <script> <script-args...>``. Use it for steps that have
+  no workflow class of their own, such as splitting the schedule. Only ``bash`` is
+  needed on the compute node.
+* ``lat-sims``: runs ``toast_so_sim``. Typed fields are ``output_dir`` (``--out``),
+  ``config``, ``schedule``, ``sort_schedule``, ``bands``, ``tube_slots``,
+  ``sample_rate`` and ``job_group_size`` (default 1). Every other key is passed
+  through as a toast option.
+
+**Stage keys** read by socm itself:
+
+* ``type``: the workflow type, see above.
+* ``param-file``: an argparse ``@file``, one argument per line. Relative paths are
+  resolved against the YAML file's directory.
+* ``base-path``: the directory the task sandboxes are created in; defaults to the
+  campaign's ``base-path``, otherwise RADICAL-Pilot's own sandbox.
+* ``depends``: names of the stages this stage waits for.
+* ``resources``: ``memory``, ``ranks``, ``threads`` and ``runtime``. ``ranks`` is the
+  total number of MPI ranks, e.g. 272 for 17 nodes with 16 ranks of 7 threads each.
+* ``matrix``: expands the stage into several workflows, see below.
+
+**Configuration Example:**
+
+.. code-block:: yaml
+
+   campaign:
+     deadline: 48h
+     resource: tiger3
+     execution_schema: remote
+     requested_resources: 1904
+
+   stages:
+     get-schedule:
+       param-file: ./schedule_param.par
+       output_dir: /scratch/lat/schedules/schedule_lat.txt
+       resources: {memory: 48G, ranks: 1, threads: 8, runtime: 10m}
+
+     split-schedule:
+       type: shell-script
+       script: ./scripts/split_schedule_months.sh
+       script-args: [/scratch/lat/schedules/schedule_lat.txt, /scratch/lat/split, "4", "10"]
+       depends: [get-schedule]
+       resources: {memory: 1G, ranks: 1, threads: 1, runtime: 5m}
+
+     lat-noise:
+       type: lat-sims
+       matrix:
+         split: [1, 2, 3, 4]
+         tube: [i6, i1, i3, i4]
+         band:
+           - {band: LAT_f090, alpha: "2.654"}
+           - {band: LAT_f150, alpha: "2.744"}
+       executable: /path/to/env/bin/toast_so_sim
+       config: /path/to/mss-0003_lat.yaml
+       schedule: /scratch/lat/split/schedule.${split}.txt
+       sort_schedule: true
+       bands: ${band}
+       tube_slots: ${tube}
+       output_dir: /scratch/lat/out/${band}/${tube}/split_${split}/noise
+       operators:
+         sim_noise: true
+         common_mode_noise: {enable: true, alpha: "${alpha}", NET: 'Quantity("0.0004304 K s(1/2)")'}
+         mlmapmaker: {nmat_dir: /scratch/lat/out/${band}/${tube}/split_${split}/noise/nmats, nmat_mode: cache}
+       depends: [split-schedule]
+       resources: {memory: 8000G, ranks: 272, threads: 7, runtime: 40h}
+
+     lat-signal:
+       type: lat-sims
+       matrix:
+         split: [1, 2, 3, 4]
+         tube: [i6, i1, i3, i4]
+         band: [LAT_f090, LAT_f150]
+         comp: [cmb, foreground]
+       param-file: ./signal.par
+       schedule: /scratch/lat/split/schedule.${split}.txt
+       bands: ${band}
+       tube_slots: ${tube}
+       output_dir: /scratch/lat/out/${band}/${tube}/split_${split}/${comp}
+       scan_alm.file: /scratch/lat/input_maps/${comp}_alm_${band}_{wafer_slot}.healpix.fits
+       mlmapmaker.nmat_dir: /scratch/lat/out/${band}/${tube}/split_${split}/noise/nmats
+       depends: [lat-noise]   # each run waits for the noise run of its own split, tube and band
+       resources: {memory: 8000G, ranks: 34, threads: 56, runtime: 45h}
+
+Paths shared between stages should be absolute: every task runs in its own sandbox.
+
+**Toast options.** A ``lat-sims`` option can be given in three equivalent forms, and
+all three produce the same command line:
+
+* in a par file: ``--sim_noise.enable``, ``--mlmapmaker.nmat_mode=load``;
+* as flat keys under its command-line name: ``sim_noise: true``,
+  ``mlmapmaker.nmat_mode: load``;
+* in an ``operators`` mapping: ``operators: {sim_noise: true, mlmapmaker: {nmat_mode: load}}``.
+
+They are written out as follows:
+
+* An operator name set to a boolean (``sim_noise: true``, or ``enable:`` inside
+  ``operators``) becomes ``--op.enable`` or ``--op.disable``.
+* A boolean trait (``mlmapmaker.deslope: false``) becomes toast's ``--op.trait`` or
+  ``--op.no_trait``. Toast only defines the flag that changes the trait's default, so
+  set a boolean trait only to the opposite of its default.
+* Any other value becomes ``--op.trait=value``. Values containing spaces or quotes,
+  such as ``Quantity("0.0004 K s(1/2)")``, need no extra shell quoting.
+* A list, e.g. an option repeated in a par file, becomes one argument per item.
+* ``sort_schedule`` is a plain flag, written only when true.
+
+**Precedence:**
+
+* The stage overrides its par file, whatever form either uses: a stage
+  ``output_dir`` beats ``--out`` in the par file, and stage ``operators`` beat flat
+  options in the par file.
+* Within one source, flat keys beat ``operators``.
+* Within a par file, the last occurrence of an option wins. This includes
+  ``--op.trait`` against ``--op.no_trait``. For a typed field, such as
+  ``sample_rate``, the last value is kept even across ``@include`` files.
+
+Stage Matrices
+^^^^^^^^^^^^^^
+
+A ``matrix`` expands one stage into a workflow per combination of its values. It
+works for every workflow type.
+
+* **Axes:** the matrix maps axis names to lists, and the workflows are their cartesian
+  product, in key order. They are named ``<stage>.<v1>.<v2>...``, e.g.
+  ``lat-noise.1.i6.LAT_f090``. An empty or ``null`` matrix means no matrix.
+* **Placeholders:** ``${axis}`` (or ``$axis``) is replaced in every string of the
+  stage, nested ``operators`` and the ``param-file`` path included, but not in
+  ``type`` and ``depends``. Unknown names, such as ``$SCRATCH``, are left as they are,
+  and so is toast's own ``{wafer_slot}`` placeholder. Placeholders are not filled in
+  inside par files, so values that change per workflow belong in the stage.
+* **Mapping rows:** a row can be a mapping, such as ``{band: LAT_f090, alpha: "2.654"}``.
+  All of its keys become variables, and it must set the axis's own key.
+* **Booleans:** a boolean axis value placed as the whole value of a toast option or an
+  ``operators`` entry stays a boolean, so ``sim_noise: ${noise}`` is still a toggle.
+  In declared fields, such as ``script-args`` and ``environment``, and inside longer
+  strings, it is inserted as text.
+* **Dependencies:** ``depends: [parent]`` links each workflow to the workflows of the
+  parent stage that have the same values on the axes the two stages share. In the
+  example, each ``lat-signal`` run waits only for its own ``lat-noise`` run, and every
+  ``lat-noise`` run waits for ``split-schedule``. A stage that shares no axes with its
+  parent waits for all of the parent's workflows. A workflow with no matching parent
+  is an error.
+
 ML Null Tests
 ~~~~~~~~~~~~~
 
