@@ -18,7 +18,7 @@ from socm.workflows import registered_workflows
 _NOT_SUBSTITUTED = {"type", "depends"}
 
 # Stage keys socm reads itself; like declared workflow fields, they get text.
-_TEXT_STAGE_KEYS = {"param-file", "base-path", "script-kwargs"}
+_TEXT_STAGE_KEYS = {"param-file", "base-path"}
 
 # A value that is nothing but one ``${var}`` (or ``$var``) placeholder.
 _WHOLE_PLACEHOLDER = re.compile(r"\$(?:\{(?P<braced>[_a-zA-Z][_a-zA-Z0-9]*)\}|(?P<named>[_a-zA-Z][_a-zA-Z0-9]*))")
@@ -92,6 +92,16 @@ def _field_keys(workflow_factory: type[Workflow]) -> set[str]:
     return keys
 
 
+def _substitute_stage_key(key: str, value: Any, variables: dict[str, Any], text_keys: AbstractSet[str]) -> Any:
+    """Substitute one stage key, keeping booleans only where the key is a pass-through option."""
+    if key in _NOT_SUBSTITUTED:
+        return value
+    if key == "script-kwargs" and isinstance(value, dict):
+        # Its entries become workflow options, so each is classified like a stage key.
+        return {k: _substitute(v, variables, k not in text_keys) for k, v in value.items()}
+    return _substitute(value, variables, key not in text_keys)
+
+
 def _expand_matrix(
     stage_name: str, stage_config: dict, text_keys: AbstractSet[str] = frozenset()
 ) -> list[tuple[str, dict[str, Any], dict]]:
@@ -146,7 +156,7 @@ def _expand_matrix(
         variables.update(axis_values)
 
         workflow_config = {
-            key: value if key in _NOT_SUBSTITUTED else _substitute(value, variables, key not in text_keys)
+            key: _substitute_stage_key(key, value, variables, text_keys)
             for key, value in stage_config.items()
             if key != "matrix"
         }
