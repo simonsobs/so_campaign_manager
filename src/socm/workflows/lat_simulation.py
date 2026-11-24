@@ -11,8 +11,8 @@ _OPTION_TO_FIELD = {
     "out": "output_dir",
 }
 
-# toast_so_sim options that are plain flags. Every other boolean is an
-# operator toggle and becomes --<op>.enable / --<op>.disable.
+# toast_so_sim options that are plain flags. Every other boolean without a
+# dot is an operator toggle and becomes --<op>.enable / --<op>.disable.
 _FLAGS = {
     "sort_schedule",
 }
@@ -55,15 +55,42 @@ def _flatten_operators(operators: dict[str, Any]) -> dict[str, Any]:
     return options
 
 
+def _canonical_traits(options: dict[str, Any]) -> dict[str, Any]:
+    """
+    Store toast's negative boolean trait options under the trait name:
+    ``{"op.no_trait": True}`` becomes ``{"op.trait": False}``.
+
+    Raises
+    ------
+    ValueError
+        If ``options`` sets both forms of a trait to different values.
+    """
+    result: dict[str, Any] = {}
+    negated: dict[str, bool] = {}
+    for key, value in options.items():
+        op, no, trait = key.partition(".no_")
+        if no and op and trait and isinstance(value, bool):
+            negated[f"{op}.{trait}"] = not value
+        else:
+            result[key] = value
+    for key, value in negated.items():
+        if key in result and result[key] != value:
+            op, _, trait = key.partition(".")
+            raise ValueError(f"'{key}' and '{op}.no_{trait}' are both set and disagree")
+        result[key] = value
+    return result
+
+
 class LATSimWorkflow(Workflow):
     """
     A workflow for simulating LAT observations with ``toast_so_sim``.
 
     Only the options every LAT run sets are fields. Any other toast option is
     passed through under its command-line name: ``op: bool`` for
-    ``--op.enable``/``--op.disable`` and ``"op.trait": value`` for
-    ``--op.trait=value``. Those options can come from a par file, from flat
-    keys in the stage config, or from an ``operators`` mapping.
+    ``--op.enable``/``--op.disable``, ``"op.trait": value`` for
+    ``--op.trait=value`` and a boolean ``"op.trait": bool`` for toast's
+    ``--op.trait``/``--op.no_trait``. Those options can come from a par file,
+    from flat keys in the stage config, or from an ``operators`` mapping.
     """
 
     output_dir: str
@@ -77,22 +104,29 @@ class LATSimWorkflow(Workflow):
     sample_rate: int | None = None
     job_group_size: int = 1
 
-    @model_validator(mode="before")
     @classmethod
-    def _normalize_options(cls, data: Any) -> Any:
+    def normalize_options(cls, options: dict[str, Any]) -> dict[str, Any]:
         """
         Map toast_so_sim option names to fields (``--out`` -> ``output_dir``)
-        and flatten an ``operators`` mapping into option names. Flat keys
-        given next to ``operators`` take precedence.
+        and flatten an ``operators`` mapping into option names. Within one
+        source, flat keys given next to ``operators`` take precedence.
+
+        Boolean traits are stored under the trait name, so toast's negative
+        form ``"op.no_trait": True`` becomes ``"op.trait": False`` and can be
+        overridden by the stage. Flat and nested options are canonicalized
+        separately before merging, so the flat key wins in either form.
         """
-        if isinstance(data, dict):
-            data = dict(data)
-            for option, field in _OPTION_TO_FIELD.items():
-                if option in data:
-                    data[field] = data.pop(option)
-            for key, value in _flatten_operators(data.pop("operators", None) or {}).items():
-                data.setdefault(key, value)
-        return data
+        options = dict(options)
+        for option, field in _OPTION_TO_FIELD.items():
+            if option in options:
+                options[field] = options.pop(option)
+        nested = _canonical_traits(_flatten_operators(options.pop("operators", None) or {}))
+        return {**nested, **_canonical_traits(options)}
+
+    @model_validator(mode="before")
+    @classmethod
+    def _normalize(cls, data: Any) -> Any:
+        return cls.normalize_options(data) if isinstance(data, dict) else data
 
     def get_command(self, **kargs: Any) -> str:
         """
@@ -136,6 +170,10 @@ class LATSimWorkflow(Workflow):
                 if k in _FLAGS:
                     if v:
                         arguments.append(f"--{k}")
+                elif "." in k:
+                    # A boolean trait: toast's --op.trait / --op.no_trait.
+                    op, _, trait = k.partition(".")
+                    arguments.append(f"--{op}.{trait}" if v else f"--{op}.no_{trait}")
                 else:
                     arguments.append(f"--{k}.enable" if v else f"--{k}.disable")
                 continue

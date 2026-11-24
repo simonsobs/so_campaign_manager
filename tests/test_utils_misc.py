@@ -311,3 +311,13 @@ def test_read_par_file_stray_value_raises(tmp_path):
     par.write_text("stray_value\n")
     with pytest.raises(ValueError, match="stray_value"):
         read_par_file(par)
+
+
+def test_read_par_file_trait_flags_resolve_in_token_order(tmp_path):
+    """--op.trait and --op.no_trait are one option; the last flag in the file wins."""
+    par = tmp_path / "sim.par"
+    par.write_text("--mapmaker.write_map\n--mapmaker.no_write_map\n")
+    assert read_par_file(par) == {"mapmaker.write_map": False}
+
+    par.write_text("--mapmaker.no_write_map\n--mapmaker.write_map\n")
+    assert read_par_file(par) == {"mapmaker.write_map": True}

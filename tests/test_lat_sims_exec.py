@@ -1,3 +1,6 @@
+import copy
+from pathlib import Path
+
 import pytest
 import yaml
 
@@ -137,3 +140,250 @@ def test_lat_sims_stage_with_par_file(tmp_path):
     assert "--mlmapmaker.nmat_mode=load" in arguments  # stage wins
     assert "--mlmapmaker.nmat_mode=cache" not in arguments
     assert "--tube_slots=i6" in arguments
+
+
+MID_BANDS = [
+    {"band": "LAT_f090", "cmn_alpha": "2.654"},
+    {"band": "LAT_f150", "cmn_alpha": "2.744"},
+]
+
+
+def _lat_stage(matrix, **extra):
+    return {
+        "type": "lat-sims",
+        "matrix": matrix,
+        "output_dir": "/out/${band}/split_${split}",
+        "resources": dict(RESOURCES),
+        **extra,
+    }
+
+
+def _parents(dag, workflow):
+    by_id = {w.id: w for w in dag.workflows}
+    return sorted(by_id[i].name for i in dag.graph.predecessors(workflow.id))
+
+
+def test_matrix_expands_to_one_workflow_per_combination(tmp_path):
+    stage = _lat_stage(
+        {"split": [1, 2], "tube": ["i6", "i1"], "band": MID_BANDS},
+        schedule="/s/schedule.${split}.txt",
+        tube_slots="${tube}",
+        bands="${band}",
+        operators={
+            "common_mode_noise": {"enable": True, "alpha": "${cmn_alpha}"},
+            "scan_alm": {"enable": True, "file": "$SCRATCH/maps/{wafer_slot}_${band}.fits"},
+        },
+    )
+    dag = build_dag(_config({"lat-noise": stage}), tmp_path)
+    by_name = {w.name: w for w in dag.workflows}
+
+    assert len(by_name) == 8
+    assert "lat-noise.1.i6.LAT_f090" in by_name
+    arguments = by_name["lat-noise.2.i1.LAT_f150"].get_arguments()
+    assert arguments[:2] == ["--out", "/out/LAT_f150/split_2"]
+    assert "--schedule=/s/schedule.2.txt" in arguments
+    assert "--tube_slots=i1" in arguments
+    assert "--common_mode_noise.alpha=2.744" in arguments  # from the matrix row
+    # Unknown names and toast's own placeholder are left alone.
+    assert "--scan_alm.file=$SCRATCH/maps/{wafer_slot}_LAT_f150.fits" in arguments
+    # Matrix variables are not workflow options.
+    assert not any(arg.startswith(("--split", "--tube=", "--band=", "--cmn_alpha")) for arg in arguments)
+
+
+def test_signal_runs_depend_on_their_own_noise_run(tmp_path):
+    stages = {
+        "split-schedule": _shell_stage("split.sh"),
+        "lat-noise": _lat_stage({"split": [1, 2], "band": MID_BANDS}, depends=["split-schedule"]),
+        "lat-signal": _lat_stage(
+            {"split": [1, 2], "band": MID_BANDS, "comp": ["cmb", "foreground"]}, depends=["lat-noise"]
+        ),
+    }
+    dag = build_dag(_config(stages), tmp_path)
+    by_name = {w.name: w for w in dag.workflows}
+
+    for name in ("lat-noise.1.LAT_f090", "lat-noise.2.LAT_f150"):
+        assert _parents(dag, by_name[name]) == ["split-schedule"]
+        assert by_name[name].depends == ["split-schedule"]
+    signal = by_name["lat-signal.2.LAT_f090.foreground"]
+    assert _parents(dag, signal) == ["lat-noise.2.LAT_f090"]
+    # The planner and Campaign look dependencies up by workflow name.
+    assert signal.depends == ["lat-noise.2.LAT_f090"]
+    assert all(len(_parents(dag, w)) == 1 for w in dag.workflows if w.name.startswith("lat-signal."))
+
+
+def test_stage_without_shared_axes_depends_on_every_run(tmp_path):
+    stages = {
+        "lat-noise": _lat_stage({"split": [1, 2], "band": MID_BANDS}),
+        "collect": _shell_stage("collect.sh", depends=["lat-noise"]),
+    }
+    dag = build_dag(_config(stages), tmp_path)
+    collect = next(w for w in dag.workflows if w.name == "collect")
+
+    assert _parents(dag, collect) == sorted(
+        f"lat-noise.{split}.{band}" for split in (1, 2) for band in ("LAT_f090", "LAT_f150")
+    )
+
+
+def test_param_file_path_is_substituted(tmp_path):
+    (tmp_path / "cmb.par").write_text("--scan_alm.enable\n")
+    (tmp_path / "foreground.par").write_text("--scan_alm.disable\n")
+    stage = _lat_stage({"comp": ["cmb", "foreground"]}, **{"param-file": "./${comp}.par"})
+    by_name = {w.name: w for w in build_dag(_config({"lat-signal": stage}), tmp_path).workflows}
+
+    assert "--scan_alm.enable" in by_name["lat-signal.cmb"].get_arguments()
+    assert "--scan_alm.disable" in by_name["lat-signal.foreground"].get_arguments()
+
+
+def test_unmatched_dependency_raises(tmp_path):
+    stages = {
+        "lat-noise": _lat_stage({"split": [1, 2]}),
+        "lat-signal": _lat_stage({"split": [3]}, depends=["lat-noise"]),
+    }
+    with pytest.raises(ValueError, match="'lat-signal.3' matches no workflow of stage 'lat-noise'"):
+        build_dag(_config(stages), tmp_path)
+
+
+def test_matrix_row_without_its_axis_key_raises(tmp_path):
+    stage = _lat_stage({"band": [{"cmn_alpha": "2.6"}]})
+    with pytest.raises(ValueError, match="every 'band' row of the matrix must set 'band'"):
+        build_dag(_config({"lat-noise": stage}), tmp_path)
+
+
+def test_matrix_with_empty_axis_raises(tmp_path):
+    with pytest.raises(ValueError, match="non-empty lists"):
+        build_dag(_config({"lat-noise": _lat_stage({"split": []})}), tmp_path)
+
+
+def test_build_dag_does_not_modify_the_config(tmp_path):
+    """Building twice gives the same DAG, also with resources shared through a YAML anchor."""
+    config = yaml.safe_load(
+        "campaign: {deadline: 1h}\n"
+        "x-res: &res {memory: 1G, ranks: 1, threads: 1, runtime: 5m}\n"
+        "stages:\n"
+        "  first: {type: shell-script, script: a.sh, resources: *res}\n"
+        "  second: {type: shell-script, script: b.sh, resources: *res}\n"
+        "  lat-noise:\n"
+        "    type: lat-sims\n"
+        "    matrix: {split: [1, 2]}\n"
+        "    output_dir: /out/${split}\n"
+        "    resources: *res\n"
+    )
+    snapshot = copy.deepcopy(config)
+
+    first = build_dag(config, tmp_path)
+    second = build_dag(config, tmp_path)
+
+    assert config == snapshot
+    assert [w.model_dump() for w in first.workflows] == [w.model_dump() for w in second.workflows]
+    assert {w.resources.memory for w in first.workflows} == {1000}
+
+
+def test_relative_config_dir_gives_absolute_script_path(tmp_path, monkeypatch):
+    """With ``-y configs/campaign.yml`` the script path must still be absolute for the task sandbox."""
+    monkeypatch.chdir(tmp_path)
+    dag = build_dag(_config({"split": _shell_stage("scripts/split.sh")}), Path("configs"))
+
+    assert dag.workflows[0].script == str(tmp_path / "configs" / "scripts" / "split.sh")
+
+
+def test_stage_overrides_par_file_whatever_form_each_uses(tmp_path):
+    """--out in the par file loses to the stage's output_dir; flat par options lose to the stage's operators."""
+    (tmp_path / "noise.par").write_text("--out=/old\n--mlmapmaker.nmat_mode=cache\n--sim_noise.enable\n")
+    stage = {
+        "type": "lat-sims",
+        "param-file": "./noise.par",
+        "output_dir": "/new",
+        "operators": {"mlmapmaker": {"nmat_mode": "load"}, "sim_noise": False},
+        "resources": dict(RESOURCES),
+    }
+    (workflow,) = build_dag(_config({"lat-noise": stage}), tmp_path).workflows
+    arguments = workflow.get_arguments()
+
+    assert arguments[:2] == ["--out", "/new"]
+    assert "--mlmapmaker.nmat_mode=load" in arguments
+    assert "--mlmapmaker.nmat_mode=cache" not in arguments
+    assert "--sim_noise.disable" in arguments
+    assert "--sim_noise.enable" not in arguments
+
+
+def test_stage_output_dir_overrides_get_schedule_par_out(tmp_path):
+    (tmp_path / "schedule.par").write_text("--out=/old/schedule.txt\n--equalize-time\n")
+    stage = {"param-file": "./schedule.par", "output_dir": "/new/schedule.txt", "resources": dict(RESOURCES)}
+    (workflow,) = build_dag(_config({"get-schedule": stage}), tmp_path).workflows
+
+    assert workflow.output_dir == "/new/schedule.txt"
+    assert workflow.get_arguments().count("--out") == 1
+
+
+def test_boolean_matrix_value_stays_boolean(tmp_path):
+    """A whole-value placeholder keeps the boolean, so it still becomes an enable/disable toggle."""
+    stage = _lat_stage(
+        {"noise": [True, False]},
+        output_dir="/out/noise_${noise}",
+        sim_sss="$noise",
+        operators={"sim_noise": "${noise}", "sim_atmosphere": {"enable": "${noise}"}},
+    )
+    by_name = {w.name: w for w in build_dag(_config({"lat": stage}), tmp_path).workflows}
+
+    on = by_name["lat.True"].get_arguments()
+    off = by_name["lat.False"].get_arguments()
+    assert {"--sim_noise.enable", "--sim_atmosphere.enable", "--sim_sss.enable"} <= set(on)
+    assert {"--sim_noise.disable", "--sim_atmosphere.disable", "--sim_sss.disable"} <= set(off)
+    assert on[:2] == ["--out", "/out/noise_True"]  # inside a larger string it is text
+    assert not any(arg.startswith("--sim_noise=") for arg in on + off)
+
+
+def test_empty_matrix_is_no_matrix(tmp_path):
+    for matrix in ({}, None):
+        (workflow,) = build_dag(_config({"lat": _lat_stage(matrix, output_dir="/out")}), tmp_path).workflows
+
+        assert workflow.name == "lat"
+        assert "matrix" not in workflow.model_dump()
+        assert not any(arg.startswith("--matrix") for arg in workflow.get_arguments())
+
+
+def test_boolean_matrix_value_is_text_in_declared_fields(tmp_path):
+    """script-args (list[str]) and environment (dict[str, str]) receive text; toast options keep the boolean."""
+    stages = {
+        "split": _shell_stage(
+            "split.sh",
+            matrix={"noise": [True, False]},
+            **{"script-args": ["${noise}"]},
+            environment={"NOISE": "${noise}"},
+        ),
+        "lat": _lat_stage(
+            {"noise": [True]},
+            output_dir="/out",
+            sort_schedule="${noise}",
+            sim_noise="${noise}",
+            environment={"NOISE": "$noise"},
+        ),
+    }
+    by_name = {w.name: w for w in build_dag(_config(stages), tmp_path).workflows}
+
+    split_on = by_name["split.True"]
+    assert split_on.script_args == ["True"]
+    assert split_on.environment == {"NOISE": "True"}
+    assert by_name["split.False"].get_arguments()[1:] == ["False"]
+    lat = by_name["lat.True"]
+    assert lat.sort_schedule is True  # a declared bool field: Pydantic converts the text
+    assert lat.environment == {"NOISE": "True"}
+    assert {"--sort_schedule", "--sim_noise.enable"} <= set(lat.get_arguments())
+
+
+def test_matrix_bool_in_script_kwargs_stays_a_flag(tmp_path):
+    """A boolean placeholder in script-kwargs gives a bare flag, or nothing when false."""
+    stage = {
+        "type": "get-schedule",
+        "output_dir": "/s/${equalize}.txt",
+        "matrix": {"equalize": [True, False], "day": [1]},
+        "script-kwargs": {"equalize-time": "${equalize}", "start": "2025-01-0${day}"},
+        "resources": dict(RESOURCES),
+    }
+    by_name = {w.name: w for w in build_dag(_config({"gs": stage}), tmp_path).workflows}
+
+    on, off = by_name["gs.True.1"].get_arguments(), by_name["gs.False.1"].get_arguments()
+    assert "--equalize-time" in on
+    assert not any(a.startswith("--equalize-time") for a in off)
+    assert "--start=2025-01-01 00:00:00" in on   # declared field still gets text
+    assert by_name["gs.True.1"].output_dir == "/s/True.txt"

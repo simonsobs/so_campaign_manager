@@ -1,5 +1,7 @@
 import shlex
 
+import pytest
+
 from socm.utils.misc import read_par_file
 from socm.workflows.lat_simulation import LATSimWorkflow
 
@@ -178,3 +180,82 @@ def test_list_fields_keep_every_value():
     workflow = LATSimWorkflow(output_dir="o", depends=["get-schedule", "split-schedule"])
 
     assert workflow.depends == ["get-schedule", "split-schedule"]
+
+
+def test_normalize_options_is_idempotent():
+    options = {"out": "/o", "operators": {"scan_alm": {"enable": True, "file": "/m.fits"}}, "sim_noise": False}
+    once = LATSimWorkflow.normalize_options(options)
+
+    assert once == {"output_dir": "/o", "scan_alm": True, "scan_alm.file": "/m.fits", "sim_noise": False}
+    assert LATSimWorkflow.normalize_options(once) == once
+    assert "operators" in options  # the input is not modified
+
+
+def test_boolean_traits_use_toast_trait_flags():
+    """A boolean trait is --op.trait / --op.no_trait, never .enable/.disable or =False."""
+    arguments = LATSimWorkflow(
+        output_dir="o",
+        operators={"mlmapmaker": {"enable": True, "deslope": False, "write_bin": True}},
+    ).get_arguments()
+
+    assert "--mlmapmaker.enable" in arguments
+    assert "--mlmapmaker.no_deslope" in arguments
+    assert "--mlmapmaker.write_bin" in arguments
+    assert not any(arg.startswith(("--mlmapmaker.deslope", "--mlmapmaker.write_bin.")) for arg in arguments)
+
+
+def test_no_trait_flag_from_par_file_round_trips(tmp_path):
+    par = tmp_path / "sim.par"
+    par.write_text("--mapmaker.no_write_map\n--mapmaker.write_invcov\n")
+    workflow = LATSimWorkflow(output_dir="o", **read_par_file(par))
+    arguments = workflow.get_arguments()
+
+    assert "--mapmaker.no_write_map" in arguments
+    assert "--mapmaker.write_invcov" in arguments
+    assert not any(arg.endswith((".enable", ".disable")) for arg in arguments)
+
+
+def test_stage_boolean_trait_overrides_par_no_flag():
+    """--op.no_trait in the par file and op.trait: true in the stage are the same option."""
+    par = LATSimWorkflow.normalize_options({"mapmaker.no_write_map": True})
+    stage = LATSimWorkflow.normalize_options({"operators": {"mapmaker": {"write_map": True}}})
+    arguments = LATSimWorkflow(output_dir="o", **{**par, **stage}).get_arguments()
+
+    assert "--mapmaker.write_map" in arguments
+    assert "--mapmaker.no_write_map" not in arguments
+
+
+def test_last_trait_flag_in_par_file_wins(tmp_path):
+    par = tmp_path / "sim.par"
+    par.write_text("--mapmaker.write_map\n--mapmaker.no_write_map\n")
+    arguments = LATSimWorkflow(output_dir="o", **read_par_file(par)).get_arguments()
+
+    assert "--mapmaker.no_write_map" in arguments
+    assert "--mapmaker.write_map" not in arguments
+
+
+def test_flat_negative_trait_overrides_operators():
+    """Flat keys win over operators in either form of a boolean trait."""
+    negative = LATSimWorkflow(
+        output_dir="o",
+        operators={"mapmaker": {"write_map": True}},
+        **{"mapmaker.no_write_map": True},
+    ).get_arguments()
+    positive = LATSimWorkflow(
+        output_dir="o",
+        operators={"mapmaker": {"no_write_map": True}},
+        **{"mapmaker.write_map": True},
+    ).get_arguments()
+
+    assert "--mapmaker.no_write_map" in negative
+    assert "--mapmaker.write_map" not in negative
+    assert "--mapmaker.write_map" in positive
+    assert "--mapmaker.no_write_map" not in positive
+
+
+def test_both_forms_of_a_trait_in_one_source_must_agree():
+    with pytest.raises(ValueError, match="'mapmaker.write_map' and 'mapmaker.no_write_map' are both set"):
+        LATSimWorkflow(output_dir="o", **{"mapmaker.write_map": True, "mapmaker.no_write_map": True})
+
+    agreeing = LATSimWorkflow(output_dir="o", **{"mapmaker.write_map": False, "mapmaker.no_write_map": True})
+    assert "--mapmaker.no_write_map" in agreeing.get_arguments()

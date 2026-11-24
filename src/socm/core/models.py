@@ -144,6 +144,16 @@ class Workflow(BaseModel):
             return value[-1]
         return value
 
+    @classmethod
+    def normalize_options(cls, options: dict[str, Any]) -> dict[str, Any]:
+        """
+        Rewrite one source of options (a par file, a stage config) into the
+        names the workflow uses, e.g. option aliases to fields. ``build_dag``
+        calls it on each source separately before merging, so a later source
+        overrides an earlier one whatever form either uses. Must be idempotent.
+        """
+        return dict(options)
+
     def __hash__(self):
         return hash(self.id)
 

@@ -113,9 +113,10 @@ def read_par_file(file_path: str | Path) -> dict[str, Any]:
     Follows argparse's default format: every line is exactly one argument, so
     values may contain spaces (e.g. ``2025-01-01 00:00:00``). Supports
     ``--key=value``, ``--key`` followed by a value line, bare ``--flag``
-    (True), ``--op.enable`` / ``--op.disable`` (``op`` -> True/False), blank
-    lines, ``#`` comment lines and nested ``@other.par`` includes, resolved
-    relative to the including file.
+    (True), ``--op.enable`` / ``--op.disable`` (``op`` -> True/False), toast's
+    boolean trait flags ``--op.trait`` / ``--op.no_trait`` (``op.trait`` ->
+    True/False, the last one wins), blank lines, ``#`` comment lines and
+    nested ``@other.par`` includes, resolved relative to the including file.
 
     An option given more than once (e.g. ``--patch``) becomes a list of its
     values in order. Passing every value back on the command line keeps
@@ -166,7 +167,12 @@ def read_par_file(file_path: str | Path) -> dict[str, Any]:
             _add(key, tokens[i + 1])
             i += 1
         else:
-            args[key] = True
+            op_name, negated, trait = key.partition(".no_")
+            if negated and op_name and trait:
+                # Same key as --op.trait, so the later of the two flags wins.
+                args[f"{op_name}.{trait}"] = False
+            else:
+                args[key] = True
         i += 1
 
     return args
