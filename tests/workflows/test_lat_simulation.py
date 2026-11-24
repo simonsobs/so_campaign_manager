@@ -1,5 +1,7 @@
 import shlex
 
+import pytest
+
 from socm.utils.misc import read_par_file
 from socm.workflows.lat_simulation import LATSimWorkflow
 
@@ -221,3 +223,39 @@ def test_stage_boolean_trait_overrides_par_no_flag():
 
     assert "--mapmaker.write_map" in arguments
     assert "--mapmaker.no_write_map" not in arguments
+
+
+def test_last_trait_flag_in_par_file_wins(tmp_path):
+    par = tmp_path / "sim.par"
+    par.write_text("--mapmaker.write_map\n--mapmaker.no_write_map\n")
+    arguments = LATSimWorkflow(output_dir="o", **read_par_file(par)).get_arguments()
+
+    assert "--mapmaker.no_write_map" in arguments
+    assert "--mapmaker.write_map" not in arguments
+
+
+def test_flat_negative_trait_overrides_operators():
+    """Flat keys win over operators in either form of a boolean trait."""
+    negative = LATSimWorkflow(
+        output_dir="o",
+        operators={"mapmaker": {"write_map": True}},
+        **{"mapmaker.no_write_map": True},
+    ).get_arguments()
+    positive = LATSimWorkflow(
+        output_dir="o",
+        operators={"mapmaker": {"no_write_map": True}},
+        **{"mapmaker.write_map": True},
+    ).get_arguments()
+
+    assert "--mapmaker.no_write_map" in negative
+    assert "--mapmaker.write_map" not in negative
+    assert "--mapmaker.write_map" in positive
+    assert "--mapmaker.no_write_map" not in positive
+
+
+def test_both_forms_of_a_trait_in_one_source_must_agree():
+    with pytest.raises(ValueError, match="'mapmaker.write_map' and 'mapmaker.no_write_map' are both set"):
+        LATSimWorkflow(output_dir="o", **{"mapmaker.write_map": True, "mapmaker.no_write_map": True})
+
+    agreeing = LATSimWorkflow(output_dir="o", **{"mapmaker.write_map": False, "mapmaker.no_write_map": True})
+    assert "--mapmaker.no_write_map" in agreeing.get_arguments()

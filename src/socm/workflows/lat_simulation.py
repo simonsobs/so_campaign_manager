@@ -55,6 +55,32 @@ def _flatten_operators(operators: dict[str, Any]) -> dict[str, Any]:
     return options
 
 
+def _canonical_traits(options: dict[str, Any]) -> dict[str, Any]:
+    """
+    Store toast's negative boolean trait options under the trait name:
+    ``{"op.no_trait": True}`` becomes ``{"op.trait": False}``.
+
+    Raises
+    ------
+    ValueError
+        If ``options`` sets both forms of a trait to different values.
+    """
+    result: dict[str, Any] = {}
+    negated: dict[str, bool] = {}
+    for key, value in options.items():
+        op, no, trait = key.partition(".no_")
+        if no and op and trait and isinstance(value, bool):
+            negated[f"{op}.{trait}"] = not value
+        else:
+            result[key] = value
+    for key, value in negated.items():
+        if key in result and result[key] != value:
+            op, _, trait = key.partition(".")
+            raise ValueError(f"'{key}' and '{op}.no_{trait}' are both set and disagree")
+        result[key] = value
+    return result
+
+
 class LATSimWorkflow(Workflow):
     """
     A workflow for simulating LAT observations with ``toast_so_sim``.
@@ -85,21 +111,17 @@ class LATSimWorkflow(Workflow):
         and flatten an ``operators`` mapping into option names. Within one
         source, flat keys given next to ``operators`` take precedence.
 
-        Boolean traits are stored under the trait name, so toast's
-        ``--op.no_trait`` flag (``"op.no_trait": True`` from a par file)
-        becomes ``"op.trait": False`` and can be overridden by the stage.
+        Boolean traits are stored under the trait name, so toast's negative
+        form ``"op.no_trait": True`` becomes ``"op.trait": False`` and can be
+        overridden by the stage. Flat and nested options are canonicalized
+        separately before merging, so the flat key wins in either form.
         """
         options = dict(options)
         for option, field in _OPTION_TO_FIELD.items():
             if option in options:
                 options[field] = options.pop(option)
-        for key, value in _flatten_operators(options.pop("operators", None) or {}).items():
-            options.setdefault(key, value)
-        for key in [k for k, v in options.items() if isinstance(v, bool) and ".no_" in k]:
-            op, _, trait = key.partition(".no_")
-            value = options.pop(key)
-            options.setdefault(f"{op}.{trait}", not value)
-        return options
+        nested = _canonical_traits(_flatten_operators(options.pop("operators", None) or {}))
+        return {**nested, **_canonical_traits(options)}
 
     @model_validator(mode="before")
     @classmethod
