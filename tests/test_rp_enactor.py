@@ -101,11 +101,15 @@ def test_monitor_reports_done_with_step_id(enactor):
 
 @pytest.mark.parametrize("rp_state", ["FAILED", "CANCELED"])
 def test_monitor_reports_failed_and_canceled_as_failed(enactor, rp_state):
+    from socm.enactor.rp_enactor import rp, states_map
+
+    assert states_map[getattr(rp, rp_state)] == States.FAILED
     calls = _run_monitor_once(enactor, {1: (rp_state, "")})  # empty stdout must not raise
 
     assert set(calls) == {States.FAILED}
     assert calls[States.FAILED]["workflow_ids"] == [1]
     assert calls[States.FAILED]["step_ids"] == [None]
+    assert enactor._execution_status[1]["state"] == States.FAILED
     assert enactor._to_monitor == []
 
 
