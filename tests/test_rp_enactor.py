@@ -63,7 +63,7 @@ FAKE_RP = SimpleNamespace(
     DONE="DONE", FAILED="FAILED", CANCELED="CANCELED", AGENT_EXECUTING="AGENT_EXECUTING",
     FINAL=["DONE", "FAILED", "CANCELED"],
 )
-FAKE_STATES_MAP = {"DONE": States.DONE, "FAILED": States.FAILED, "CANCELED": States.CANCELED}
+FAKE_STATES_MAP = {"DONE": States.DONE, "FAILED": States.FAILED, "CANCELED": States.FAILED}
 
 
 def _run_monitor_once(enactor, tasks):

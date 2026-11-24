@@ -512,32 +512,45 @@ class Bookkeeper:
         """
         self._logger.info("Monitor thread started")
         while not self._terminate_event.is_set():
-            while self._workflows_to_monitor and not self._terminate_event.is_set():
-                self._prof.prof("workflow_monitor", uid=self._uid)
-                with self._monitor_lock:
-                    workflows_snapshot = list(self._workflows_to_monitor)
-                finished = []
-                for i in range(len(workflows_snapshot)):
-                    if self._workflows_state[workflows_snapshot[i].id] in CFINAL:
-                        resource = self._unavail_resources[i]
-                        finished.append((workflows_snapshot[i], resource))
-                        if self._workflows_state[workflows_snapshot[i].id] == States.DONE:
-                            self._record(workflows_snapshot[i])
-                        self._logger.info(
-                            "Workflow {} finished",
-                            workflows_snapshot[i].id,
-                        )
-
-                if finished:
-                    with self._monitor_lock:
-                        for workflow, resource in finished:
-                            self._workflows_to_monitor.remove(workflow)
-                            self._unavail_resources.remove(resource)
-                    self._prof.prof("workflow_finished", uid=self._uid)
-                else:
-                    sleep(1)  # Sleep for a while if nothing happened.
-
+            self._prof.prof("workflow_monitor", uid=self._uid)
+            if not self._release_finished():
+                sleep(1)  # Sleep for a while if nothing happened.
+        # Workflows that finished while shutdown started are still recorded;
+        # ones that are still executing are not waited for.
+        self._release_finished()
         self._logger.debug("Monitor thread Stopped")
+
+    def _release_finished(self) -> bool:
+        """
+        Record and stop monitoring every workflow that reached a final state.
+
+        Only DONE workflows are recorded in Slurmise. Their resources are
+        released along with them.
+
+        Returns
+        -------
+        bool
+            Whether any workflow was released.
+        """
+        with self._monitor_lock:
+            workflows_snapshot = list(self._workflows_to_monitor)
+            resources_snapshot = list(self._unavail_resources)
+        finished = []
+        for workflow, resource in zip(workflows_snapshot, resources_snapshot, strict=True):
+            state = self._workflows_state[workflow.id]
+            if state in CFINAL:
+                finished.append((workflow, resource))
+                if state == States.DONE:
+                    self._record(workflow)
+                self._logger.info("Workflow {} finished", workflow.id)
+
+        if finished:
+            with self._monitor_lock:
+                for workflow, resource in finished:
+                    self._workflows_to_monitor.remove(workflow)
+                    self._unavail_resources.remove(resource)
+            self._prof.prof("workflow_finished", uid=self._uid)
+        return bool(finished)
 
     def get_makespan(self):
         """

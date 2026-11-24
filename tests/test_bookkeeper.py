@@ -462,3 +462,26 @@ def test_shutdown_does_not_hang_with_a_failed_workflow_and_a_running_sibling():
     assert bk._workflows_state[2] == States.EXECUTING
     bk._enactor.terminate.assert_called_once()
     assert not bk._monitoring_thread.is_alive()
+
+
+def test_monitor_records_workflows_that_finished_during_shutdown():
+    """
+    A workflow that finished just before shutdown is still recorded and released;
+    a sibling that is still executing is not waited for.
+    """
+    wf1, wf2 = _wf(1), _wf(2)
+    bk = _make_bk([])
+    bk._workflows_state = {1: States.DONE, 2: States.EXECUTING}
+    bk._workflows_to_monitor = [wf1, wf2]
+    bk._unavail_resources = [(range(2), 1), (range(2, 4), 1)]
+    bk._record = MagicMock()
+    bk._terminate_event.set()   # shutdown started before the monitor's next pass
+
+    thread = mt.Thread(target=bk.monitor, daemon=True)
+    thread.start()
+    thread.join(timeout=5)
+
+    assert not thread.is_alive()
+    bk._record.assert_called_once_with(wf1)
+    assert bk._workflows_to_monitor == [wf2]
+    assert bk._unavail_resources == [(range(2, 4), 1)]
