@@ -54,10 +54,9 @@ Create a configuration file (`campaign.toml`):
 ```toml
 [campaign]
 deadline = "2d"
-
-[campaign.resources]
-nodes = 4
-cores-per-node = 112
+resource = "tiger3"
+execution_schema = "remote"
+requested_resources = 448
 
 [campaign.ml-mapmaking]
 context = "file:///path/to/context.yaml"
@@ -69,8 +68,17 @@ bands = "f090"
 Run your campaign:
 
 ```bash
-socm -t campaign.toml
+socm lat-mapmaking -t campaign.toml
 ```
+
+Power spectra and LAT simulation campaigns are YAML files of stages:
+
+```bash
+socm spectra -y campaign.yml
+socm lat-sims -y campaign.yml
+```
+
+Add `--dry-run` to any of them to plan a campaign without submitting it.
 
 For detailed examples and configuration options, see the [documentation](docs/).
 

@@ -16,17 +16,18 @@ Environment Setup
    git clone https://github.com/simonsobs/so_campaign_manager.git
    cd so_campaign_manager
 
-2. **Install development dependencies:**
+2. **Install the package with the development tools:**
 
 .. code-block:: bash
 
-   uv sync --group dev
+   uv sync --all-extras --group dev
 
-3. **Install pre-commit hooks (optional but recommended):**
+3. **Install the pre-commit hooks** (ruff, isort, whitespace checks, and a
+   conventional-commit check on commit messages):
 
 .. code-block:: bash
 
-   uv run pre-commit install
+   uv run pre-commit install --hook-type pre-commit --hook-type commit-msg
 
 Code Style and Quality
 ----------------------
@@ -36,11 +37,13 @@ The project follows strict code quality standards:
 PEP8 Compliance (Mandatory)
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-All code must be PEP8 compliant. Use flake8 to check:
+All code must be PEP8 compliant with a maximum line length of 120 characters
+(configured in ``pyproject.toml``). CI runs ruff and isort on every pull request:
 
 .. code-block:: bash
 
-   uv run flake8 src/socm tests/
+   uv run ruff check src tests
+   uv run isort --check-only src tests
 
 Code Formatting (Optional)
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -61,36 +64,21 @@ Project Structure
 .. code-block::
 
    so_campaign_manager/
-   ├── src/socm/              # Main package
-   │   ├── __init__.py
-   │   ├── __main__.py        # CLI entry point
-   │   ├── core/              # Core models and abstractions
-   │   │   ├── __init__.py
-   │   │   └── models.py      # Pydantic models
-   │   ├── bookkeeper/        # Main execution engine
-   │   │   ├── __init__.py
-   │   │   └── bookkeeper.py
-   │   ├── workflows/         # Workflow implementations
-   │   │   ├── __init__.py
-   │   │   ├── ml_mapmaking.py
-   │   │   ├── sat_simulation.py
-   │   │   └── ml_null_tests/
-   │   ├── enactor/           # Execution backends
-   │   │   ├── __init__.py
-   │   │   ├── base.py
-   │   │   └── rp_enactor.py
-   │   ├── planner/           # Campaign planning
-   │   │   └── __init__.py
-   │   ├── utils/             # Utilities
-   │   │   ├── __init__.py
-   │   │   ├── const.py
-   │   │   ├── misc.py
-   │   │   └── states.py
-   │   └── configs/           # Default configurations
-   ├── tests/                 # Test suite
-   ├── examples/              # Example configurations
-   ├── docs/                  # Documentation
-   └── pyproject.toml         # Project configuration
+   ├── src/socm/
+   │   ├── __main__.py        # CLI entry point: socm <subcommand>
+   │   ├── execs/             # one module per subcommand: mapmaking, power_spectra, lat_sims
+   │   ├── core/models.py     # Pydantic models: Workflow, Campaign, DAG, Resource, ...
+   │   ├── bookkeeper/        # orchestration: planning, enacting, monitoring
+   │   ├── planner/           # Planner base class and the HEFT planner
+   │   ├── enactor/           # Enactor base class, RADICAL-Pilot and dry-run enactors
+   │   ├── resources/         # tiger, perlmutter, universe, localhost
+   │   ├── workflows/         # workflow classes; __init__.py has registered_workflows
+   │   │   └── ml_null_tests/ # one module per null test
+   │   └── utils/             # misc (config and par-file parsing), log, states
+   ├── tests/                 # test suite; tests/workflows/ for workflow classes
+   ├── examples/              # example campaign configurations
+   ├── docs/
+   └── pyproject.toml
 
 Branching Model
 ---------------
@@ -103,6 +91,7 @@ Branch Types
 * ``main``: Latest stable development (never commit directly)
 * ``feature/abc``: Development of new features
 * ``fix/abc_123``: Bug fixes (reference GitHub issue)
+* ``hotfix/abc_123``: Urgent fixes
 * ``tmp/abc``: Temporary branches (will be deleted)
 * ``test/abc``: Integration testing branches
 
@@ -122,10 +111,9 @@ Development Workflow
 .. code-block:: bash
 
    # Make changes
-   # Run tests
    uv run pytest tests/
-   # Check code style
-   uv run flake8 src/socm
+   uv run ruff check src tests
+   uv run isort --check-only src tests
 
 3. **Create pull request:**
    * Target ``main`` branch
@@ -138,8 +126,7 @@ Branch Policies
 ~~~~~~~~~~~~~~~
 
 * All branches are short-lived
-* Limited number of open branches per developer
-* Only ``N`` fix branches and ``M << N`` feature branches
+* Merge ``main`` into your feature branch before creating a PR
 
 Testing
 -------
@@ -147,34 +134,25 @@ Testing
 Test Structure
 ~~~~~~~~~~~~~~
 
-Tests are organized to mirror the package structure:
-
-.. code-block::
-
-   tests/
-   ├── __init__.py
-   ├── conftest.py            # Test configuration
-   ├── test_bookkeeper.py     # Bookkeeper tests
-   ├── test_misc.py          # Utility tests
-   ├── test_planner.py       # Planner tests
-   └── workflows/            # Workflow tests
+Tests mirror the package: ``tests/test_<module>.py`` for each component and
+``tests/workflows/`` for the workflow classes. ``tests/conftest.py`` replaces
+``radical.*`` and ``slurmise`` with mocks, so the suite runs without an HPC
+allocation and on macOS. Tests must not read files from ``examples/``, which users
+change freely; create what a test needs in ``tmp_path``.
 
 Running Tests
 ~~~~~~~~~~~~~
 
 .. code-block:: bash
 
-   # Run all tests
-   uv run pytest
-
-   # Run with coverage
-   uv run pytest --cov=socm
+   # Run all tests with coverage
+   pytest -vvv tests/ --cov --cov-append
 
    # Run specific test file
-   uv run pytest tests/test_bookkeeper.py
+   pytest tests/test_bookkeeper.py
 
-   # Run with verbose output
-   uv run pytest -v
+   # Run specific test
+   pytest tests/test_core_models.py::test_workflow_creation -v
 
 Writing Tests
 ~~~~~~~~~~~~~
@@ -202,85 +180,13 @@ Follow these guidelines:
    @pytest.fixture
    def sample_campaign():
        """Create a sample campaign for testing."""
-       return Campaign(id=1, workflows=[], campaign_policy="time")
+       return Campaign(id=1, workflows=[], campaign_policy="time", deadline="1d")
 
 Adding New Features
 -------------------
 
-Workflow Types
-~~~~~~~~~~~~~~
-
-To add a new workflow type:
-
-1. **Create workflow class:**
-
-.. code-block:: python
-
-   # src/socm/workflows/my_workflow.py
-   from socm.core.models import Workflow
-
-   class MyWorkflow(Workflow):
-       special_param: str
-
-       def get_command(self, **kwargs) -> str:
-           return f"{self.executable} {self.subcommand}"
-
-       def get_arguments(self, **kwargs) -> str:
-           return f"--special {self.special_param}"
-
-2. **Register workflow:**
-
-.. code-block:: python
-
-   # src/socm/workflows/__init__.py
-   from .my_workflow import MyWorkflow
-
-   registered_workflows = {
-       # ... existing workflows
-       'my-workflow': MyWorkflow,
-   }
-
-3. **Add to subcampaign mapping:**
-
-.. code-block:: python
-
-   subcampaign_map = {
-       # ... existing mappings
-       'my-workflow': 'my-workflow',
-   }
-
-4. **Write tests:**
-
-.. code-block:: python
-
-   # tests/workflows/test_my_workflow.py
-   def test_my_workflow_creation():
-       workflow = MyWorkflow(
-           name="test",
-           executable="my-exe",
-           context="test.yaml",
-           special_param="value"
-       )
-       assert workflow.special_param == "value"
-
-Enactor Backends
-~~~~~~~~~~~~~~~~
-
-To add a new execution backend:
-
-1. **Inherit from base enactor:**
-
-.. code-block:: python
-
-   from socm.enactor.base import BaseEnactor
-
-   class MyEnactor(BaseEnactor):
-       def submit_jobs(self, jobs):
-           # Implementation
-           pass
-
-2. **Implement required methods**
-3. **Register in bookkeeper**
+:doc:`advanced_topics` shows how to add a workflow type, a planner or an enactor, and
+:doc:`resources` how to add a cluster.
 
 Documentation
 -------------
@@ -290,6 +196,7 @@ Building Documentation
 
 .. code-block:: bash
 
+   uv sync --all-extras --group docs
    cd docs
    make html
 
@@ -298,36 +205,46 @@ The built documentation will be in ``docs/_build/html/``.
 Writing Documentation
 ~~~~~~~~~~~~~~~~~~~~~
 
-1. **Use reStructuredText format**
-2. **Include code examples**
-3. **Document all public APIs**
-4. **Keep examples up to date**
+1. **Use reStructuredText format** for ``.rst`` files
+2. **Use NumPy-style docstrings** for Python source files
+3. **Include code examples**
+4. **Document all public APIs**
+5. **Keep examples up to date**
 
 API Documentation
 ~~~~~~~~~~~~~~~~~
 
-Use Google-style docstrings:
+Use NumPy-style docstrings for all public classes, methods, and functions:
 
 .. code-block:: python
 
    def my_function(param1: str, param2: int = 0) -> bool:
-       """Brief description of the function.
+       """
+       Brief description of the function.
 
        Longer description if needed.
 
-       Args:
-           param1: Description of param1.
-           param2: Description of param2. Defaults to 0.
+       Parameters
+       ----------
+       param1 : str
+           Description of param1.
+       param2 : int, optional
+           Description of param2. Defaults to 0.
 
-       Returns:
+       Returns
+       -------
+       bool
            Description of return value.
 
-       Raises:
-           ValueError: If param1 is empty.
+       Raises
+       ------
+       ValueError
+           If param1 is empty.
 
-       Example:
-           >>> my_function("test", 5)
-           True
+       Examples
+       --------
+       >>> my_function("test", 5)
+       True
        """
 
 Release Process

@@ -17,20 +17,31 @@ def parse_comma_separated_fields(config: dict, fields_to_parse: list[str]) -> di
 
 def get_workflow_entries(campaign_dict: dict, subcampaign_map: dict[str, list] | None = None) -> dict[str, dict]:
     """
-    Extract workflow entries from a campaign dictionary using a predefined mapping.
+    Extract workflow entries from a campaign dictionary using a subcampaign mapping.
+
+    Iterates over the top-level keys inside ``campaign_dict["campaign"]`` and
+    produces a flat dictionary of workflow configurations. Keys that appear in
+    ``subcampaign_map`` are treated as subcampaigns: their workflow-specific
+    sub-sections are merged with the subcampaign's common configuration and
+    re-keyed as ``"<subcampaign>.<workflow>"``.
 
     Parameters
     ----------
     campaign_dict : dict
-        A dictionary containing campaign configuration.
-    subcampaign_map : dict or None, optional
-        A mapping of subcampaign names to lists of their workflow names.
-        E.g., {"ml-null-test": ["mission-tests", "wafer-tests"]}.
+        A dictionary containing the full campaign configuration, expected to have
+        a top-level ``"campaign"`` key whose value is the campaign section.
+    subcampaign_map : dict of str to list of str, or None, optional
+        A mapping of subcampaign names to the list of workflow names they contain.
+        For example: ``{"ml-null-tests": ["mission-tests", "wafer-tests"]}``.
+        When ``None``, no subcampaign expansion is performed.
 
     Returns
     -------
-    dict
-        A dictionary containing workflow entries keyed by workflow name.
+    dict of str to dict
+        A flat mapping of workflow keys to their merged configuration
+        dictionaries. Direct (non-subcampaign) workflows are keyed by their
+        original name; subcampaign workflows are keyed as
+        ``"<subcampaign>.<workflow>"``.
     """
     campaign_data = campaign_dict.get("campaign", {})
 
@@ -79,15 +90,17 @@ def get_workflow_entries(campaign_dict: dict, subcampaign_map: dict[str, list] |
 
 def get_query_from_file(file_path: str) -> str:
     """
-    Build an observation ID filter query from a file of obs IDs.
+    Build an ``obs_id IN (...)`` query string from a file of observation IDs.
 
-    Reads a file containing one observation ID per line and constructs
-    an ``obs_id IN (...)`` query string for use with sotodlib's obsdb.
+    Reads a plain-text file containing one observation ID per line and
+    constructs an SQL-style ``IN`` clause suitable for use with sotodlib's
+    ``obsdb.query()``.
 
     Parameters
     ----------
     file_path : str
-        Path to a text file with one observation ID per line.
+        Path to a text file with one observation ID per line. Blank lines and
+        trailing whitespace are stripped.
 
     Returns
     -------
@@ -193,6 +206,23 @@ def _read_par_tokens(file_path: Path) -> list[str]:
 
 
 def print_plan(graph: nx.DiGraph) -> None:
+    """
+    Render and save the execution plan dependency graph as a PNG image.
+
+    Uses ``graphviz_layout`` to produce a hierarchical (top-down) layout
+    and saves the result to ``graph.png`` in the current working directory.
+
+    Parameters
+    ----------
+    graph : networkx.DiGraph
+        The plan dependency graph to visualise.
+
+    Notes
+    -----
+    Requires ``matplotlib`` and the ``pydot`` / ``graphviz`` packages to be
+    installed. The output file is always named ``graph.png`` and is written
+    to the current working directory.
+    """
     import matplotlib.pyplot as plt
     from networkx.drawing.nx_pydot import graphviz_layout
 

@@ -4,73 +4,56 @@ Installation
 Requirements
 ------------
 
-* Python 3.11+
-* Access to a SLURM-based computing cluster (for execution)
+* Python 3.11 or 3.12
+* Linux, with access to a SLURM cluster to run campaigns. RADICAL-Pilot and Slurmise
+  are not installed on macOS, so campaigns cannot run there.
 
-Basic Installation
-------------------
+Install
+-------
 
-Install SO Campaign Manager using uv:
-
-.. code-block:: bash
-
-   uv add so_campaign_manager
-
-Or with pip:
+With pip:
 
 .. code-block:: bash
 
    pip install so_campaign_manager
 
-Development Installation
-------------------------
+ML mapmaking and null-test campaigns also need ``sotodlib`` and ``astral``, which come
+with the ``mapmaking`` extra:
 
-For development or to get the latest features, install from source:
+.. code-block:: bash
+
+   pip install "so_campaign_manager[mapmaking]"
+
+Without it, ``socm lat-mapmaking`` cannot create those workflows; power spectra and
+LAT simulation campaigns work either way.
+
+From Source
+-----------
 
 .. code-block:: bash
 
    git clone https://github.com/simonsobs/so_campaign_manager.git
    cd so_campaign_manager
-   uv sync
+   uv sync --extra mapmaking
 
-Development Dependencies
-------------------------
+   # With the test, lint and documentation tools as well:
+   uv sync --extra mapmaking --group dev --group docs
 
-To install development dependencies for testing and documentation:
-
-.. code-block:: bash
-
-   uv sync --group dev
-
-This installs additional packages needed for:
-
-* Code formatting and linting (ruff, darker, flake8)
-* Testing (pytest, hypothesis)
-* Coverage reporting (pytest-cov, coveralls)
-
-Verification
-------------
-
-Verify your installation by running:
+Verify
+------
 
 .. code-block:: bash
 
    socm --help
 
-You should see the help message for the SO Campaign Manager command-line interface.
+This lists the three campaign commands: ``lat-mapmaking``, ``spectra`` and ``lat-sims``.
 
-Dependencies
-------------
+Main Dependencies
+-----------------
 
-Core dependencies include:
-
-* **pydantic** (≥2.0) - Data validation and settings management
-* **numpy** - Numerical computing
-* **radical.pilot** - Workflow execution engine
-* **networkx** - Graph algorithms for workflow dependencies
-* **toml** - Configuration file parsing
-* **click** - Command-line interface
-* **sotodlib** - SO-specific data handling
-* **slurmise** - SLURM job management
-
-These dependencies are automatically installed with the package.
+* **radical.pilot**: submits and runs the workflows on SLURM
+* **slurmise**: records workflow runtimes and memory for resource prediction
+* **pydantic**: validates configurations and workflows
+* **networkx**: workflow dependency graphs
+* **toml**, **humanfriendly**: configuration parsing, sizes and durations
+* **loguru**: logging

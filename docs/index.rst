@@ -1,7 +1,7 @@
 SO Campaign Manager Documentation
 ===================================
 
-Welcome to the SO Campaign Manager documentation! This package provides a comprehensive workflow orchestration system for managing and executing mapmaking campaigns on high-performance computing resources, specifically designed for the Simons Observatory project.
+SO Campaign Manager (``socm``) plans and runs Simons Observatory analysis campaigns on SLURM clusters: ML mapmaking and null tests, power spectra, and LAT simulations.
 
 .. toctree::
    :maxdepth: 2
@@ -15,6 +15,7 @@ Welcome to the SO Campaign Manager documentation! This package provides a compre
    :maxdepth: 2
    :caption: User Documentation:
 
+   campaigns
    user_guide
    workflows
    resources
@@ -43,7 +44,7 @@ Welcome to the SO Campaign Manager documentation! This package provides a compre
 What is SO Campaign Manager?
 ----------------------------
 
-SO Campaign Manager is a sophisticated workflow orchestration system that enables efficient execution of mapmaking campaigns on HPC clusters. It combines intelligent scheduling, resource optimization, and seamless SLURM integration to maximize throughput while meeting campaign deadlines.
+You describe a campaign, a set of workflows and a deadline, in one configuration file. socm plans the workflows to finish within the deadline, picks the SLURM QoS and core count, submits them through RADICAL-Pilot, and follows them until they finish.
 
 Key Features
 ------------
@@ -51,12 +52,12 @@ Key Features
 * **Intelligent Scheduling**: Uses HEFT (Heterogeneous Earliest Finish Time) algorithm to optimize workflow execution
 * **Campaign Management**: Organize and execute multiple workflows with deadline-based policies
 * **Resource Management**: Automatic resource allocation and QoS selection for SLURM
-* **Workflow Support**: Built-in support for ML mapmaking, null tests, and SAT simulations
+* **Workflow Support**: Built-in support for ML mapmaking, null tests, power spectra, and LAT and SAT simulations
 * **SLURM Integration**: Seamless job submission and monitoring via RADICAL-Pilot
-* **Flexible Configuration**: TOML-based hierarchical configuration system
+* **Flexible Configuration**: TOML for mapmaking campaigns; YAML stage DAGs for power spectra and LAT simulations, with stage matrices for LAT simulations
 * **Extensible Architecture**: Easy to add custom workflows, planners, and execution backends
-* **Resource Prediction**: ML-based resource estimation via Slurmise integration
-* **Dependency Management**: Automatic workflow dependency resolution
+* **Resource History**: Records the runtime and memory of every successful workflow in Slurmise, for future resource prediction
+* **Dependency Management**: Workflows start when their dependencies finish; a failure stops their dependents
 
 Use Cases
 ---------
@@ -65,6 +66,8 @@ SO Campaign Manager is designed for:
 
 * **Mapmaking Campaigns**: Process large volumes of time-ordered data into maps
 * **Null Test Validation**: Run comprehensive null test suites for systematic error detection
+* **Simulation Campaigns**: Generate schedules and run LAT simulations for every split, band and tube
+* **Power Spectra Pipelines**: Run PSpipe scripts as a dependency graph
 * **Multi-Band Analysis**: Coordinate processing across multiple frequency bands
 * **Resource-Constrained Execution**: Optimize resource usage within budget constraints
 * **Long-Running Campaigns**: Manage campaigns spanning days or weeks
@@ -80,7 +83,8 @@ Quick Navigation
 
 **Regular Users:**
 
-* :doc:`user_guide` - Comprehensive reference for all features
+* :doc:`campaigns` - How to create each type of campaign, with complete examples
+* :doc:`user_guide` - Running campaigns: command line, logs, failures, troubleshooting
 * :doc:`workflows` - Available workflows and their configuration
 * :doc:`resources` - Supported HPC systems and QoS policies
 * :doc:`faq` - Frequently asked questions and troubleshooting

@@ -9,15 +9,33 @@ from ..utils.log import get_logger
 
 class Planner:
     """
-    Base planner that computes an execution plan for a campaign.
+    Abstract base class for campaign execution planners.
 
-    The planner receives a campaign, a set of resources, and execution time
-    estimates for each workflow, then calculates a scheduling plan. The plan
-    is a list of PlanEntry tuples mapping each workflow to a core range,
-    memory allocation, and time window.
+    A planner receives the campaign workflow DAG, the available HPC resource,
+    and per-workflow resource-requirement estimates, then computes a scheduling
+    plan. The plan maps each workflow to a core range, a memory allocation, and
+    a time window (start/end in minutes).
 
-    Each planning subclass must implement the ``plan`` method. Subclasses
-    can override the basic plan with additional scheduling logic.
+    Concrete subclasses must override :meth:`plan`. Optionally they may also
+    override :meth:`replan` to support re-scheduling after workflow failures or
+    completions.
+
+    Parameters
+    ----------
+    campaign : Campaign or None, optional
+        The campaign object containing the workflow DAG. May be supplied here
+        for convenience or passed directly to :meth:`plan`.
+    resources : Resource or None, optional
+        The HPC resource description used for scheduling decisions.
+    resource_requirements : dict of int to dict, or None, optional
+        A mapping of workflow ID to resource requirement dictionaries
+        containing ``req_cpus``, ``req_memory``, and ``req_walltime``.
+    policy : str or None, optional
+        Scheduling policy string (planner-specific interpretation).
+    sid : str or None, optional
+        Session ID used to namespace logger and profiler instances.
+    objective : int or None, optional
+        Campaign makespan objective in minutes.
     """
 
     def __init__(
@@ -51,23 +69,33 @@ class Planner:
         """
         Calculate an execution plan for the given campaign and resources.
 
+        Subclasses must override this method. The base implementation always
+        raises :class:`NotImplementedError`.
+
         Parameters
         ----------
         campaign : DAG or None, optional
-            The campaign DAG containing workflows and dependencies.
+            The campaign DAG containing workflows and dependency edges.
         resources : range or None, optional
             The available core range for scheduling.
-        resource_requirements : dict or None, optional
-            A mapping of workflow IDs to their resource requirements.
+        resource_requirements : dict of int to dict, or None, optional
+            Per-workflow resource requirements keyed by workflow ID, each
+            containing ``req_cpus``, ``req_memory``, and ``req_walltime``.
         start_time : int, optional
-            The start time offset for the plan.
+            Start time offset (in minutes) for the scheduled plan.
         **kargs
             Additional keyword arguments for subclass implementations.
 
         Returns
         -------
         PlanResult
-            The complete planning result containing QoS policy, core count, and execution batches.
+            The complete planning result containing the selected QoS policy,
+            the total core count, and the list of execution batches.
+
+        Raises
+        ------
+        NotImplementedError
+            Always raised by the base implementation.
         """
         raise NotImplementedError("Plan method is not implemented")
 
@@ -79,7 +107,10 @@ class Planner:
         start_time: int = 0,
     ) -> tuple[list[PlanEntry], nx.DiGraph]:
         """
-        Recalculate the execution plan, typically after workflow completion.
+        Recalculate the execution plan, typically after a workflow completion or failure.
+
+        Subclasses may override this method to support dynamic re-scheduling.
+        The base implementation always raises :class:`NotImplementedError`.
 
         Parameters
         ----------
@@ -87,10 +118,10 @@ class Planner:
             The updated campaign DAG.
         resources : range or None, optional
             The available core range for scheduling.
-        resource_requirements : dict or None, optional
-            A mapping of workflow IDs to their resource requirements.
+        resource_requirements : dict of int to dict, or None, optional
+            Updated per-workflow resource requirements keyed by workflow ID.
         start_time : int, optional
-            The start time offset for the replan.
+            Start time offset (in minutes) for the replanned schedule.
 
         Returns
         -------
