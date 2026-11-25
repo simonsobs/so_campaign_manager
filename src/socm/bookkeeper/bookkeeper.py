@@ -400,8 +400,14 @@ class Bookkeeper:
                 self._campaign["state"] = States.FAILED
         else:
             for plan_batch in self._plan_result.batches:
-                if self._terminate_event.is_set():
-                    break
+                # Checked under the lock run() sets final states with, so a
+                # campaign that just failed never starts another batch.
+                with self._exec_state_lock:
+                    if self._terminate_event.is_set() or self._campaign["state"] in CFINAL:
+                        break
+                    if self._campaign["state"] != States.EXECUTING:
+                        self._campaign["state"] = States.EXECUTING
+                        self._logger.debug("Campaign state to EXECUTING")
 
                 wf_id_lookup = {plan_entry.workflow.id: plan_entry for plan_entry in plan_batch.plan}
                 self._update_checkpoints(plan_batch.plan)
@@ -421,11 +427,6 @@ class Bookkeeper:
                     cores=self._plan_result.ncores,
                     execution_schema=self._campaign["campaign"].execution_schema,
                 )
-
-                with self._exec_state_lock:
-                    if self._campaign["state"] != States.EXECUTING:
-                        self._campaign["state"] = States.EXECUTING
-                        self._logger.debug("Campaign state to EXECUTING")
 
                 self._current_batch_wf_ids = set(plan_batch.graph.nodes())
                 self._batch_finished.clear()
@@ -512,32 +513,45 @@ class Bookkeeper:
         """
         self._logger.info("Monitor thread started")
         while not self._terminate_event.is_set():
-            while self._workflows_to_monitor:
-                self._prof.prof("workflow_monitor", uid=self._uid)
-                with self._monitor_lock:
-                    workflows_snapshot = list(self._workflows_to_monitor)
-                finished = []
-                for i in range(len(workflows_snapshot)):
-                    if self._workflows_state[workflows_snapshot[i].id] in CFINAL:
-                        resource = self._unavail_resources[i]
-                        finished.append((workflows_snapshot[i], resource))
-
-                        self._record(workflows_snapshot[i])
-                        self._logger.info(
-                            "Workflow {} finished",
-                            workflows_snapshot[i].id,
-                        )
-
-                if finished:
-                    with self._monitor_lock:
-                        for workflow, resource in finished:
-                            self._workflows_to_monitor.remove(workflow)
-                            self._unavail_resources.remove(resource)
-                    self._prof.prof("workflow_finished", uid=self._uid)
-                else:
-                    sleep(1)  # Sleep for a while if nothing happened.
-
+            self._prof.prof("workflow_monitor", uid=self._uid)
+            if not self._release_finished():
+                sleep(1)  # Sleep for a while if nothing happened.
+        # Workflows that finished while shutdown started are still recorded;
+        # ones that are still executing are not waited for.
+        self._release_finished()
         self._logger.debug("Monitor thread Stopped")
+
+    def _release_finished(self) -> bool:
+        """
+        Record and stop monitoring every workflow that reached a final state.
+
+        Only DONE workflows are recorded in Slurmise. Their resources are
+        released along with them.
+
+        Returns
+        -------
+        bool
+            Whether any workflow was released.
+        """
+        with self._monitor_lock:
+            workflows_snapshot = list(self._workflows_to_monitor)
+            resources_snapshot = list(self._unavail_resources)
+        finished = []
+        for workflow, resource in zip(workflows_snapshot, resources_snapshot, strict=True):
+            state = self._workflows_state[workflow.id]
+            if state in CFINAL:
+                finished.append((workflow, resource))
+                if state == States.DONE:
+                    self._record(workflow)
+                self._logger.info("Workflow {} finished", workflow.id)
+
+        if finished:
+            with self._monitor_lock:
+                for workflow, resource in finished:
+                    self._workflows_to_monitor.remove(workflow)
+                    self._unavail_resources.remove(resource)
+            self._prof.prof("workflow_finished", uid=self._uid)
+        return bool(finished)
 
     def get_makespan(self):
         """
@@ -564,13 +578,12 @@ class Bookkeeper:
         self._logger.info("Start terminating procedure")
         self._prof.prof("str_bookkeper_terminating", uid=self._uid)
 
-        # Terminate enactor as well.
+        # Stop the threads first, so work() cannot start another batch while
+        # the enactor shuts down.
+        self._terminate_event.set()
+
         self._enactor.terminate()
-
-        # Terminate your threads.
         self._logger.debug("Enactor terminated, terminating threads")
-
-        self._terminate_event.set()  # Thread event to terminate.
 
         self._prof.prof("monitor_bookkeper_terminate", uid=self._uid)
         if self._monitoring_thread:
@@ -583,6 +596,10 @@ class Bookkeeper:
             self._work_thread.join()  # Private attribute that will hold the thread
         self._prof.prof("work_bookkeper_terminated", uid=self._uid)
         self._logger.debug("Working thread terminated")
+
+        # Callbacks the enactor delivered while it shut down arrived after the
+        # monitor's last pass; every thread has stopped, so release them here.
+        self._release_finished()
 
     def run(self):
         """
@@ -616,21 +633,30 @@ class Bookkeeper:
 
             self._prof.prof("bookkeper_wait", uid=self._uid)
             while self._campaign["state"] not in CFINAL:
-                # Check if all workflows are in a final state.
-                cont = False
+                # Check if all workflows are in a final state. The lock keeps
+                # work() from starting another batch while the state changes.
+                with self._exec_state_lock:
+                    cont = False
 
-                for workflow in self._campaign["campaign"].workflows:
-                    if self._workflows_state[workflow.id] is States.FAILED:
-                        self._campaign["state"] = States.FAILED
-                        break
-                    elif self._workflows_state[workflow.id] not in CFINAL:
-                        cont = True
+                    for workflow in self._campaign["campaign"].workflows:
+                        if self._workflows_state[workflow.id] is States.FAILED:
+                            self._campaign["state"] = States.FAILED
+                            break
+                        elif self._workflows_state[workflow.id] not in CFINAL:
+                            cont = True
 
-                if not cont and not self._workflows_to_monitor:
+                    if (
+                        self._campaign["state"] is not States.FAILED
+                        and not cont
+                        and not self._workflows_to_monitor
+                    ):
+                        self._campaign["state"] = States.DONE
+                if self._campaign["state"] not in CFINAL:
+                    sleep(0.1)  # Outside the lock, so callbacks can update states.
+
+            with self._exec_state_lock:
+                if self._campaign["state"] not in CFINAL:
                     self._campaign["state"] = States.DONE
-
-            if self._campaign["state"] not in CFINAL:
-                self._campaign["state"] = States.DONE
             self._prof.prof("bookkeper_stopping", uid=self._uid)
         except Exception:
             # Top level of the bookkeeper thread: log any failure and always terminate.

@@ -347,3 +347,203 @@ def test_work_terminate_event_skips_teardown(mock_sleep):
     bk.work()
 
     bk._enactor.teardown.assert_not_called()
+
+
+# ─── failed workflows ────────────────────────────────────────────────────────
+
+def _chain_batch(plan):
+    """A batch where workflow 2 depends on workflow 1."""
+    batch = _batch(plan, [1, 2])
+    batch.graph.add_edge(1, 2)
+    return batch
+
+
+@patch("socm.bookkeeper.bookkeeper.sleep")
+def test_work_does_not_enact_children_of_a_failed_workflow(mock_sleep):
+    wf1, wf2 = _wf(1), _wf(2)
+    bk = _make_bk([_chain_batch([_entry(wf1, 0, 30), _entry(wf2, 30, 60)])])
+
+    def mock_enact(workflows):
+        bk.state_update_cb(workflow_ids=[w.id for w in workflows], new_state=States.FAILED)
+    bk._enactor.enact.side_effect = mock_enact
+    # The child stays NEW, so the batch never finishes; stop after a few polls.
+    mock_sleep.side_effect = lambda _: mock_sleep.call_count >= 3 and bk._terminate_event.set()
+
+    bk.work()
+
+    bk._enactor.enact.assert_called_once_with(workflows=[wf1])
+    assert bk._workflows_state == {1: States.FAILED, 2: States.NEW}
+
+
+@patch("socm.bookkeeper.bookkeeper.sleep")
+def test_work_enacts_children_of_a_done_workflow(mock_sleep):
+    wf1, wf2 = _wf(1), _wf(2)
+    bk = _make_bk([_chain_batch([_entry(wf1, 0, 30), _entry(wf2, 30, 60)])])
+
+    def mock_enact(workflows):
+        bk.state_update_cb(workflow_ids=[w.id for w in workflows], new_state=States.DONE)
+    bk._enactor.enact.side_effect = mock_enact
+
+    bk.work()
+
+    assert [c.kwargs["workflows"] for c in bk._enactor.enact.call_args_list] == [[wf1], [wf2]]
+
+
+def test_run_ends_failed_when_a_workflow_fails():
+    wf1, wf2 = _wf(1), _wf(2)
+    bk = _make_bk([])
+    bk._campaign["campaign"].workflows = [wf1, wf2]
+    bk.terminate = MagicMock()
+    bk.monitor = MagicMock()
+
+    def work():
+        bk.state_update_cb(workflow_ids=[1], new_state=States.FAILED)
+        bk._planning_done.set()
+    bk.work = work
+
+    bk.run()
+
+    assert bk.get_campaign_state() == States.FAILED
+    bk.terminate.assert_called_once()
+
+
+def test_monitor_does_not_record_failed_workflows():
+    wf1, wf2 = _wf(1), _wf(2)
+    bk = _make_bk([])
+    bk._workflows_state = {1: States.DONE, 2: States.FAILED}
+    bk._workflows_to_monitor = [wf1, wf2]
+    bk._unavail_resources = [(range(2), 1), (range(2), 1)]
+    bk._record = MagicMock()
+
+    thread = mt.Thread(target=bk.monitor)
+    thread.start()
+    for _ in range(500):
+        if not bk._workflows_to_monitor:
+            break
+        mt.Event().wait(0.01)
+    bk._terminate_event.set()
+    thread.join(timeout=5)
+
+    assert bk._workflows_to_monitor == []
+    bk._record.assert_called_once_with(wf1)
+
+
+@patch("socm.bookkeeper.bookkeeper.sleep", lambda _: mt.Event().wait(0.01))
+def test_shutdown_does_not_hang_with_a_failed_workflow_and_a_running_sibling():
+    """
+    The enactor stops reporting states on terminate(), so a sibling that is still
+    running never reaches a final state. Shutdown must not wait for it.
+    """
+    wf1, wf2 = _wf(1), _wf(2)
+    bk = _make_bk([])
+    bk._campaign["campaign"].workflows = [wf1, wf2]
+
+    def work():
+        with bk._monitor_lock:
+            bk._workflows_to_monitor += [wf1, wf2]
+            bk._unavail_resources += [(range(2), 1), (range(2), 1)]
+        bk.state_update_cb(workflow_ids=[2], new_state=States.EXECUTING)
+        bk.state_update_cb(workflow_ids=[1], new_state=States.FAILED)
+        bk._planning_done.set()
+    bk.work = work
+
+    runner = mt.Thread(target=bk.run, daemon=True)
+    runner.start()
+    runner.join(timeout=5)
+    hung = runner.is_alive()
+    if hung:
+        # Let a stuck monitor thread exit, so it does not block the test session.
+        with bk._monitor_lock:
+            bk._workflows_to_monitor.clear()
+        runner.join(timeout=5)
+
+    assert not hung, "Bookkeeper.run() did not return after a workflow failed"
+    assert bk.get_campaign_state() == States.FAILED
+    assert bk._workflows_state[2] == States.EXECUTING
+    bk._enactor.terminate.assert_called_once()
+    assert not bk._monitoring_thread.is_alive()
+
+
+def test_monitor_records_workflows_that_finished_during_shutdown():
+    """
+    A workflow that finished just before shutdown is still recorded and released;
+    a sibling that is still executing is not waited for.
+    """
+    wf1, wf2 = _wf(1), _wf(2)
+    bk = _make_bk([])
+    bk._workflows_state = {1: States.DONE, 2: States.EXECUTING}
+    bk._workflows_to_monitor = [wf1, wf2]
+    bk._unavail_resources = [(range(2), 1), (range(2, 4), 1)]
+    bk._record = MagicMock()
+    bk._terminate_event.set()   # shutdown started before the monitor's next pass
+
+    thread = mt.Thread(target=bk.monitor, daemon=True)
+    thread.start()
+    thread.join(timeout=5)
+
+    assert not thread.is_alive()
+    bk._record.assert_called_once_with(wf1)
+    assert bk._workflows_to_monitor == [wf2]
+    assert bk._unavail_resources == [(range(2, 4), 1)]
+
+
+@patch("socm.bookkeeper.bookkeeper.sleep")
+def test_work_does_not_start_a_queued_batch_after_the_campaign_failed(mock_sleep):
+    """
+    run() marks the campaign FAILED and starts shutdown while work() finishes a
+    batch. The next batch must not be set up, and FAILED must not be overwritten.
+    """
+    wf1, wf2 = _wf(1), _wf(2)
+    full_plan = [_entry(wf1, 0, 30), _entry(wf2, 30, 60)]
+    bk = _make_bk([_batch(full_plan, [1]), _batch(full_plan, [2])])
+
+    def mock_enact(workflows):
+        bk.state_update_cb(workflow_ids=[w.id for w in workflows], new_state=States.FAILED)
+        with bk._exec_state_lock:   # what run() does when it sees the failure
+            bk._campaign["state"] = States.FAILED
+    bk._enactor.enact.side_effect = mock_enact
+
+    bk.work()
+
+    bk._enactor.setup.assert_called_once()   # only the first batch
+    bk._enactor.enact.assert_called_once_with(workflows=[wf1])
+    assert bk._campaign["state"] == States.FAILED
+
+
+def test_terminate_signals_the_threads_before_shutting_down_the_enactor():
+    bk = _make_bk([])
+    bk._monitoring_thread = None
+    bk._work_thread = None
+    event_set_when_enactor_terminated = []
+    bk._enactor.terminate.side_effect = lambda: event_set_when_enactor_terminated.append(bk._terminate_event.is_set())
+
+    bk.terminate()
+
+    assert event_set_when_enactor_terminated == [True]
+
+
+def test_terminate_records_workflows_reported_done_during_enactor_shutdown():
+    """
+    The enactor's monitor can deliver a DONE callback while terminate() shuts it
+    down, after the Bookkeeper monitor's last pass. That workflow is still recorded.
+    """
+    wf1 = _wf(1)
+    bk = _make_bk([])
+    bk._workflows_state = {1: States.EXECUTING}
+    bk._workflows_to_monitor = [wf1]
+    bk._unavail_resources = [(range(2), 1)]
+    bk._record = MagicMock()
+    bk._work_thread = None
+    bk._monitoring_thread = mt.Thread(target=bk.monitor, daemon=True)
+
+    def late_done_callback():
+        bk._monitoring_thread.join(timeout=5)   # the monitor's last pass is over
+        bk.state_update_cb(workflow_ids=[1], new_state=States.DONE)
+    bk._enactor.terminate.side_effect = late_done_callback
+
+    bk._monitoring_thread.start()
+    bk.terminate()
+
+    bk._record.assert_called_once_with(wf1)
+    assert bk._workflows_to_monitor == []
+    assert bk._unavail_resources == []

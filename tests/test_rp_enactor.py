@@ -4,6 +4,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from socm.enactor.rp_enactor import RPEnactor
+from socm.utils.states import States
 from socm.workflows import SATSimWorkflow, ShellScriptWorkflow
 
 
@@ -53,3 +54,75 @@ def test_arguments_are_passed_as_a_list(enactor):
     assert task.executable == "toast_so_sim"
     assert task.arguments == workflow.get_arguments()
     assert task.arguments[:3] == ["--out", "out", "--job_group_size=2"]
+
+
+# ─── _monitor ────────────────────────────────────────────────────────────────
+
+# conftest.py replaces radical.* with mocks, so give the enactor real state names.
+FAKE_RP = SimpleNamespace(
+    DONE="DONE", FAILED="FAILED", CANCELED="CANCELED", AGENT_EXECUTING="AGENT_EXECUTING",
+    FINAL=["DONE", "FAILED", "CANCELED"],
+)
+FAKE_STATES_MAP = {"DONE": States.DONE, "FAILED": States.FAILED, "CANCELED": States.FAILED}
+
+
+def _run_monitor_once(enactor, tasks):
+    """
+    Run one pass of the monitor loop over ``tasks`` ({workflow_id: (rp_state, stdout)})
+    and return the callback calls, keyed by their ``new_state``.
+    """
+    enactor._terminate_monitor = MagicMock()
+    enactor._terminate_monitor.is_set.side_effect = [False, True]
+    enactor._to_monitor = list(tasks)
+    enactor._execution_status = {wid: {} for wid in tasks}
+    enactor._rp_tmgr.list_tasks.return_value = [f"workflow.{wid}" for wid in tasks]
+
+    def get_tasks(uids):
+        state, stdout = tasks[int(uids.removeprefix("workflow."))]
+        return SimpleNamespace(state=state, stdout=stdout)
+
+    enactor._rp_tmgr.get_tasks.side_effect = get_tasks
+    callback = MagicMock()
+    enactor._callbacks = {"cb": callback}
+    with patch("socm.enactor.rp_enactor.rp", FAKE_RP), patch("socm.enactor.rp_enactor.states_map", FAKE_STATES_MAP):
+        enactor._monitor()
+    return {call.kwargs["new_state"]: call.kwargs for call in callback.call_args_list}
+
+
+def test_monitor_reports_done_with_step_id(enactor):
+    calls = _run_monitor_once(enactor, {1: ("DONE", "output\n1234.5\n")})
+
+    assert set(calls) == {States.DONE}
+    assert calls[States.DONE]["workflow_ids"] == [1]
+    assert calls[States.DONE]["step_ids"] == ["1234.5"]
+    assert enactor._execution_status[1]["state"] == States.DONE
+    assert enactor._to_monitor == []
+
+
+@pytest.mark.parametrize("rp_state", ["FAILED", "CANCELED"])
+def test_monitor_reports_failed_and_canceled_as_failed(enactor, rp_state):
+    from socm.enactor.rp_enactor import rp, states_map
+
+    assert states_map[getattr(rp, rp_state)] == States.FAILED
+    calls = _run_monitor_once(enactor, {1: (rp_state, "")})  # empty stdout must not raise
+
+    assert set(calls) == {States.FAILED}
+    assert calls[States.FAILED]["workflow_ids"] == [1]
+    assert calls[States.FAILED]["step_ids"] == [None]
+    assert enactor._execution_status[1]["state"] == States.FAILED
+    assert enactor._to_monitor == []
+
+
+def test_monitor_reports_done_and_failed_in_one_pass(enactor):
+    calls = _run_monitor_once(enactor, {1: ("DONE", "1234.5"), 2: ("FAILED", ""), 3: ("AGENT_EXECUTING", "")})
+
+    assert calls[States.DONE]["workflow_ids"] == [1]
+    assert calls[States.FAILED]["workflow_ids"] == [2]
+    assert enactor._to_monitor == [3]   # still running, still monitored
+
+
+def test_monitor_stops_monitoring_done_workflows_without_failures(enactor):
+    """Finished workflows leave the monitoring list even when no workflow failed."""
+    _run_monitor_once(enactor, {1: ("DONE", "1234.5"), 2: ("DONE", "1234.6")})
+
+    assert enactor._to_monitor == []

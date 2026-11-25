@@ -13,6 +13,10 @@ from socm.core import Resource, Workflow
 from socm.enactor.base import Enactor
 from socm.utils.states import States
 
+states_map = {rp.DONE: States.DONE,
+              rp.CANCELED: States.FAILED,
+              rp.FAILED: States.FAILED}
+
 
 class RPEnactor(Enactor):
     """
@@ -193,6 +197,7 @@ class RPEnactor(Enactor):
                 monitoring_list = deepcopy(self._to_monitor)
                 # self._logger.info("Monitoring workflows %s" % monitoring_list)
                 to_remove_wfs = []
+                to_remove_failed_wfs = []
                 to_remove_sids = []
 
                 for workflow_id in monitoring_list:
@@ -203,18 +208,27 @@ class RPEnactor(Enactor):
                         if rp_workflow.state in rp.FINAL:
                             with self._monitoring_lock:
                                 self._logger.debug(f"workflow.{workflow_id} Done")
-                                self._execution_status[workflow_id]["state"] = States.DONE
+                                self._execution_status[workflow_id]["state"] = states_map[rp_workflow.state]
                                 self._execution_status[workflow_id][
                                     "end_time"
                                 ] = datetime.now(UTC)
-                                self._logger.debug(
-                                    "Workflow {} finished: {}, step_id: {}",
-                                    workflow_id,
-                                    self._execution_status[workflow_id]["end_time"],
-                                    rp_workflow.stdout.split()[-1],
-                                )
-                                to_remove_wfs.append(workflow_id)
-                                to_remove_sids.append(rp_workflow.stdout.split()[-1])
+
+                                if rp_workflow.state == rp.DONE:
+                                    to_remove_wfs.append(workflow_id)
+                                    to_remove_sids.append(rp_workflow.stdout.split()[-1])
+                                    self._logger.debug(
+                                        "Workflow {} finished: {}, step_id: {}",
+                                        workflow_id,
+                                        self._execution_status[workflow_id]["end_time"],
+                                        rp_workflow.stdout.split()[-1],
+                                    )
+                                elif rp_workflow.state in [rp.FAILED, rp.CANCELED]:
+                                    to_remove_failed_wfs.append(workflow_id)
+                                    self._logger.debug(
+                                        "Workflow {} failed",
+                                        workflow_id,
+                                    )
+
                             self._prof.prof("workflow_success", uid=self._uid)
                 if to_remove_wfs:
                     for cb in self._callbacks:
@@ -223,9 +237,16 @@ class RPEnactor(Enactor):
                             new_state=States.DONE,
                             step_ids=to_remove_sids,
                         )
-                    with self._monitoring_lock:
-                        for wid in to_remove_wfs:
-                            self._to_monitor.remove(wid)
+                if to_remove_failed_wfs:
+                    for cb in self._callbacks:
+                        self._callbacks[cb](
+                            workflow_ids=to_remove_failed_wfs,
+                            new_state=States.FAILED,
+                            step_ids=[None] * len(to_remove_failed_wfs),
+                        )
+                with self._monitoring_lock:
+                    for wid in to_remove_wfs + to_remove_failed_wfs:
+                        self._to_monitor.remove(wid)
         self._prof.prof("workflow_monitor_end", uid=self._uid)
 
     def get_status(self, workflows: str | list[str] | None = None) -> dict[str, States]:
