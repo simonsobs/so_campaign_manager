@@ -35,7 +35,7 @@ def test_sun_close_far_null_test_workflow(mock_context_act, simple_config):
         assert workflow.output_dir == f"output/null_tests/sun_far_split_{idx + 1}"
         assert (
             workflow.query
-            == f"file://{str(Path(f'output/null_tests/sun_far_split_{idx + 1}/query.txt').absolute())}"
+            == f"file://{Path(f'output/null_tests/sun_far_split_{idx + 1}/query.txt').absolute()!s}"
         )
         if idx == 0:
             assert workflow.datasize == 259584

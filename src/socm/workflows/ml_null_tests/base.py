@@ -1,6 +1,6 @@
 from datetime import timedelta
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Union
+from typing import Any
 
 from sotodlib.core import Context
 
@@ -51,10 +51,10 @@ class NullTestWorkflow(MLMapmakingWorkflow):
     query: str = "1"
     name: str = "lat_null_test_workflow"
     datasize: int = 0
-    chunk_nobs: Optional[int] = None
-    chunk_duration: Optional[timedelta] = None
+    chunk_nobs: int | None = None
+    chunk_duration: timedelta | None = None
 
-    def model_post_init(self, __context: Any) -> None:
+    def model_post_init(self, context: Any, /) -> None:
         """
         Post-initialisation hook that queries the observation database and computes splits.
 
@@ -76,7 +76,7 @@ class NullTestWorkflow(MLMapmakingWorkflow):
             query_path = Path(self.query.split("file://")[-1]).absolute()
             final_query = get_query_from_file(query_path)
         obs_ids = ctx.obsdb.query(final_query)
-        obs_info = dict()
+        obs_info = {}
         for obs_id in obs_ids:
             self.datasize += obs_id["n_samples"]
             obs_info[obs_id["obs_id"]] = {
@@ -118,8 +118,8 @@ class NullTestWorkflow(MLMapmakingWorkflow):
         return num_chunks
 
     def _get_splits(
-        self, ctx: Context, obs_info: Dict[str, Dict[str, Union[float, str]]]
-    ) -> List[List[str]]:
+        self, ctx: Context, obs_info: dict[str, dict[str, float | str]]
+    ) -> list[list[str]]:
         """
         Compute observation splits for the null test.
 
@@ -158,7 +158,7 @@ class NullTestWorkflow(MLMapmakingWorkflow):
             pass
 
     @classmethod
-    def get_workflows(cls, desc: Dict[str, Any]) -> List["NullTestWorkflow"]:
+    def get_workflows(cls, desc: dict[str, Any]) -> list["NullTestWorkflow"]:
         """
         Create :class:`NullTestWorkflow` instances from a configuration description.
 
@@ -189,7 +189,7 @@ class NullTestWorkflow(MLMapmakingWorkflow):
         else:
             pass
 
-    def get_arguments(self) -> List[str]:
+    def get_arguments(self) -> list[str]:
         """
         Build the list of command-line arguments for the null-test workflow.
 

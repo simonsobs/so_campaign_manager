@@ -1,31 +1,12 @@
 import ast
-from typing import Dict, List
+from pathlib import Path
+from typing import Any
 
 import networkx as nx
 
 
-def parse_comma_separated_fields(config: dict, fields_to_parse: List[str]) -> dict:
-    """
-    Convert comma-separated string values in a config dict to Python lists.
-
-    Recursively traverses nested dicts. For each key found in
-    ``fields_to_parse`` whose value is a comma-separated string, the string is
-    split on commas and each token is evaluated with :func:`ast.literal_eval`.
-
-    Parameters
-    ----------
-    config : dict
-        The configuration dictionary to process in-place.
-    fields_to_parse : list of str
-        Keys whose values should be converted from comma-separated strings to
-        lists.
-
-    Returns
-    -------
-    dict
-        The mutated ``config`` dictionary (modified in-place and returned for
-        convenience).
-    """
+def parse_comma_separated_fields(config: dict, fields_to_parse: list[str]) -> dict:
+    """Convert comma-separated string values to lists."""
     for key, value in config.items():
         if isinstance(value, dict):
             parse_comma_separated_fields(value, fields_to_parse)
@@ -34,7 +15,7 @@ def parse_comma_separated_fields(config: dict, fields_to_parse: List[str]) -> di
     return config
 
 
-def get_workflow_entries(campaign_dict: dict, subcampaign_map: Dict[str, list] | None = None) -> Dict[str, dict]:
+def get_workflow_entries(campaign_dict: dict, subcampaign_map: dict[str, list] | None = None) -> dict[str, dict]:
     """
     Extract workflow entries from a campaign dictionary using a subcampaign mapping.
 
@@ -136,6 +117,92 @@ def get_query_from_file(file_path: str) -> str:
     query += ")"
 
     return query
+
+
+def read_par_file(file_path: str | Path) -> dict[str, Any]:
+    """
+    Read an argparse ``@file`` (par file) into a dict of option name to value.
+
+    Follows argparse's default format: every line is exactly one argument, so
+    values may contain spaces (e.g. ``2025-01-01 00:00:00``). Supports
+    ``--key=value``, ``--key`` followed by a value line, bare ``--flag``
+    (True), ``--op.enable`` / ``--op.disable`` (``op`` -> True/False), toast's
+    boolean trait flags ``--op.trait`` / ``--op.no_trait`` (``op.trait`` ->
+    True/False, the last one wins), blank lines, ``#`` comment lines and
+    nested ``@other.par`` includes, resolved relative to the including file.
+
+    An option given more than once (e.g. ``--patch``) becomes a list of its
+    values in order. Passing every value back on the command line keeps
+    argparse semantics: append options get all of them, others the last one.
+
+    Parameters
+    ----------
+    file_path : str or Path
+        Path to the par file.
+
+    Returns
+    -------
+    dict
+        Option names without the leading ``--``. Values are strings (or lists
+        of strings for repeated options), except for flags and enable/disable
+        options, which are booleans.
+
+    Raises
+    ------
+    ValueError
+        If the file contains a value that does not follow an option.
+    """
+    file_path = Path(file_path)
+    tokens = _read_par_tokens(file_path)
+
+    args: dict[str, Any] = {}
+
+    def _add(key: str, value: Any) -> None:
+        if key not in args:
+            args[key] = value
+        elif isinstance(args[key], list):
+            args[key].append(value)
+        else:
+            args[key] = [args[key], value]
+
+    i = 0
+    while i < len(tokens):
+        token = tokens[i]
+        if not token.startswith("--"):
+            raise ValueError(f"{file_path}: value {token!r} does not follow an option")
+        key, sep, value = token[2:].partition("=")
+        if sep:
+            _add(key, value)
+        elif key.endswith((".enable", ".disable")):
+            op_name, _, state = key.rpartition(".")
+            args[op_name] = state == "enable"
+        elif i + 1 < len(tokens) and not tokens[i + 1].startswith("--"):
+            _add(key, tokens[i + 1])
+            i += 1
+        else:
+            op_name, negated, trait = key.partition(".no_")
+            if negated and op_name and trait:
+                # Same key as --op.trait, so the later of the two flags wins.
+                args[f"{op_name}.{trait}"] = False
+            else:
+                args[key] = True
+        i += 1
+
+    return args
+
+
+def _read_par_tokens(file_path: Path) -> list[str]:
+    """Return the arguments in a par file, one per line, expanding ``@`` includes."""
+    tokens = []
+    for line in file_path.read_text().splitlines():
+        line = line.strip()
+        if not line or line.startswith("#"):
+            continue
+        if line.startswith("@"):
+            tokens.extend(_read_par_tokens(file_path.parent / line[1:]))
+        else:
+            tokens.append(line)
+    return tokens
 
 
 def print_plan(graph: nx.DiGraph) -> None:

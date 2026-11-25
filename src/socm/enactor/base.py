@@ -1,13 +1,13 @@
 import os
-from typing import Dict, List
 
 import radical.utils as ru
 
 from socm.core import Resource, Workflow
+from socm.utils.log import get_logger
 from socm.utils.states import States
 
 
-class Enactor(object):
+class Enactor:
     """
     Abstract base class for campaign workflow enactors.
 
@@ -29,22 +29,15 @@ class Enactor(object):
     _worflows : list
         List of workflow IDs that have been submitted for execution.
     _execution_status : dict
-        Mapping of workflow ID to a status dictionary containing at minimum:
-
-        * ``"state"`` — current :class:`~socm.utils.states.States` value.
-        * ``"endpoint"`` — back-end task object or ``None``.
-        * ``"exec_thread"`` — execution thread or ``None``.
-        * ``"start_time"`` — submission timestamp.
-        * ``"end_time"`` — completion timestamp or ``None``.
-    _logger : radical.utils.Logger
-        RADICAL-Utils logger instance.
-    _prof : radical.utils.Profiler
-        RADICAL-Utils profiler instance.
+        A hash table that holds the state and execution status of each
+        workflow.
+    _logger : loguru.Logger
+        A logging object.
     """
 
     def __init__(self, sid=None):
 
-        self._worflows = list()  # A list of workflows IDs
+        self._worflows = []  # A list of workflows IDs
         # This will a hash table of workflows. The table will include the
         # following:
         # 'workflowsID': {'state': The state of the workflow based on the WFM,
@@ -53,7 +46,7 @@ class Enactor(object):
         #                 'start_time': Epoch of when the workflow is submitted
         #                               to the WMF,
         #                 'end_time': Epoch of when the workflow finished.}
-        self._execution_status = dict()  # This will create a hash table of workflows
+        self._execution_status = {}  # This will create a hash table of workflows
 
         self._uid = ru.generate_id("enactor.%(counter)04d", mode=ru.ID_CUSTOM, ns=sid)
 
@@ -61,7 +54,7 @@ class Enactor(object):
         # print(path)
         name = self._uid
 
-        self._logger = ru.Logger(name=self._uid, path=path, level="DEBUG")
+        self._logger = get_logger(self._uid, path)
         self._prof = ru.Profiler(name=name, path=path)
 
     def setup(self, resource: Resource, walltime: int, cores: int, execution_schema: str | None = None) -> None:
@@ -90,7 +83,7 @@ class Enactor(object):
         """
         raise NotImplementedError("setup is not implemented")
 
-    def enact(self, workflows: List[Workflow]) -> None:
+    def enact(self, workflows: list[Workflow]) -> None:
         """
         Submit a list of workflows for execution.
 
@@ -125,7 +118,7 @@ class Enactor(object):
         """
         raise NotImplementedError("_monitor is not implemented")
 
-    def get_status(self, workflows: str | List[str] | None = None) -> Dict[str, States]:
+    def get_status(self, workflows: str | list[str] | None = None) -> dict[str, States]:
         """
         Get the execution state of one or more workflows.
 
@@ -141,7 +134,7 @@ class Enactor(object):
             A mapping of workflow ID to its current :class:`~socm.utils.states.States` value.
         """
 
-        status = dict()
+        status = {}
         if workflows is None:
             for workflow in self._execution_status:
                 status[workflow] = self._execution_status[workflow]["state"]
@@ -169,11 +162,7 @@ class Enactor(object):
         """
 
         if workflow not in self._execution_status:
-            self._logger.warning(
-                "Has not enacted on workflow %s yet.",
-                workflow,
-                self._get_workflow_state(workflow),
-            )
+            self._logger.warning("Has not enacted on workflow {} yet.", workflow)
         else:
             self._execution_status[workflow]["state"] = new_state
 

@@ -1,5 +1,4 @@
 from pathlib import Path
-from typing import List, Optional, Union
 
 from socm.core import Workflow
 
@@ -33,8 +32,8 @@ class SpectraWorkflow(Workflow):
     name: str = "pspipe_workflow"
     executable: str = "python -u"
     datasize: int = 0
-    script_args: Optional[List[str]] = None
-    script_flags: Optional[List[str]] = None
+    script_args: list[str] | None = None
+    script_flags: list[str] | None = None
 
     def get_command(self) -> str:
         """
@@ -54,7 +53,7 @@ class SpectraWorkflow(Workflow):
 
         return command.strip()
 
-    def get_arguments(self) -> List[str]:
+    def get_arguments(self) -> list[str]:
         """
         Build the list of command-line arguments for the power-spectra workflow.
 
@@ -104,8 +103,8 @@ class SpectraWorkflow(Workflow):
 
     @classmethod
     def get_workflows(
-        cls, descriptions: Union[List[dict], dict]
-    ) -> List["SpectraWorkflow"]:
+        cls, descriptions: list[dict] | dict
+    ) -> list["SpectraWorkflow"]:
         """
         Create :class:`SpectraWorkflow` instances from configuration descriptions.
 

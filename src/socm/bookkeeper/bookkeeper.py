@@ -1,12 +1,11 @@
 import os
 import threading as mt
-from importlib.resources import files
 from math import ceil, floor
 from pathlib import Path
 from time import sleep
-from typing import Dict, List
 
 import radical.utils as ru
+import toml
 from slurmise.api import Slurmise
 from slurmise.job_data import JobData
 from slurmise.job_parse.file_parsers import FileMD5
@@ -16,10 +15,63 @@ from ..core import Campaign, PlanEntry, Workflow
 from ..enactor import DryrunEnactor, RPEnactor
 from ..planner import HeftPlanner
 from ..resources import registered_resources
+from ..utils.log import get_logger
 from ..utils.states import CFINAL, States
 
+# Environment variable pointing to a persistent Slurmise directory, so that job
+# history accumulates across campaigns.
+SLURMISE_DIR_ENV = "SOCM_SLURMISE_DIR"
 
-class Bookkeeper(object):
+
+def resolve_slurmise_dir(base_path: str | None = None) -> str:
+    """
+    Return the directory Slurmise should use for its database and models.
+
+    Precedence: ``$SOCM_SLURMISE_DIR``, then ``<base_path>/slurmise_dir``,
+    then ``<cwd>/slurmise_dir``.
+
+    Parameters
+    ----------
+    base_path : str, optional
+        The campaign base path.
+
+    Returns
+    -------
+    str
+        The absolute path of the Slurmise directory.
+    """
+    env_dir = os.environ.get(SLURMISE_DIR_ENV)
+    if env_dir:
+        return os.path.abspath(os.path.expanduser(env_dir))
+    return os.path.abspath(os.path.join(base_path or os.getcwd(), "slurmise_dir"))
+
+
+def write_slurmise_toml(slurmise_dir: str, dest: Path) -> Path:
+    """
+    Write a minimal Slurmise config pointing at ``slurmise_dir``.
+
+    Slurmise only accepts a TOML path, so the config is written to disk. Job
+    specs are not needed: the Bookkeeper builds ``JobData`` from the workflow
+    fields and records it with ``raw_record``.
+
+    Parameters
+    ----------
+    slurmise_dir : str
+        Value for ``[slurmise] base_dir``.
+    dest : Path
+        Where to write the generated TOML file.
+
+    Returns
+    -------
+    Path
+        ``dest``, for passing to ``Slurmise(toml_path=...)``.
+    """
+    dest.parent.mkdir(parents=True, exist_ok=True)
+    dest.write_text(toml.dumps({"slurmise": {"base_dir": slurmise_dir}}))
+    return dest
+
+
+class Bookkeeper:
     """
     Main orchestrator for campaign execution on HPC systems.
 
@@ -62,19 +114,22 @@ class Bookkeeper(object):
         self._checkpoints = None
         self._plan_result = None
         self._unavail_resources = []
-        self._workflows_state = dict()
-        self._workflows_execids = dict()
+        self._workflows_state = {}
+        self._workflows_execids = {}
         self._objective = deadline
         self._exec_state_lock = ru.RLock("workflows_state_lock")
         self._monitor_lock = ru.RLock("monitor_list_lock")
-        self._slurmise = Slurmise(toml_path=files("socm.configs") / "slurmise.toml")
         # The time in the campaign's world. The first element is the actual time
         # of the campaign world. The second element is the
         # self._time = {"time": 0, "step": []}io
 
         path = os.getcwd() + "/" + self._session_id
+        slurmise_toml = write_slurmise_toml(
+            resolve_slurmise_dir(campaign.base_path), Path(path) / "slurmise.toml"
+        )
+        self._slurmise = Slurmise(toml_path=slurmise_toml)
 
-        self._logger = ru.Logger(name=self._uid, path=path, level="DEBUG")
+        self._logger = get_logger(self._uid, path)
         self._prof = ru.Profiler(name=self._uid, path=path)
         self._logger.debug(f"Deadline {deadline}")
         self._planner = HeftPlanner(
@@ -84,8 +139,8 @@ class Bookkeeper(object):
             objective=deadline
         )
 
-        self._workflows_to_monitor = list()
-        self._est_end_times = dict()
+        self._workflows_to_monitor = []
+        self._est_end_times = {}
         self._enactor = RPEnactor(sid=self._session_id) if not dryrun else DryrunEnactor(sid=self._session_id)
         self._dryrun = dryrun
         self._enactor.register_state_cb(self.state_update_cb)
@@ -100,7 +155,7 @@ class Bookkeeper(object):
         self._work_thread = None  # Private attribute that will hold the thread
         self._monitoring_thread = None  # Private attribute that will hold the thread
 
-    def _get_campaign_requirements(self) -> Dict[int, Dict[str, float]]:
+    def _get_campaign_requirements(self) -> dict[int, dict[str, float]]:
         """
         Compute resource requirements for each workflow in the campaign.
 
@@ -114,8 +169,8 @@ class Bookkeeper(object):
             Mapping of workflow ID to resource requirements containing
             ``req_cpus``, ``req_memory``, and ``req_walltime``.
         """
-        workflow_requirements = dict()
-        total_cores = 1 # self._resource.nodes * self._resource.cores_per_node
+        workflow_requirements = {}
+        total_cores = 1  # self._resource.nodes * self._resource.cores_per_node
         # total_memory = self._resource.nodes * self._resource.memory_per_node
         for workflow in self._campaign["campaign"].workflows:
             # tmp_runtime = np.inf
@@ -160,12 +215,12 @@ class Bookkeeper(object):
                 }
         return workflow_requirements
 
-    def _update_checkpoints(self, plan_batch: List[PlanEntry]) -> None:
+    def _update_checkpoints(self, plan_batch: list[PlanEntry]) -> None:
         """
         Create a list of timestamps when workflows may start executing or end.
         """
 
-        self._checkpoints: List[float] = [0]
+        self._checkpoints: list[float] = [0]
         self._batch_start: float = float("inf")
 
         for plan_entry in plan_batch:
@@ -186,10 +241,7 @@ class Bookkeeper(object):
 
         self._update_checkpoints(self._plan_result.batches[-1].plan)
 
-        if self._checkpoints[-1] > self._objective:
-            return False
-        else:
-            return True
+        return self._checkpoints[-1] <= self._objective
 
     def _record(self, workflow: Workflow) -> None:
         """
@@ -255,7 +307,7 @@ class Bookkeeper(object):
             cmd=workflow.get_command(),
         )
         self._logger.debug(
-            "Workflow %s finished with metadata: %s and jobdata: %s",
+            "Workflow {} finished with metadata: {} and jobdata: {}",
             workflow.id,
             workflow_metadata,
             workflow_jobdata,
@@ -273,7 +325,7 @@ class Bookkeeper(object):
         new_state : States
             The new execution state for the workflows.
         """
-        self._logger.debug("Workflow %s to state %s", workflow_ids, new_state.name)
+        self._logger.debug("Workflow {} to state {}", workflow_ids, new_state.name)
         with self._exec_state_lock:
             for workflow_id in workflow_ids:
                 self._workflows_state[workflow_id] = new_state
@@ -294,7 +346,7 @@ class Bookkeeper(object):
         step_ids : list[str]
             Corresponding SLURM job/step IDs (format: ``slurm_id.step_id``).
         """
-        self._logger.debug("Workflow %s with slurmid %s", workflow_ids, step_ids)
+        self._logger.debug("Workflow {} with slurmid {}", workflow_ids, step_ids)
         with self._exec_state_lock:
             for workflow_id, step_id in zip(workflow_ids, step_ids):
                 self._workflows_execids[workflow_id] = step_id
@@ -327,8 +379,8 @@ class Bookkeeper(object):
                     resource_requirements=workflow_requirements,
                     requested_resources=self._campaign["campaign"].requested_resources
                 )
-        except Exception as ex:
-            self._logger.exception(f"Exception during planning: {ex}")
+        except Exception:
+            self._logger.exception("Exception during planning")
             with self._exec_state_lock:
                 self._campaign["state"] = States.FAILED
                 return
@@ -336,7 +388,10 @@ class Bookkeeper(object):
             self._planning_done.set()
             self._prof.prof("planning_ended", uid=self._uid)
 
-        self._logger.debug(f"Calculated campaign plan batches with {self._plan_result.qos} QOS and requesting {self._plan_result.ncores} cores")
+        self._logger.debug(
+            f"Calculated campaign plan batches with {self._plan_result.qos} QOS "
+            f"and requesting {self._plan_result.ncores} cores"
+        )
         objective_met = self._verify_objective()
 
         if not objective_met:
@@ -345,8 +400,14 @@ class Bookkeeper(object):
                 self._campaign["state"] = States.FAILED
         else:
             for plan_batch in self._plan_result.batches:
-                if self._terminate_event.is_set():
-                    break
+                # Checked under the lock run() sets final states with, so a
+                # campaign that just failed never starts another batch.
+                with self._exec_state_lock:
+                    if self._terminate_event.is_set() or self._campaign["state"] in CFINAL:
+                        break
+                    if self._campaign["state"] != States.EXECUTING:
+                        self._campaign["state"] = States.EXECUTING
+                        self._logger.debug("Campaign state to EXECUTING")
 
                 wf_id_lookup = {plan_entry.workflow.id: plan_entry for plan_entry in plan_batch.plan}
                 self._update_checkpoints(plan_batch.plan)
@@ -357,9 +418,7 @@ class Bookkeeper(object):
                     max_walltime = float('inf')
 
                 batch_duration = self._checkpoints[-1] - self._batch_start
-                batch_walltime = int(
-                    ceil(min(batch_duration * 1.25, max_walltime))
-                )
+                batch_walltime = ceil(min(batch_duration * 1.25, max_walltime))
                 self._logger.debug(f"Resource max walltime for batch {batch_walltime}")
 
                 self._enactor.setup(
@@ -369,20 +428,15 @@ class Bookkeeper(object):
                     execution_schema=self._campaign["campaign"].execution_schema,
                 )
 
-                with self._exec_state_lock:
-                    if self._campaign["state"] != States.EXECUTING:
-                        self._campaign["state"] = States.EXECUTING
-                        self._logger.debug("Campaign state to EXECUTING")
-
                 self._current_batch_wf_ids = set(plan_batch.graph.nodes())
                 self._batch_finished.clear()
 
                 self._prof.prof("work_start", uid=self._uid)
                 while not self._terminate_event.is_set() and not self._batch_finished.is_set():
                     self._prof.prof("work_submit", uid=self._uid)
-                    workflows = list()  # Workflows to enact
-                    cores = list()  # The selected cores
-                    memory = list()  # The memory per workflow
+                    workflows = []  # Workflows to enact
+                    cores = []  # The selected cores
+                    memory = []  # The memory per workflow
 
                     for wf_id in plan_batch.graph.nodes():
 
@@ -393,7 +447,7 @@ class Bookkeeper(object):
                         # already.
                         if (
                             predecessors_states == set()
-                            or predecessors_states == set([States.DONE])
+                            or predecessors_states == {States.DONE}
                         ) and self._workflows_state[wf_id] == States.NEW:
                             node_slice = (
                                 wf_id_lookup[wf_id].memory / self._resource.memory_per_node
@@ -436,7 +490,7 @@ class Bookkeeper(object):
                                 f"Total number of workflows to monitor {len(workflows)}"
                             )
                         self._logger.debug(
-                            "Things monitored: %s, %s, %s",
+                            "Things monitored: {}, {}, {}",
                             self._workflows_to_monitor,
                             self._unavail_resources,
                             self._est_end_times,
@@ -459,32 +513,45 @@ class Bookkeeper(object):
         """
         self._logger.info("Monitor thread started")
         while not self._terminate_event.is_set():
-            while self._workflows_to_monitor:
-                self._prof.prof("workflow_monitor", uid=self._uid)
-                with self._monitor_lock:
-                    workflows_snapshot = list(self._workflows_to_monitor)
-                finished = list()
-                for i in range(len(workflows_snapshot)):
-                    if self._workflows_state[workflows_snapshot[i].id] in CFINAL:
-                        resource = self._unavail_resources[i]
-                        finished.append((workflows_snapshot[i], resource))
-
-                        self._record(workflows_snapshot[i])
-                        self._logger.info(
-                            "Workflow %s finished",
-                            workflows_snapshot[i].id,
-                        )
-
-                if finished:
-                    with self._monitor_lock:
-                        for workflow, resource in finished:
-                            self._workflows_to_monitor.remove(workflow)
-                            self._unavail_resources.remove(resource)
-                    self._prof.prof("workflow_finished", uid=self._uid)
-                else:
-                    sleep(1)  # Sleep for a while if nothing happened.
-
+            self._prof.prof("workflow_monitor", uid=self._uid)
+            if not self._release_finished():
+                sleep(1)  # Sleep for a while if nothing happened.
+        # Workflows that finished while shutdown started are still recorded;
+        # ones that are still executing are not waited for.
+        self._release_finished()
         self._logger.debug("Monitor thread Stopped")
+
+    def _release_finished(self) -> bool:
+        """
+        Record and stop monitoring every workflow that reached a final state.
+
+        Only DONE workflows are recorded in Slurmise. Their resources are
+        released along with them.
+
+        Returns
+        -------
+        bool
+            Whether any workflow was released.
+        """
+        with self._monitor_lock:
+            workflows_snapshot = list(self._workflows_to_monitor)
+            resources_snapshot = list(self._unavail_resources)
+        finished = []
+        for workflow, resource in zip(workflows_snapshot, resources_snapshot, strict=True):
+            state = self._workflows_state[workflow.id]
+            if state in CFINAL:
+                finished.append((workflow, resource))
+                if state == States.DONE:
+                    self._record(workflow)
+                self._logger.info("Workflow {} finished", workflow.id)
+
+        if finished:
+            with self._monitor_lock:
+                for workflow, resource in finished:
+                    self._workflows_to_monitor.remove(workflow)
+                    self._unavail_resources.remove(resource)
+            self._prof.prof("workflow_finished", uid=self._uid)
+        return bool(finished)
 
     def get_makespan(self):
         """
@@ -511,13 +578,12 @@ class Bookkeeper(object):
         self._logger.info("Start terminating procedure")
         self._prof.prof("str_bookkeper_terminating", uid=self._uid)
 
-        # Terminate enactor as well.
+        # Stop the threads first, so work() cannot start another batch while
+        # the enactor shuts down.
+        self._terminate_event.set()
+
         self._enactor.terminate()
-
-        # Terminate your threads.
         self._logger.debug("Enactor terminated, terminating threads")
-
-        self._terminate_event.set()  # Thread event to terminate.
 
         self._prof.prof("monitor_bookkeper_terminate", uid=self._uid)
         if self._monitoring_thread:
@@ -530,6 +596,10 @@ class Bookkeeper(object):
             self._work_thread.join()  # Private attribute that will hold the thread
         self._prof.prof("work_bookkeper_terminated", uid=self._uid)
         self._logger.debug("Working thread terminated")
+
+        # Callbacks the enactor delivered while it shut down arrived after the
+        # monitor's last pass; every thread has stopped, so release them here.
+        self._release_finished()
 
     def run(self):
         """
@@ -563,24 +633,34 @@ class Bookkeeper(object):
 
             self._prof.prof("bookkeper_wait", uid=self._uid)
             while self._campaign["state"] not in CFINAL:
-                # Check if all workflows are in a final state.
-                cont = False
+                # Check if all workflows are in a final state. The lock keeps
+                # work() from starting another batch while the state changes.
+                with self._exec_state_lock:
+                    cont = False
 
-                for workflow in self._campaign["campaign"].workflows:
-                    if self._workflows_state[workflow.id] is States.FAILED:
-                        self._campaign["state"] = States.FAILED
-                        break
-                    elif self._workflows_state[workflow.id] not in CFINAL:
-                        cont = True
+                    for workflow in self._campaign["campaign"].workflows:
+                        if self._workflows_state[workflow.id] is States.FAILED:
+                            self._campaign["state"] = States.FAILED
+                            break
+                        elif self._workflows_state[workflow.id] not in CFINAL:
+                            cont = True
 
-                if not cont and not self._workflows_to_monitor:
+                    if (
+                        self._campaign["state"] is not States.FAILED
+                        and not cont
+                        and not self._workflows_to_monitor
+                    ):
+                        self._campaign["state"] = States.DONE
+                if self._campaign["state"] not in CFINAL:
+                    sleep(0.1)  # Outside the lock, so callbacks can update states.
+
+            with self._exec_state_lock:
+                if self._campaign["state"] not in CFINAL:
                     self._campaign["state"] = States.DONE
-
-            if self._campaign["state"] not in CFINAL:
-                self._campaign["state"] = States.DONE
             self._prof.prof("bookkeper_stopping", uid=self._uid)
-        except Exception as ex:
-            self._logger.error(f"Exception occured: {ex}")
+        except Exception:
+            # Top level of the bookkeeper thread: log any failure and always terminate.
+            self._logger.exception("Exception occurred")
         finally:
             self.terminate()
 
@@ -597,7 +677,7 @@ class Bookkeeper(object):
         dict[str, States]
             Mapping of workflow ID to its current execution state.
         """
-        states = dict()
+        states = {}
         for workflow in self._campaign["campaign"].workflows:
             states[workflow.id] = self._workflows_state[workflow.id]
 

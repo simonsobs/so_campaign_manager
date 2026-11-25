@@ -1,6 +1,5 @@
 from datetime import timedelta
 from pathlib import Path
-from typing import Dict, List, Optional, Union
 
 import numpy as np
 from sotodlib.core import Context
@@ -37,15 +36,15 @@ class ElevationNullTestWorkflow(NullTestWorkflow):
         below this value are classified as ``"low"``. Defaults to ``45.0``.
     """
 
-    chunk_nobs: Optional[int] = None
-    chunk_duration: Optional[timedelta] = None
+    chunk_nobs: int | None = None
+    chunk_duration: timedelta | None = None
     nsplits: int = 2  # Fixed to 2 as specified in the issue
     name: str = "elevation_null_test_workflow"
     elevation_threshold: float = 45.0  # Elevation threshold in degrees
 
     def _get_splits(
-        self, ctx: Context, obs_info: Dict[str, Dict[str, Union[float, str]]]
-    ) -> Dict[str, List[List[str]]]:
+        self, ctx: Context, obs_info: dict[str, dict[str, float | str]]
+    ) -> dict[str, list[list[str]]]:
         """
         Distribute observations into elevation-based, time-interleaved splits.
 
@@ -120,7 +119,7 @@ class ElevationNullTestWorkflow(NullTestWorkflow):
         return final_splits
 
     @classmethod
-    def get_workflows(cls, desc=None) -> List[NullTestWorkflow]:
+    def get_workflows(cls, desc=None) -> list[NullTestWorkflow]:
         """
         Create one :class:`~socm.workflows.ml_null_tests.base.NullTestWorkflow` per elevation-split pair.
 
@@ -160,9 +159,8 @@ class ElevationNullTestWorkflow(NullTestWorkflow):
                 query_file = Path(desc_copy["output_dir"]) / "query.txt"
                 query_file.parent.mkdir(parents=True, exist_ok=True)
                 with open(query_file, "w") as f:
-                    for oid in split:
-                        f.write(f"{oid}\n")
-                desc_copy["query"] = f"file://{str(query_file.absolute())}"
+                    f.writelines(f"{oid}\n" for oid in split)
+                desc_copy["query"] = f"file://{query_file.absolute()!s}"
                 desc_copy["chunk_nobs"] = 1
                 workflow = NullTestWorkflow(**desc_copy)
                 workflows.append(workflow)

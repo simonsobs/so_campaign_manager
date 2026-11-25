@@ -38,7 +38,7 @@ def test_direction_null_test_workflow(mock_context_act, simple_config):
         )
         assert (
             workflow.query
-            == f"file://{str(Path(f'output/null_tests/direction_setting_split_{idx + 1}/query.txt').absolute())}"
+            == f"file://{Path(f'output/null_tests/direction_setting_split_{idx + 1}/query.txt').absolute()!s}"
         )
         if idx == 0:
             assert workflow.datasize == 259584

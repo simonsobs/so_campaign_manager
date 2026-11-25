@@ -32,7 +32,7 @@ def test_plan(mocked_init):
     actual_plan = [
         PlanEntry(workflow=Workflow(name="W1", executable="exe", context="ctx", subcommand="sub", id=1, environment=None, resources=ResourceSpec()), cores=range(64, 128), memory=2000, start_time=0, end_time=45),
         PlanEntry(workflow=Workflow(name="W2", executable="exe", context="ctx", subcommand="sub", id=2, environment=None, resources=ResourceSpec()), cores=range(128, 144), memory=15000, start_time=0, end_time=25),
-        PlanEntry(workflow=Workflow(name="W3", executable="exe", context="ctx", subcommand="sub", id=3, environment=None, resources=ResourceSpec()), cores=range(0, 1), memory=2000, start_time=0, end_time=560),
+        PlanEntry(workflow=Workflow(name="W3", executable="exe", context="ctx", subcommand="sub", id=3, environment=None, resources=ResourceSpec()), cores=range(1), memory=2000, start_time=0, end_time=560),
         PlanEntry(workflow=Workflow(name="W4", executable="exe", context="ctx", subcommand="sub", id=4, environment=None, resources=ResourceSpec()), cores=range(16, 24), memory=32000, start_time=0, end_time=140),
         PlanEntry(workflow=Workflow(name="W5", executable="exe", context="ctx", subcommand="sub", id=5, environment=None, resources=ResourceSpec()), cores=range(8, 16), memory=1000, start_time=0, end_time=145),
         PlanEntry(workflow=Workflow(name="W6", executable="exe", context="ctx", subcommand="sub", id=6, environment=None, resources=ResourceSpec()), cores=range(112, 224), memory=20000, start_time=45, end_time=55),
@@ -41,7 +41,7 @@ def test_plan(mocked_init):
     ]
     planner = HeftPlanner(None, None, None)
     planner._logger = MagicMock()
-    planner._estimated_memory = list()
+    planner._estimated_memory = []
 
     planner._resource_requirements = {
         1: {"req_cpus": 64, "req_memory": 2000, "req_walltime": 45},
@@ -94,20 +94,20 @@ def test_failing_plan(mocked_init):
         dag.add_workflow(workflow)
     campaign = Campaign(id=0, workflows=dag, deadline= "50d")
     actual_plan = [
-        PlanEntry(workflow=Workflow( name="ml_mapmaking_workflow", executable="so-site-pipeline", context="file:///context.yaml", subcommand="make-ml-map", id=1, environment={}, resources={"ranks": 896,"threads": 8,"memory": 64000000,"runtime": 12000,}, area="file:///geometry.fits", output_dir="/output", query="file://obslist_balanced.txt", datasize=5230991388, comps="TQU", wafers=None, bands="f090", nmat="corr", max_dets=None, site="act", downsample=1, maxiter=100, tiled=1, wafer="ws0", ), cores=range(0, 7168), memory=64000000, start_time=0, end_time=13200,),
-        PlanEntry(workflow=Workflow( name="mission_split_1_null_test_workflow", executable="so-site-pipeline", context="file:///context.yaml", subcommand="make-ml-map", id=2, environment={}, resources={ "ranks": 224, "threads": 8, "memory": 16000000, "runtime": 12000, }, area="file:///geometry.fits", output_dir="/mission_split_1", query="file://query.txt", datasize=1311130012, comps="TQU", wafers=None, bands="f090", nmat="corr", max_dets=None, site="act", downsample=1, maxiter=100, tiled=1, chunk_nobs=1, chunk_duration=None, nsplits=4, wafer="ws0", ), cores=range(0, 1792), memory=16000000, start_time=13200, end_time=26400),
+        PlanEntry(workflow=Workflow( name="ml_mapmaking_workflow", executable="so-site-pipeline", context="file:///context.yaml", subcommand="make-ml-map", id=1, environment={}, resources={"ranks": 896,"threads": 8,"memory": 64000000,"runtime": 12000,}, area="file:///geometry.fits", output_dir="/output", query="file://obslist_balanced.txt", datasize=5230991388, comps="TQU", wafers=None, bands="f090", nmat="corr", max_dets=None, site="act", downsample=1, maxiter=100, tiled=1, wafer="ws0", ), cores=range(7168), memory=64000000, start_time=0, end_time=13200,),
+        PlanEntry(workflow=Workflow( name="mission_split_1_null_test_workflow", executable="so-site-pipeline", context="file:///context.yaml", subcommand="make-ml-map", id=2, environment={}, resources={ "ranks": 224, "threads": 8, "memory": 16000000, "runtime": 12000, }, area="file:///geometry.fits", output_dir="/mission_split_1", query="file://query.txt", datasize=1311130012, comps="TQU", wafers=None, bands="f090", nmat="corr", max_dets=None, site="act", downsample=1, maxiter=100, tiled=1, chunk_nobs=1, chunk_duration=None, nsplits=4, wafer="ws0", ), cores=range(1792), memory=16000000, start_time=13200, end_time=26400),
         PlanEntry(workflow=Workflow( name="mission_split_2_null_test_workflow", executable="so-site-pipeline", context="file:///context.yaml", subcommand="make-ml-map", id=3, environment={}, resources={ "ranks": 224, "threads": 8, "memory": 16000000, "runtime": 12000, }, area="file:///geometry.fits", output_dir="/mission_split_2", query="file://query.txt", datasize=1307133118, comps="TQU", wafers=None, bands="f090", nmat="corr", max_dets=None, site="act", downsample=1, maxiter=100, tiled=1, chunk_nobs=1, chunk_duration=None, nsplits=4, wafer="ws0", ), cores=range(1792, 3584), memory=16000000, start_time=13200, end_time=26400,),
         PlanEntry(workflow=Workflow( name="mission_split_3_null_test_workflow", executable="so-site-pipeline", context="file:///context.yaml", subcommand="make-ml-map", id=4, environment={}, resources={ "ranks": 224, "threads": 8, "memory": 16000000, "runtime": 12000, }, area="file:///geometry.fits", output_dir="/mission_split_3", query="file://query.txt", datasize=1305106812, comps="TQU", wafers=None, bands="f090", nmat="corr", max_dets=None, site="act", downsample=1, maxiter=100, tiled=1, chunk_nobs=1, chunk_duration=None, nsplits=4, wafer="ws0", ), cores=range(3584, 5376), memory=16000000, start_time=13200, end_time=26400,),
         PlanEntry(workflow=Workflow( name="mission_split_4_null_test_workflow", executable="so-site-pipeline", context="file:///context.yaml", subcommand="make-ml-map", id=5, environment={}, resources={ "ranks": 224, "threads": 8, "memory": 16000000, "runtime": 12000, }, area="file:///geometry.fits", output_dir="/mission_split_4", query="file://query.txt", datasize=1307621446, comps="TQU", wafers=None, bands="f090", nmat="corr", max_dets=None, site="act", downsample=1, maxiter=100, tiled=1, chunk_nobs=1, chunk_duration=None, nsplits=4, wafer="ws0", ), cores=range(5376, 7168), memory=16000000, start_time=13200, end_time=26400,),
-        PlanEntry(workflow=Workflow( name="wafer_ws0_split_1_null_test_workflow", executable="so-site-pipeline", context="file:///context.yaml", subcommand="make-ml-map", id=6, environment={}, resources={ "ranks": 224, "threads": 8, "memory": 16000000, "runtime": 12000, }, area="file:///geometry.fits", output_dir="/wafer_ws0_split_1", query="file://query.txt", datasize=1311130012, comps="TQU", wafers=None, bands="f090", nmat="corr", max_dets=None, site="act", downsample=1, maxiter=100, tiled=1, chunk_nobs=1, chunk_duration=None, nsplits=4, wafer="ws0", ), cores=range(0, 1792), memory=16000000, start_time=26400, end_time=39600,),
+        PlanEntry(workflow=Workflow( name="wafer_ws0_split_1_null_test_workflow", executable="so-site-pipeline", context="file:///context.yaml", subcommand="make-ml-map", id=6, environment={}, resources={ "ranks": 224, "threads": 8, "memory": 16000000, "runtime": 12000, }, area="file:///geometry.fits", output_dir="/wafer_ws0_split_1", query="file://query.txt", datasize=1311130012, comps="TQU", wafers=None, bands="f090", nmat="corr", max_dets=None, site="act", downsample=1, maxiter=100, tiled=1, chunk_nobs=1, chunk_duration=None, nsplits=4, wafer="ws0", ), cores=range(1792), memory=16000000, start_time=26400, end_time=39600,),
         PlanEntry(workflow=Workflow( name="wafer_ws0_split_2_null_test_workflow", executable="so-site-pipeline", context="file:///context.yaml", subcommand="make-ml-map", id=7, environment={}, resources={ "ranks": 224, "threads": 8, "memory": 16000000, "runtime": 12000, }, area="file:///geometry.fits", output_dir="/wafer_ws0_split_2", query="file://query.txt", datasize=1307133118, comps="TQU", wafers=None, bands="f090", nmat="corr", max_dets=None, site="act", downsample=1, maxiter=100, tiled=1, chunk_nobs=1, chunk_duration=None, nsplits=4, wafer="ws0", ), cores=range(1792, 3584), memory=16000000, start_time=26400, end_time=39600,),
         PlanEntry(workflow=Workflow( name="wafer_ws0_split_3_null_test_workflow", executable="so-site-pipeline", context="file:///context.yaml", subcommand="make-ml-map", id=8, environment={}, resources={ "ranks": 224, "threads": 8, "memory": 16000000, "runtime": 12000, }, area="file:///geometry.fits", output_dir="/wafer_ws0_split_3", query="file://query.txt", datasize=1305106812, comps="TQU", wafers=None, bands="f090", nmat="corr", max_dets=None, site="act", downsample=1, maxiter=100, tiled=1, chunk_nobs=1, chunk_duration=None, nsplits=4, wafer="ws0", ), cores=range(3584, 5376), memory=16000000, start_time=26400, end_time=39600,),
         PlanEntry(workflow=Workflow( name="wafer_ws0_split_4_null_test_workflow", executable="so-site-pipeline", context="file:///context.yaml", subcommand="make-ml-map", id=9, environment={}, resources={ "ranks": 224, "threads": 8, "memory": 16000000, "runtime": 12000, }, area="file:///geometry.fits", output_dir="/wafer_ws0_split_4", query="file://query.txt", datasize=1307621446, comps="TQU", wafers=None, bands="f090", nmat="corr", max_dets=None, site="act", downsample=1, maxiter=100, tiled=1, chunk_nobs=1, chunk_duration=None, nsplits=4, wafer="ws0", ), cores=range(5376, 7168), memory=16000000, start_time=26400, end_time=39600,),
-        PlanEntry(workflow=Workflow( name="direction_rising_split_1_null_test_workflow", executable="so-site-pipeline", context="file:///context.yaml", subcommand="make-ml-map", id=10, environment={}, resources={ "ranks": 224, "threads": 8, "memory": 16000000, "runtime": 12000, }, area="file:///geometry.fits", output_dir="/direction_rising_split_1", query="file://query.txt", datasize=691266434, comps="TQU", wafers=None, bands="f090", nmat="corr", max_dets=None, site="act", downsample=1, maxiter=100, tiled=1, chunk_nobs=1, chunk_duration=None, nsplits=4, wafer="ws0", ), cores=range(0, 1792), memory=16000000, start_time=39600, end_time=52800,),
+        PlanEntry(workflow=Workflow( name="direction_rising_split_1_null_test_workflow", executable="so-site-pipeline", context="file:///context.yaml", subcommand="make-ml-map", id=10, environment={}, resources={ "ranks": 224, "threads": 8, "memory": 16000000, "runtime": 12000, }, area="file:///geometry.fits", output_dir="/direction_rising_split_1", query="file://query.txt", datasize=691266434, comps="TQU", wafers=None, bands="f090", nmat="corr", max_dets=None, site="act", downsample=1, maxiter=100, tiled=1, chunk_nobs=1, chunk_duration=None, nsplits=4, wafer="ws0", ), cores=range(1792), memory=16000000, start_time=39600, end_time=52800,),
         PlanEntry(workflow=Workflow( name="direction_rising_split_2_null_test_workflow", executable="so-site-pipeline", context="file:///context.yaml", subcommand="make-ml-map", id=11, environment={}, resources={ "ranks": 224, "threads": 8, "memory": 16000000, "runtime": 12000, }, area="file:///geometry.fits", output_dir="/direction_rising_split_2", query="file://query.txt", datasize=689067348, comps="TQU", wafers=None, bands="f090", nmat="corr", max_dets=None, site="act", downsample=1, maxiter=100, tiled=1, chunk_nobs=1, chunk_duration=None, nsplits=4, wafer="ws0", ), cores=range(1792, 3584), memory=16000000, start_time=39600, end_time=52800,),
         PlanEntry(workflow=Workflow( name="direction_rising_split_3_null_test_workflow", executable="so-site-pipeline", context="file:///context.yaml", subcommand="make-ml-map", id=12, environment={}, resources={ "ranks": 224, "threads": 8, "memory": 16000000, "runtime": 12000, }, area="file:///geometry.fits", output_dir="/direction_rising_split_3", query="file://query.txt", datasize=689196634, comps="TQU", wafers=None, bands="f090", nmat="corr", max_dets=None, site="act", downsample=1, maxiter=100, tiled=1, chunk_nobs=1, chunk_duration=None, nsplits=4, wafer="ws0", ), cores=range(3584, 5376), memory=16000000, start_time=39600, end_time=52800,),
         PlanEntry(workflow=Workflow( name="direction_rising_split_4_null_test_workflow", executable="so-site-pipeline", context="file:///context.yaml", subcommand="make-ml-map", id=13, environment={}, resources={ "ranks": 224, "threads": 8, "memory": 16000000, "runtime": 12000, }, area="file:///geometry.fits", output_dir="/direction_rising_split_4", query="file://query.txt", datasize=689290508, comps="TQU", wafers=None, bands="f090", nmat="corr", max_dets=None, site="act", downsample=1, maxiter=100, tiled=1, chunk_nobs=1, chunk_duration=None, nsplits=4, wafer="ws0", ), cores=range(5376, 7168), memory=16000000, start_time=39600, end_time=52800,),
-        PlanEntry(workflow=Workflow( name="direction_setting_split_1_null_test_workflow", executable="so-site-pipeline", context="file:///context.yaml", subcommand="make-ml-map", id=14, environment={}, resources={ "ranks": 224, "threads": 8, "memory": 16000000, "runtime": 12000, }, area="file:///geometry.fits", output_dir="/direction_setting_split_1", query="file://query.txt", datasize=615677782, comps="TQU", wafers=None, bands="f090", nmat="corr", max_dets=None, site="act", downsample=1, maxiter=100, tiled=1, chunk_nobs=1, chunk_duration=None, nsplits=4, wafer="ws0", ), cores=range(0, 1792), memory=16000000, start_time=52800, end_time=66000,),
+        PlanEntry(workflow=Workflow( name="direction_setting_split_1_null_test_workflow", executable="so-site-pipeline", context="file:///context.yaml", subcommand="make-ml-map", id=14, environment={}, resources={ "ranks": 224, "threads": 8, "memory": 16000000, "runtime": 12000, }, area="file:///geometry.fits", output_dir="/direction_setting_split_1", query="file://query.txt", datasize=615677782, comps="TQU", wafers=None, bands="f090", nmat="corr", max_dets=None, site="act", downsample=1, maxiter=100, tiled=1, chunk_nobs=1, chunk_duration=None, nsplits=4, wafer="ws0", ), cores=range(1792), memory=16000000, start_time=52800, end_time=66000,),
         PlanEntry(workflow=Workflow( name="direction_setting_split_2_null_test_workflow", executable="so-site-pipeline", context="file:///context.yaml", subcommand="make-ml-map", id=15, environment={}, resources={ "ranks": 224, "threads": 8, "memory": 16000000, "runtime": 12000, }, area="file:///geometry.fits", output_dir="/direction_setting_split_2", query="file://query.txt", datasize=621404494, comps="TQU", wafers=None, bands="f090", nmat="corr", max_dets=None, site="act", downsample=1, maxiter=100, tiled=1, chunk_nobs=1, chunk_duration=None, nsplits=4, wafer="ws0", ), cores=range(1792, 3584), memory=16000000, start_time=52800, end_time=66000,),
         PlanEntry(workflow=Workflow( name="direction_setting_split_3_null_test_workflow", executable="so-site-pipeline", context="file:///context.yaml", subcommand="make-ml-map", id=16, environment={}, resources={ "ranks": 224, "threads": 8, "memory": 16000000, "runtime": 12000, }, area="file:///geometry.fits", output_dir="/direction_setting_split_3", query="file://query.txt", datasize=618468316, comps="TQU", wafers=None, bands="f090", nmat="corr", max_dets=None, site="act", downsample=1, maxiter=100, tiled=1, chunk_nobs=1, chunk_duration=None, nsplits=4, wafer="ws0", ), cores=range(3584, 5376), memory=16000000, start_time=52800, end_time=66000,),
         PlanEntry(workflow=Workflow(name="direction_setting_split_4_null_test_workflow", executable="so-site-pipeline", context="file:///context.yaml", subcommand="make-ml-map", id=17, environment={}, resources={ "ranks": 224, "threads": 8, "memory": 16000000, "runtime": 12000,}, area="file:///geometry.fits", output_dir="/direction_setting_split_4", query="file://query.txt", datasize=616619872, comps="TQU", wafers=None, bands="f090", nmat="corr", max_dets=None, site="act", downsample=1, maxiter=100, tiled=1, chunk_nobs=1, chunk_duration=None, nsplits=4, wafer="ws0",),cores=range(5376, 7168),memory=16000000,start_time=52800,end_time=66000,),
@@ -115,7 +115,7 @@ def test_failing_plan(mocked_init):
 
     planner = HeftPlanner(None, None, None)
     planner._logger = MagicMock()
-    planner._estimated_memory = list()
+    planner._estimated_memory = []
 
     planner._resource_requirements = {
         1: {"req_cpus": 7168, "req_memory": 64000000, "req_walltime": 13200.000000000002},
@@ -169,10 +169,10 @@ def test_plan_with_dag_dependencies(mocked_init):
 
 
     actual_plan = [
-        PlanEntry(workflow=Workflow(name="W1", executable="exe", context="ctx", subcommand="sub", id=1), cores=range(0, 224), memory=2000, start_time=0, end_time=45),
+        PlanEntry(workflow=Workflow(name="W1", executable="exe", context="ctx", subcommand="sub", id=1), cores=range(224), memory=2000, start_time=0, end_time=45),
         PlanEntry(workflow=Workflow(name="W2", executable="exe", context="ctx", subcommand="sub", id=2), cores=range(112, 224), memory=2000, start_time=45, end_time=75),
-        PlanEntry(workflow=Workflow(name="W3", executable="exe", context="ctx", subcommand="sub", id=3), cores=range(0, 112), memory=2000, start_time=70, end_time=90),
-        PlanEntry(workflow=Workflow(name="W4", executable="exe", context="ctx", subcommand="sub", id=4), cores=range(0, 112), memory=2000, start_time=45, end_time=70),
+        PlanEntry(workflow=Workflow(name="W3", executable="exe", context="ctx", subcommand="sub", id=3), cores=range(112), memory=2000, start_time=70, end_time=90),
+        PlanEntry(workflow=Workflow(name="W4", executable="exe", context="ctx", subcommand="sub", id=4), cores=range(112), memory=2000, start_time=45, end_time=70),
     ]
 
     planner = HeftPlanner(None, None, None)
@@ -278,7 +278,7 @@ def test_get_free_memory(mocked_init):
 
     # Create a mock plan with PlanEntry
     planner._plan = [
-        PlanEntry(workflow=Workflow(name="W1", executable="exe", context="ctx", subcommand="sub", id=1), cores=range(0, 5), memory=500, start_time=0, end_time=100),
+        PlanEntry(workflow=Workflow(name="W1", executable="exe", context="ctx", subcommand="sub", id=1), cores=range(5), memory=500, start_time=0, end_time=100),
         PlanEntry(workflow=Workflow(name="W2", executable="exe", context="ctx", subcommand="sub", id=2), cores=range(5, 10), memory=300, start_time=50, end_time=150),
     ]
 
@@ -481,9 +481,9 @@ def test_split_plan_single_batch(mocked_init):
     w3 = Workflow(name="W3", executable="exe", context="ctx", subcommand="sub", id=3)
 
     plan = [
-        PlanEntry(workflow=w1, cores=range(0, 4), memory=100, start_time=0, end_time=50),
-        PlanEntry(workflow=w2, cores=range(0, 4), memory=100, start_time=0, end_time=60),
-        PlanEntry(workflow=w3, cores=range(0, 4), memory=100, start_time=50, end_time=80),
+        PlanEntry(workflow=w1, cores=range(4), memory=100, start_time=0, end_time=50),
+        PlanEntry(workflow=w2, cores=range(4), memory=100, start_time=0, end_time=60),
+        PlanEntry(workflow=w3, cores=range(4), memory=100, start_time=50, end_time=80),
     ]
 
     graph = nx.DiGraph()
@@ -505,8 +505,8 @@ def test_split_plan_multi_batch(mocked_init):
     w2 = Workflow(name="W2", executable="exe", context="ctx", subcommand="sub", id=2)
 
     plan = [
-        PlanEntry(workflow=w1, cores=range(0, 4), memory=100, start_time=0, end_time=50),
-        PlanEntry(workflow=w2, cores=range(0, 4), memory=100, start_time=50, end_time=110),
+        PlanEntry(workflow=w1, cores=range(4), memory=100, start_time=0, end_time=50),
+        PlanEntry(workflow=w2, cores=range(4), memory=100, start_time=50, end_time=110),
     ]
 
     graph = nx.DiGraph()
@@ -538,8 +538,8 @@ def test_split_plan_early_start_triggers_split(mocked_init):
     w2 = Workflow(name="W2", executable="exe", context="ctx", subcommand="sub", id=2)
 
     plan = [
-        PlanEntry(workflow=w1, cores=range(0, 4), memory=100, start_time=10, end_time=50),
-        PlanEntry(workflow=w2, cores=range(0, 4), memory=100, start_time=0, end_time=60),
+        PlanEntry(workflow=w1, cores=range(4), memory=100, start_time=10, end_time=50),
+        PlanEntry(workflow=w2, cores=range(4), memory=100, start_time=0, end_time=60),
     ]
 
     graph = nx.DiGraph()
@@ -573,7 +573,7 @@ def test_plan_with_qos_optimization_single_fit(mocked_init):
 
     w1 = Workflow(name="W1", executable="exe", context="ctx", subcommand="sub", id=1)
     mock_plan = [
-        PlanEntry(workflow=w1, cores=range(0, 112), memory=1000, start_time=0, end_time=200)
+        PlanEntry(workflow=w1, cores=range(112), memory=1000, start_time=0, end_time=200)
     ]
     mock_graph = nx.DiGraph()
     mock_graph.add_node(1)
@@ -611,8 +611,8 @@ def test_plan_with_qos_optimization_multi_batch(mocked_init):
     w1 = Workflow(name="W1", executable="exe", context="ctx", subcommand="sub", id=1)
     w2 = Workflow(name="W2", executable="exe", context="ctx", subcommand="sub", id=2)
     mock_plan = [
-        PlanEntry(workflow=w1, cores=range(0, 100), memory=1000, start_time=0, end_time=150),
-        PlanEntry(workflow=w2, cores=range(0, 100), memory=1000, start_time=150, end_time=350),
+        PlanEntry(workflow=w1, cores=range(100), memory=1000, start_time=0, end_time=150),
+        PlanEntry(workflow=w2, cores=range(100), memory=1000, start_time=150, end_time=350),
     ]
     mock_graph = nx.DiGraph()
     mock_graph.add_edge(1, 2)
@@ -648,13 +648,12 @@ def test_plan_with_qos_optimization_infeasible_cannot_meet_deadline(mocked_init)
 
     resource_requirements = {1: {"req_cpus": 112, "req_memory": 1000, "req_walltime": 100}}
 
-    with mock.patch.object(planner, "_binary_search_resources", return_value=None):
-        with pytest.raises(ValueError):
-            planner._plan_with_qos_optimization(
-                campaign=MagicMock(),
-                resource_requirements=resource_requirements,
-                requested_resources=224,
-            )
+    with mock.patch.object(planner, "_binary_search_resources", return_value=None), pytest.raises(ValueError):
+        planner._plan_with_qos_optimization(
+            campaign=MagicMock(),
+            resource_requirements=resource_requirements,
+            requested_resources=224,
+        )
 
 
 @mock.patch.object(HeftPlanner, "__init__", return_value=None)
@@ -674,20 +673,22 @@ def test_plan_with_qos_optimization_infeasible_no_qos_for_cores(mocked_init):
 
     w1 = Workflow(name="W1", executable="exe", context="ctx", subcommand="sub", id=1)
     mock_plan = [
-        PlanEntry(workflow=w1, cores=range(0, 100), memory=1000, start_time=0, end_time=30)
+        PlanEntry(workflow=w1, cores=range(100), memory=1000, start_time=0, end_time=30)
     ]
     mock_graph = nx.DiGraph()
     mock_graph.add_node(1)
 
     resource_requirements = {1: {"req_cpus": 100, "req_memory": 1000, "req_walltime": 30}}
 
-    with mock.patch.object(planner, "_binary_search_resources", return_value=(100, mock_plan, mock_graph)):
-        with pytest.raises(ValueError):
-            planner._plan_with_qos_optimization(
-                campaign=MagicMock(),
-                resource_requirements=resource_requirements,
-                requested_resources=200,
-            )
+    with (
+        mock.patch.object(planner, "_binary_search_resources", return_value=(100, mock_plan, mock_graph)),
+        pytest.raises(ValueError),
+    ):
+        planner._plan_with_qos_optimization(
+            campaign=MagicMock(),
+            resource_requirements=resource_requirements,
+            requested_resources=200,
+        )
 
 
 @mock.patch.object(HeftPlanner, "__init__", return_value=None)
@@ -708,20 +709,22 @@ def test_plan_with_qos_optimization_infeasible_workflow_too_long(mocked_init):
     w1 = Workflow(name="W1", executable="exe", context="ctx", subcommand="sub", id=1)
     # W1 duration = 150 > max_walltime=100 → infeasible
     mock_plan = [
-        PlanEntry(workflow=w1, cores=range(0, 50), memory=1000, start_time=0, end_time=150)
+        PlanEntry(workflow=w1, cores=range(50), memory=1000, start_time=0, end_time=150)
     ]
     mock_graph = nx.DiGraph()
     mock_graph.add_node(1)
 
     resource_requirements = {1: {"req_cpus": 50, "req_memory": 1000, "req_walltime": 150}}
 
-    with mock.patch.object(planner, "_binary_search_resources", return_value=(50, mock_plan, mock_graph)):
-        with pytest.raises(ValueError):
-            planner._plan_with_qos_optimization(
-                campaign=MagicMock(),
-                resource_requirements=resource_requirements,
-                requested_resources=200,
-            )
+    with (
+        mock.patch.object(planner, "_binary_search_resources", return_value=(50, mock_plan, mock_graph)),
+        pytest.raises(ValueError),
+    ):
+        planner._plan_with_qos_optimization(
+            campaign=MagicMock(),
+            resource_requirements=resource_requirements,
+            requested_resources=200,
+        )
 
 
 # ------------------------------------------------------------------------------
@@ -735,7 +738,7 @@ def test_plan_batch_mode_returns_plan_result(mocked_init):
     planner._logger = MagicMock()
 
     w1 = Workflow(name="W1", executable="exe", context="ctx", subcommand="sub", id=1)
-    mock_plan = [PlanEntry(workflow=w1, cores=range(0, 4), memory=100, start_time=0, end_time=50)]
+    mock_plan = [PlanEntry(workflow=w1, cores=range(4), memory=100, start_time=0, end_time=50)]
     mock_graph = nx.DiGraph()
     mock_graph.add_node(1)
 

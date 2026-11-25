@@ -1,12 +1,26 @@
+import types
 from collections.abc import Iterable
 from numbers import Number
-from typing import TYPE_CHECKING, Dict, List, NamedTuple, Optional, Tuple, Union, get_args, get_origin
+from typing import TYPE_CHECKING, Any, NamedTuple, Union, get_args, get_origin
 
 import networkx as nx
 from pydantic import BaseModel, ConfigDict, Field, PrivateAttr, field_validator
 
 if TYPE_CHECKING:
     from radical.pilot import TaskDescription
+
+# typing.Optional[X]/Union[X, Y] and PEP 604 X | Y have different origins.
+_UNION_TYPES = (Union, types.UnionType)
+
+
+def _accepts_list(annotation) -> bool:
+    """Whether a field annotation can hold a list (``list[str]``, ``list[str] | None``, ``Any``, ...)."""
+    if annotation is Any or annotation in (list, tuple, set, frozenset):
+        return True
+    origin = get_origin(annotation)
+    if origin in _UNION_TYPES:
+        return any(_accepts_list(arg) for arg in get_args(annotation))
+    return origin in (list, tuple, set, frozenset)
 
 
 class QosPolicy(BaseModel):
@@ -30,9 +44,9 @@ class QosPolicy(BaseModel):
     """
 
     name: str
-    max_walltime: Optional[int] = None  # in minutes
-    max_jobs: Optional[int] = None
-    max_cores: Optional[int] = None
+    max_walltime: int | None = None  # in minutes
+    max_jobs: int | None = None
+    max_cores: int | None = None
 
 
 class Resource(BaseModel):
@@ -63,8 +77,8 @@ class Resource(BaseModel):
     nodes: int
     cores_per_node: int
     memory_per_node: int
-    qos: List[QosPolicy] = Field(default_factory=list)
-    _existing_jobs: Dict[str, List[Tuple[str, int, int]]] = PrivateAttr(default_factory=dict)
+    qos: list[QosPolicy] = Field(default_factory=list)
+    _existing_jobs: dict[str, list[tuple[str, int, int]]] = PrivateAttr(default_factory=dict)
 
     def fits_in_qos(self, walltime: int, cores: int) -> QosPolicy | None:
         """
@@ -213,14 +227,37 @@ class Workflow(BaseModel):
     executable: str = ""
     context: str = ""
     subcommand: str = ""
-    id: Optional[int] = None
-    environment: Optional[Dict[str, str]] = None
+    id: int | None = None
+    environment: dict[str, str] | None = None
     resources: ResourceSpec = Field(default_factory=ResourceSpec)
-    depends: List[str] = []
+    depends: list[str] = []
 
     model_config = {
         "extra": "allow",
     }
+
+    @field_validator("*", mode="before")
+    @classmethod
+    def _last_value_for_scalar_fields(cls, value, info):
+        """
+        Keep the last value when an option repeated in a par file targets a
+        scalar field, as argparse does for non-append options. ``read_par_file``
+        returns repeated options as lists; options that are not fields keep them.
+        """
+        field = cls.model_fields.get(info.field_name)
+        if isinstance(value, list) and value and field is not None and not _accepts_list(field.annotation):
+            return value[-1]
+        return value
+
+    @classmethod
+    def normalize_options(cls, options: dict[str, Any]) -> dict[str, Any]:
+        """
+        Rewrite one source of options (a par file, a stage config) into the
+        names the workflow uses, e.g. option aliases to fields. ``build_dag``
+        calls it on each source separately before merging, so a later source
+        overrides an earlier one whatever form either uses. Must be idempotent.
+        """
+        return dict(options)
 
     def __hash__(self):
         return hash(self.id)
@@ -249,26 +286,15 @@ class Workflow(BaseModel):
         """
         raise NotImplementedError("This method should be implemented in subclasses")
 
-    def get_arguments(self, **kargs) -> List[str]:
+    def get_arguments(self, **kargs) -> list[str]:
         """
-        Return the command-line arguments for this workflow as a list of strings.
-
-        Must be overridden by every concrete workflow subclass.
-
-        Returns
-        -------
-        list of str
-            Ordered list of argument strings (positional and/or ``--key=value``
-            pairs) to be appended to the command returned by :meth:`get_command`.
-
-        Raises
-        ------
-        NotImplementedError
-            Always raised by the base implementation.
+        Return the command-line arguments for this workflow, one list entry
+        per argument and without shell quoting. Enactors pass them to the
+        executable as-is; subclasses must shell-quote them in ``get_command``.
         """
         raise NotImplementedError("This method should be implemented in subclasses")
 
-    def get_numeric_fields(self, avoid_attributes: List[str] | None = None) -> List[str]:
+    def get_numeric_fields(self, avoid_attributes: list[str] | None = None) -> list[str]:
         """
         Return field names whose values are numeric types or numeric iterables.
 
@@ -310,18 +336,16 @@ class Workflow(BaseModel):
                 args = get_args(field_type)
 
                 # Check for Optional numeric types
-                if origin is Union:
+                if origin in _UNION_TYPES:
                     for arg in args:
                         if isinstance(arg, type) and issubclass(arg, Number):
                             numeric_fields.append(field_name)
                             break
-                # Check for iterables of numbers
-                elif issubclass(origin, Iterable):
-                    # Check if it's a parameterized generic like List[int]
-                    if args and len(args) > 0:
-                        element_type = args[0]
-                        if isinstance(element_type, type) and issubclass(element_type, Number):
-                            numeric_fields.append(field_name)
+                # Check for parameterized iterables of numbers like List[int]
+                elif issubclass(origin, Iterable) and args:
+                    element_type = args[0]
+                    if isinstance(element_type, type) and issubclass(element_type, Number):
+                        numeric_fields.append(field_name)
 
         # Also check actual instance values for numeric fields not captured by annotations
         # Include model_extra for Pydantic v2 extra="allow" fields
@@ -341,7 +365,7 @@ class Workflow(BaseModel):
 
         return numeric_fields
 
-    def get_categorical_fields(self, avoid_attributes: List[str] | None = None) -> List[str]:
+    def get_categorical_fields(self, avoid_attributes: list[str] | None = None) -> list[str]:
         """
         Return field names whose values are string types or string iterables.
 
@@ -382,18 +406,16 @@ class Workflow(BaseModel):
                 args = get_args(field_type)
 
                 # Check for Optional numeric types
-                if origin is Union:
+                if origin in _UNION_TYPES:
                     for arg in args:
                         if isinstance(arg, type) and issubclass(arg, str):
                             categorical_fields.append(field_name)
                             break
-                # Check for iterables of numbers
-                elif issubclass(origin, Iterable):
-                    # Check if it's a parameterized generic like List[int]
-                    if args and len(args) > 0:
-                        element_type = args[0]
-                        if isinstance(element_type, type) and issubclass(element_type, str):
-                            categorical_fields.append(field_name)
+                # Check for parameterized iterables of strings like List[str]
+                elif issubclass(origin, Iterable) and args:
+                    element_type = args[0]
+                    if isinstance(element_type, type) and issubclass(element_type, str):
+                        categorical_fields.append(field_name)
 
         # Also check actual instance values for categorical fields not captured by annotations
         # Include model_extra for Pydantic v2 extra="allow" fields
@@ -413,7 +435,7 @@ class Workflow(BaseModel):
 
         return categorical_fields
 
-    def get_tasks(self) -> List["TaskDescription"]:
+    def get_tasks(self) -> list["TaskDescription"]:
         """
         Return a list of RADICAL-Pilot ``TaskDescription`` objects for the workflow.
 
@@ -478,22 +500,13 @@ class DAG(BaseModel):
         self.graph.add_edge(parent_id, child_id)
 
     @property
-    def workflows(self) -> List[Workflow]:
-        """
-        Return all workflows in topological order.
-
-        Returns
-        -------
-        list of Workflow
-            Workflows sorted so that every dependency appears before the
-            workflow that depends on it.
-        """
+    def workflows(self) -> list[Workflow]:
+        """Return workflows in topological order."""
         return [self.graph.nodes[n]["workflow"] for n in nx.topological_sort(self.graph)]
 
     @property
-    def levels(self) -> List[List[Workflow]]:
-        """
-        Return workflows grouped by dependency level (generation).
+    def levels(self) -> list[list[Workflow]]:
+        """Return workflows grouped by dependency level (generation).
 
         Each level contains workflows whose dependencies are all satisfied
         by previous levels, and can therefore be executed in parallel.
@@ -585,6 +598,7 @@ class Campaign(BaseModel):
     campaign_policy: str = "time"
     execution_schema: str = "batch"
     requested_resources: int = 0
+    base_path: str | None = None
 
     @field_validator("workflows", mode="before")
     @classmethod
@@ -644,42 +658,13 @@ class PlanEntry(NamedTuple):
 
 
 class Batch(NamedTuple):
-    """
-    A group of workflows that execute within a single pilot submission.
-
-    Batches are created when the campaign deadline exceeds the maximum
-    walltime of a single QoS tier, requiring the plan to be split into
-    sequential pilot allocations.
-
-    Attributes
-    ----------
-    plan : list of PlanEntry
-        The scheduled workflow entries belonging to this batch.
-    graph : networkx.DiGraph
-        Intra-batch dependency graph (cross-batch edges are dropped because
-        sequential batch execution already enforces ordering).
-    """
-
-    plan: List[PlanEntry]
+    """A group of workflows that execute within a single pilot submission."""
+    plan: list[PlanEntry]
     graph: nx.DiGraph
 
 
 class PlanResult(NamedTuple):
-    """
-    Complete output of the planning phase.
-
-    Attributes
-    ----------
-    qos : QosPolicy or None
-        The selected SLURM QoS policy. ``None`` when using batch execution
-        schema, where the resource allocation is fully controlled by the user.
-    ncores : int
-        Total number of cores to request for the pilot job.
-    batches : list of Batch
-        One or more batches of scheduled workflows. A single-element list
-        means the entire campaign fits within one pilot submission.
-    """
-
-    qos: Optional[QosPolicy]  # None for batch execution schema
+    """Complete output of the planning phase."""
+    qos: QosPolicy | None  # None for batch execution schema
     ncores: int
-    batches: List[Batch]  # Length 1 for single-submission campaigns
+    batches: list[Batch]  # Length 1 for single-submission campaigns
