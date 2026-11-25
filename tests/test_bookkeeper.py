@@ -520,3 +520,30 @@ def test_terminate_signals_the_threads_before_shutting_down_the_enactor():
     bk.terminate()
 
     assert event_set_when_enactor_terminated == [True]
+
+
+def test_terminate_records_workflows_reported_done_during_enactor_shutdown():
+    """
+    The enactor's monitor can deliver a DONE callback while terminate() shuts it
+    down, after the Bookkeeper monitor's last pass. That workflow is still recorded.
+    """
+    wf1 = _wf(1)
+    bk = _make_bk([])
+    bk._workflows_state = {1: States.EXECUTING}
+    bk._workflows_to_monitor = [wf1]
+    bk._unavail_resources = [(range(2), 1)]
+    bk._record = MagicMock()
+    bk._work_thread = None
+    bk._monitoring_thread = mt.Thread(target=bk.monitor, daemon=True)
+
+    def late_done_callback():
+        bk._monitoring_thread.join(timeout=5)   # the monitor's last pass is over
+        bk.state_update_cb(workflow_ids=[1], new_state=States.DONE)
+    bk._enactor.terminate.side_effect = late_done_callback
+
+    bk._monitoring_thread.start()
+    bk.terminate()
+
+    bk._record.assert_called_once_with(wf1)
+    assert bk._workflows_to_monitor == []
+    assert bk._unavail_resources == []

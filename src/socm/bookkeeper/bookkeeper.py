@@ -597,6 +597,10 @@ class Bookkeeper:
         self._prof.prof("work_bookkeper_terminated", uid=self._uid)
         self._logger.debug("Working thread terminated")
 
+        # Callbacks the enactor delivered while it shut down arrived after the
+        # monitor's last pass; every thread has stopped, so release them here.
+        self._release_finished()
+
     def run(self):
         """
         Run the campaign to completion.
