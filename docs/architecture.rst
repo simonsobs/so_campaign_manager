@@ -1,13 +1,8 @@
 Architecture
 ============
 
-This document provides a comprehensive overview of the SO Campaign Manager architecture, design patterns, and internal workings.
-
-System Overview
----------------
-
-SO Campaign Manager is built on a modular architecture that separates concerns into distinct components:
-
+This page describes how SO Campaign Manager is built, for developers. To run
+campaigns, see :doc:`campaigns` and the :doc:`user_guide`.
 
 Core Components
 ---------------
@@ -59,7 +54,8 @@ Configuration → Planning → Execution → Monitoring
 
 **Stage 1: Configuration Parsing**
 
-1. User provides TOML configuration file
+1. User provides a TOML (mapmaking) or YAML (power spectra, LAT simulations)
+   configuration file to the matching ``socm`` subcommand
 2. Configuration parser reads campaign settings
 3. Workflow entries are extracted and validated
 4. Workflow factory classes create instances
@@ -70,7 +66,8 @@ Configuration → Planning → Execution → Monitoring
 1. Bookkeeper receives Campaign and Resource objects
 2. Planner analyzes workflow dependencies from the DAG
 3. HEFT algorithm computes optimal schedule
-4. Resource requirements are estimated (via Slurmise or workflow ``resources`` field)
+4. Resource requirements are taken from each workflow's ``resources``, with 10% added
+   to the runtime
 5. QoS policies are matched for the campaign deadline
 6. Execution plan is generated (list of ``PlanEntry`` objects, one or more ``Batch`` objects)
 
@@ -83,10 +80,10 @@ Configuration → Planning → Execution → Monitoring
 
 **Stage 4: Monitoring**
 
-1. Bookkeeper monitors workflow states
-2. Enactor provides state updates via callbacks
-3. Progress is logged and profiled via RADICAL-Utils
-4. Completion or failure triggers next actions
+1. The enactor reports ``EXECUTING``, ``DONE`` and ``FAILED`` through callbacks
+2. The Bookkeeper enacts workflows whose dependencies are all ``DONE``
+3. It records finished workflows in Slurmise and frees their cores
+4. The first failure ends the campaign (see `Error Handling and Recovery`_)
 
 Detailed Component Architecture
 --------------------------------
@@ -116,32 +113,39 @@ Core Models (src/socm/core/models.py)
        qos: List[QosPolicy]
 
    class ResourceSpec(BaseModel):
-       """Per-workflow resource specification (ranks, threads, runtime)."""
+       """Per-workflow resources; memory (MB) is accepted as an extra field."""
        ranks: int = 1
        threads: int = 1
        runtime: float = 60  # minutes
 
    class Workflow(BaseModel):
-       """Base class for all workflow types."""
+       """Base class for all workflow types; extra fields are allowed."""
        name: str
-       executable: str
-       context: str
+       executable: str = ""
+       context: str = ""
        subcommand: str = ""
-       environment: Optional[Dict[str, str]]
-       resources: ResourceSpec  # ResourceSpec object, not a plain dict
+       id: int | None = None
+       environment: dict[str, str] | None = None
+       resources: ResourceSpec
+       depends: list[str] = []      # names of parent workflows
 
-       # Abstract methods (must be implemented by subclasses)
-       def get_command(self) -> str: ...
-       def get_arguments(self) -> List[str]: ...
+       def get_command(self) -> str: ...         # abstract
+       def get_arguments(self) -> list[str]: ... # abstract
+
+       @classmethod
+       def normalize_options(cls, options: dict) -> dict:
+           """Rewrite one source of options (par file, stage) to field names."""
 
    class Campaign(BaseModel):
        """Container for workflow collection with policies."""
        id: int
-       workflows: DAG          # DAG object, not a plain list
-       campaign_policy: str
-       deadline: str           # string, e.g. "2d"
-       execution_schema: str   # "batch" or "remote"
-       requested_resources: int
+       workflows: DAG                 # a list of workflows is converted to a DAG
+       deadline: str                  # e.g. "2d"
+       target_resource: str = "tiger3"
+       campaign_policy: str = "time"
+       execution_schema: str = "batch"  # "batch" or "remote"
+       requested_resources: int = 0
+       base_path: str | None = None
 
    class PlanEntry(NamedTuple):
        """A single scheduled workflow entry in the execution plan."""
@@ -225,8 +229,8 @@ Bookkeeper (src/socm/bookkeeper/bookkeeper.py)
 
 **Integration Points:**
 
-* Integrates with **Slurmise** for SLURM job prediction and post-execution recording
-* Uses **RADICAL-Utils** for logging and profiling
+* Records finished workflows in **Slurmise** (prediction is not enabled yet)
+* Logs with **loguru**, one file per component, and profiles with **RADICAL-Utils**
 * Communicates with Planner via ``plan()`` interface
 * Manages Enactor lifecycle and callbacks
 
@@ -264,7 +268,7 @@ The Heterogeneous Earliest Finish Time (HEFT) algorithm consists of:
 1. **Resource Estimation Phase:**
 
    * Per-workflow ``req_cpus``, ``req_memory``, ``req_walltime`` are obtained from
-     workflow resources (with a 10% runtime buffer) or predicted via Slurmise.
+     workflow resources, with a 10% runtime buffer.
 
 2. **Processor Selection Phase (for each dependency level):**
 
@@ -285,7 +289,7 @@ The Heterogeneous Earliest Finish Time (HEFT) algorithm consists of:
    * Build a dependency ``DiGraph`` from core-sharing relationships.
    * Wrap in ``Batch`` and ``PlanResult`` objects.
 
-**Algorithm Complexity:** O(|V|² × |P|) where V = workflows, P = cores
+**Algorithm Complexity:** ``O(|V|² × |P|)`` where V = workflows, P = cores
 
 Enactor (src/socm/enactor/)
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -344,7 +348,8 @@ Uses RADICAL-Pilot framework for HPC task execution:
 **State Callbacks:**
 
 Enactor invokes registered callbacks with ``workflow_ids``, ``new_state``, and
-``step_ids`` when workflows reach ``EXECUTING`` or ``DONE`` states.
+``step_ids`` when workflows reach ``EXECUTING``, ``DONE`` or ``FAILED``. ``step_ids``
+holds the SLURM step ID of each ``DONE`` workflow, and ``None`` otherwise.
 
 **Dryrun Implementation (dryrun_enactor.py):**
 
@@ -358,7 +363,7 @@ Resources (src/socm/resources/)
 
 **Purpose:** Define HPC resource characteristics and QoS policies.
 
-Three pre-configured resource classes are provided:
+Four pre-configured resource classes are provided:
 
 .. list-table::
    :header-rows: 1
@@ -380,6 +385,10 @@ Three pre-configured resource classes are provided:
      - ``universe``
      - 28
      - 224
+   * - ``LocalResource``
+     - ``localhost``
+     - 1
+     - 8
 
 See :doc:`resources` for the full QoS tier specifications.
 
@@ -390,13 +399,18 @@ Workflows (src/socm/workflows/)
 
 **Workflow Registry:**
 
-All workflows must be registered in ``workflows/__init__.py``:
+All workflows must be registered in ``workflows/__init__.py``. The ML mapmaking and
+null-test workflows are only registered when ``sotodlib`` can be imported:
 
 .. code-block:: python
 
    registered_workflows = {
        "power-spectra": SpectraWorkflow,
+       "get-schedule": GetScheduleWorkflow,
        "sat-sims": SATSimWorkflow,
+       "lat-sims": LATSimWorkflow,
+       "shell-script": ShellScriptWorkflow,
+       # with sotodlib:
        "ml-mapmaking": MLMapmakingWorkflow,
        "ml-null-tests.mission-tests": TimeNullTestWorkflow,
        "ml-null-tests.wafer-tests": WaferNullTestWorkflow,
@@ -429,6 +443,8 @@ Each workflow must:
 4. Implement ``get_arguments() -> List[str]`` method (returns a *list* of strings,
    not a single string)
 5. Provide ``get_workflows()`` class method for factory pattern
+6. Override ``normalize_options()`` if option names differ from field names, e.g. a
+   par file's ``--out`` for ``output_dir``
 
 Configuration System
 --------------------
@@ -436,7 +452,9 @@ Configuration System
 TOML-Based Configuration
 ~~~~~~~~~~~~~~~~~~~~~~~~~
 
-The configuration system uses TOML for human-readable campaign definitions.
+Mapmaking campaigns (``socm lat-mapmaking``) use TOML for human-readable campaign
+definitions. Power spectra and LAT simulation campaigns use a YAML DAG of stages
+instead; see `YAML Stage Configuration`_ below.
 
 **Hierarchical Structure:**
 
@@ -447,7 +465,8 @@ The configuration system uses TOML for human-readable campaign definitions.
 
 **Configuration Inheritance:**
 
-Subcampaign workflows inherit common configuration from parent:
+The parent section's keys are copied into every subcampaign workflow, overriding the
+same keys there:
 
 .. code-block:: toml
 
@@ -474,6 +493,27 @@ The ``get_workflow_entries()`` utility in ``utils/misc.py`` handles:
 * Merging inherited configuration
 * Creating workflow descriptions
 
+YAML Stage Configuration
+~~~~~~~~~~~~~~~~~~~~~~~~
+
+Power spectra (``socm spectra``) and LAT simulation (``socm lat-sims``) campaigns list
+their workflows under ``stages``. Each stage becomes one workflow named after it, and
+its ``depends`` list becomes DAG edges.
+
+In a LAT simulations campaign, ``build_dag()`` in ``execs/lat_sims.py`` also:
+
+* picks the workflow class from the stage's ``type`` (or its name) in
+  ``registered_workflows``;
+* expands a stage's ``matrix`` into one workflow per combination, filling in
+  ``${axis}`` placeholders, and links each workflow to the parent workflows with the
+  same values on the shared axes;
+* reads a stage's ``param-file`` and merges it under the stage's own settings, after
+  normalizing each source with the workflow class's ``normalize_options()``;
+* resolves relative ``param-file`` and ``script`` paths against the YAML file's
+  directory.
+
+See :doc:`workflows` for the stage format.
+
 Dependency Management
 ---------------------
 
@@ -491,7 +531,8 @@ The system supports dependency relationships between workflows:
 1. ``Campaign`` validator constructs the DAG from ``depends`` lists
 2. ``DAG.levels`` property returns workflows grouped by topological generation
 3. HEFT algorithm schedules within dependency constraints (per level)
-4. Enactor respects dependencies: workflows wait for all predecessors to reach ``DONE``
+4. The Bookkeeper enacts a workflow only when all its predecessors are ``DONE``, so the
+   descendants of a failed workflow are never enacted
 
 State Management
 ----------------
@@ -523,7 +564,7 @@ Final states (``CFINAL``) are ``[DONE, FAILED, CANCELED]``.
 **State Transitions:**
 
 * Managed by the Enactor via RADICAL-Pilot callbacks
-* Logged via RADICAL-Utils Logger and Profiler
+* Logged per component with loguru, and profiled with RADICAL-Utils
 * Trigger downstream workflow activation when all dependencies reach ``DONE``
 
 Integration with External Systems
@@ -583,30 +624,17 @@ The system handles various failure modes:
 * **Validation:** Pydantic validates all input data at construction time
 * **Exception Logging:** Exceptions in the work thread are caught, logged, and the
   campaign state is set to ``FAILED``
-* **State Tracking:** Failed workflows are reflected in the state dictionary
+* **Task States:** The RADICAL-Pilot enactor reports a task that ends ``DONE`` as
+  ``States.DONE``, and one that ends ``FAILED`` or ``CANCELED`` as ``States.FAILED``.
+* **Failed Workflows:** The descendants of a failed workflow are never enacted. The
+  first failed workflow sets the campaign to ``FAILED``, and ``run()`` then calls
+  ``terminate()``, which stops running workflows and starts no further batches.
+* **Shutdown:** ``terminate()`` first signals the work and monitor threads, so no new
+  batch is started, then shuts down the enactor and joins the threads. A last pass
+  records workflows whose ``DONE`` state arrived during shutdown. Workflows still
+  executing are not waited for.
+* **Slurmise:** only ``DONE`` workflows are recorded.
 * **Cleanup:** ``terminate()`` is always called in a ``finally`` block in ``run()``
-
-Performance Considerations
---------------------------
-
-Optimization Strategies
-~~~~~~~~~~~~~~~~~~~~~~~
-
-1. **Efficient Scheduling:** HEFT algorithm minimises makespan
-2. **Binary Search:** Minimum core count found via binary search over the QoS range
-3. **Batch Splitting:** When no single QoS tier fits, the plan is split into sequential
-   pilot submissions
-4. **QoS Selection:** Automatic selection of the most appropriate SLURM queue
-5. **Parallel Execution:** Independent workflows within each dependency level run concurrently
-
-Scalability
-~~~~~~~~~~~
-
-The system scales to:
-
-* **Hundreds of workflows** in a single campaign
-* **Thousands of nodes** on large HPC systems
-* **Long-running campaigns** split across multiple pilot submissions
 
 Extensibility
 -------------
@@ -640,38 +668,10 @@ The architecture supports extension through:
 2. Define QoS policies in ``__init__``
 3. Register in ``resources/__init__.py``'s ``registered_resources`` dict
 
-Design Principles
------------------
-
-The architecture follows these key principles:
-
-1. **Separation of Concerns:** Each component has a single responsibility
-2. **Interface-based Design:** Abstract base classes define contracts
-3. **Dependency Injection:** Components receive dependencies via constructors
-4. **Configuration over Code:** TOML configuration drives behavior
-5. **Fail-Fast Validation:** Pydantic validates early
-6. **Logging and Observability:** Comprehensive logging via RADICAL-Utils throughout
-7. **Testability:** Modular design with DryrunEnactor enables unit testing
-
-Testing Architecture
---------------------
-
-The test suite mirrors the package structure:
-
-* **Unit Tests:** Test individual components in isolation
-* **Integration Tests:** Test component interactions
-* **Mock Objects:** DryrunEnactor for testing without HPC allocation
-* **Fixtures:** Reusable test data in ``conftest.py``
-
-Summary
+Testing
 -------
 
-The SO Campaign Manager architecture provides:
-
-* **Modularity:** Clean separation of concerns
-* **Extensibility:** Easy to add new workflows and backends
-* **Robustness:** Validation and error handling throughout
-* **Scalability:** Handles large campaigns on massive HPC systems
-* **Maintainability:** Clear interfaces and comprehensive tests
-
-The design enables efficient orchestration of complex mapmaking campaigns while remaining flexible and maintainable.
+The tests in ``tests/`` mirror the package structure. ``tests/conftest.py`` replaces
+``radical.*`` and ``slurmise`` with mocks, so the suite runs without an HPC allocation
+and on macOS. ``DryrunEnactor``, used by ``--dry-run``, simulates execution without
+RADICAL-Pilot.

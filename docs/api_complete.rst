@@ -64,6 +64,12 @@ Enactors
    :undoc-members:
    :show-inheritance:
 
+.. automodule:: socm.enactor.dryrun_enactor
+   :members:
+   :private-members:
+   :undoc-members:
+   :show-inheritance:
+
 Resources
 ---------
 
@@ -80,6 +86,12 @@ Resources
    :show-inheritance:
 
 .. automodule:: socm.resources.universe
+   :members:
+   :private-members:
+   :undoc-members:
+   :show-inheritance:
+
+.. automodule:: socm.resources.localhost
    :members:
    :private-members:
    :undoc-members:
@@ -110,6 +122,27 @@ SAT Simulation
 ~~~~~~~~~~~~~~
 
 .. automodule:: socm.workflows.sat_simulation
+   :members:
+   :private-members:
+   :undoc-members:
+   :show-inheritance:
+
+LAT Simulations
+~~~~~~~~~~~~~~~
+
+.. automodule:: socm.workflows.lat_simulation
+   :members:
+   :private-members:
+   :undoc-members:
+   :show-inheritance:
+
+.. automodule:: socm.workflows.get_schedule
+   :members:
+   :private-members:
+   :undoc-members:
+   :show-inheritance:
+
+.. automodule:: socm.workflows.shell_script
    :members:
    :private-members:
    :undoc-members:
@@ -232,10 +265,34 @@ Utilities
    :undoc-members:
    :show-inheritance:
 
+.. automodule:: socm.utils.log
+   :members:
+   :private-members:
+   :undoc-members:
+   :show-inheritance:
+
 Command Line Interface
 ----------------------
 
 .. automodule:: socm.__main__
+   :members:
+   :private-members:
+   :undoc-members:
+   :show-inheritance:
+
+.. automodule:: socm.execs.mapmaking
+   :members:
+   :private-members:
+   :undoc-members:
+   :show-inheritance:
+
+.. automodule:: socm.execs.power_spectra
+   :members:
+   :private-members:
+   :undoc-members:
+   :show-inheritance:
+
+.. automodule:: socm.execs.lat_sims
    :members:
    :private-members:
    :undoc-members:

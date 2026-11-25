@@ -1,343 +1,116 @@
 User Guide
 ==========
 
-This comprehensive guide covers all aspects of using SO Campaign Manager.
-
-Configuration System
----------------------
-
-SO Campaign Manager uses TOML configuration files to define campaigns. The configuration is structured in several sections:
-
-Campaign Section
-~~~~~~~~~~~~~~~~
-
-The main campaign section defines global settings:
-
-.. code-block:: toml
-
-   [campaign]
-   deadline = "2d"  # Campaign deadline (supports: "1d", "2h", "30m", etc.)
-
-   [campaign.resources]
-   nodes = 4              # Number of compute nodes
-   cores-per-node = 112   # CPU cores per node
-
-Workflow Sections
-~~~~~~~~~~~~~~~~~
-
-Each workflow type has its own section. Currently supported workflows:
-
-* ``ml-mapmaking`` - Maximum likelihood mapmaking
-* ``sat-sims`` - SAT observation simulation
-* ``power-spectra`` - Power spectrum estimation (PSpipe)
-* ``ml-null-tests.mission-tests`` - Time-split null tests
-* ``ml-null-tests.wafer-tests`` - Detector wafer split null tests
-* ``ml-null-tests.direction-tests`` - Scan direction split null tests
-* ``ml-null-tests.pwv-tests`` - Precipitable water vapour split null tests
-* ``ml-null-tests.day-night-tests`` - Day/night split null tests
-* ``ml-null-tests.moonrise-set-tests`` - Moon rise/set split null tests
-* ``ml-null-tests.elevation-tests`` - Telescope elevation split null tests
-* ``ml-null-tests.sun-close-tests`` - Sun proximity split null tests
-* ``ml-null-tests.moon-close-tests`` - Moon proximity split null tests
-
-Example ML Mapmaking Configuration:
-
-.. code-block:: toml
-
-   [campaign.ml-mapmaking]
-   context = "file:///path/to/context.yaml"
-   area = "file:///path/to/area.fits"
-   output_dir = "/path/to/output"
-   bands = "f090"
-   wafer = "ws0"
-   comps = "TQU"
-   maxiter = 10
-   query = "obs_id='1575600533.1575611468.ar5_1'"
-   tiled = 1
-   site = "act"
-
-   [campaign.ml-mapmaking.resources]
-   ranks = 1
-   threads = 32
-   memory = "80000"  # Memory in MB
-   runtime = "80000" # Runtime in seconds
-
-   [campaign.ml-mapmaking.environment]
-   MOBY2_TOD_STAGING_PATH = "/tmp/"
-   DOT_MOBY2 = "/path/to/act_dot_moby2"
-   SOTODLIB_SITECONFIG = "/path/to/site.yaml"
-
-Resource Management
--------------------
-
-Computing Resources
-~~~~~~~~~~~~~~~~~~~
-
-Define the target computing resource:
-
-.. code-block:: python
-
-   resource = Resource(
-       name="tiger3",                # Resource identifier
-       nodes=4,                      # Available nodes
-       cores_per_node=112,           # Cores per node
-       memory_per_node=100000000,    # Memory per node (bytes)
-       default_queue="tiger-test",   # SLURM queue
-       maximum_walltime=3600000      # Max walltime (seconds)
-   )
-
-Resource Allocation
-~~~~~~~~~~~~~~~~~~~
-
-Each workflow can specify its resource requirements:
-
-* **ranks**: Number of MPI ranks
-* **threads**: Number of OpenMP threads
-* **memory**: Memory requirement (MB)
-* **runtime**: Expected runtime (seconds)
-
-The campaign manager automatically:
-
-1. Calculates total resource needs
-2. Optimizes job allocation
-3. Submits to appropriate SLURM queues
-
-Workflow Types
---------------
-
-ML Mapmaking Workflow
-~~~~~~~~~~~~~~~~~~~~~
-
-Maximum likelihood mapmaking for creating maps from time-ordered data.
-
-**Required Parameters:**
-
-* ``context``: Path to context file
-* ``area``: Path to area definition file
-* ``output_dir``: Output directory
-* ``bands``: Frequency bands (e.g., "f090", "f150")
-* ``wafer``: Wafer identifier
-* ``comps``: Components to map ("T", "TQU", etc.)
-* ``query``: Data selection query
-
-**Optional Parameters:**
-
-* ``maxiter``: Maximum iterations (default: 100)
-* ``tiled``: Use tiled processing (0 or 1)
-* ``site``: Observatory site
-
-ML Null Tests Workflow
-~~~~~~~~~~~~~~~~~~~~~~~
-
-Statistical null tests for validating mapmaking results.
-
-**Mission Tests:**
-
-.. code-block:: toml
-
-   [campaign.ml-null-tests.mission-tests]
-   chunk_nobs = 10  # Chunk size in days
-   nsplits = 8      # Number of splits (must be multiple of 2)
-
-**Wafer Tests:**
-
-.. code-block:: toml
-
-   [campaign.ml-null-tests.wafer-tests]
-   chunk_nobs = 10  # Chunk size in days
-   nsplits = 8      # Number of splits
-
-DAG-based Workflow Configuration
----------------------------------
-
-In addition to TOML-based campaigns, SO Campaign Manager supports defining workflows as a
-Directed Acyclic Graph (DAG) using a YAML file. This is suited for pipeline-style workflows
-where stages have explicit dependencies on one another.
-
-DAG YAML Format
-~~~~~~~~~~~~~~~
-
-.. code-block:: yaml
-
-   paramfile: &paramfile /path/to/paramfile.dict
-
-   campaign:
-     deadline: 24h
-     resource: tiger3
-     execution_schema: remote
-     requested_resources: 3359
-
-   stages:
-     stage_one:
-       executable: python -u
-       script: /path/to/script_one.py
-       script-args:
-         - *paramfile
-       depends: null
-       resources:
-         memory: 48G
-         ranks: 1
-         threads: 4
-         runtime: 10m
-
-     stage_two:
-       executable: python -u
-       script: /path/to/script_two.py
-       script-args:
-         - *paramfile
-       depends:
-         - stage_one
-       resources:
-         ranks: 14
-         threads: 8
-         memory: 8G
-         runtime: 30m
-
-     stage_three:
-       executable: python -u
-       script: /path/to/script_three.py
-       script-kwargs:
-         start: 0
-         stop: 10
-       script-flags:
-         - simulate-syst
-       depends:
-         - stage_one
-         - stage_two
-       resources:
-         ranks: 17
-         memory: 600G
-         threads: 4
-         runtime: 15m
-
-Stage Fields
-~~~~~~~~~~~~
-
-* ``executable``: The interpreter or binary to run (e.g. ``python -u``)
-* ``script``: Path to the script to execute
-* ``script-args``: Positional arguments passed to the script (list)
-* ``script-kwargs``: Keyword arguments passed as ``--key=value`` flags (mapping)
-* ``script-flags``: Boolean flags passed as ``--flag`` (list)
-* ``depends``: List of stage names this stage depends on, or ``null`` for no dependencies
-* ``resources``: Per-stage resource requirements (``memory``, ``ranks``, ``threads``, ``runtime``)
-
-Dependency Resolution
-~~~~~~~~~~~~~~~~~~~~~
-
-Stages with ``depends: null`` are independent and can run immediately. Stages that list
-other stages under ``depends`` will only be scheduled after all their dependencies have
-completed successfully. The planner constructs the full DAG and uses HEFT scheduling to
-determine the optimal execution order.
-
-Running a DAG Campaign
-~~~~~~~~~~~~~~~~~~~~~~
-
-.. code-block:: bash
-
-   socm -t campaign.yaml
-
-An annotated example is available in the repository at ``examples/dag.yml``.
-
-Campaign Policies
------------------
-
-Time Policy
-~~~~~~~~~~~
-
-The "time" policy minimizes total campaign completion time by:
-
-1. Analyzing workflow dependencies
-2. Optimizing parallel execution
-3. Balancing resource utilization
-
-Currently, "time" is the only supported policy, but the architecture supports adding new policies.
-
-Environment Variables
----------------------
-
-Common environment variables for SO workflows:
-
-* ``MOBY2_TOD_STAGING_PATH``: Temporary storage path
-* ``DOT_MOBY2``: Moby2 configuration directory
-* ``SOTODLIB_SITECONFIG``: Site configuration file
+This page covers running and operating campaigns. :doc:`campaigns` shows how to write
+each type of campaign, and :doc:`workflows` lists the options of every workflow.
 
 Command Line Interface
 ----------------------
 
-Basic Usage
-~~~~~~~~~~~
+Each campaign type has its own subcommand:
 
 .. code-block:: bash
 
-   socm -t /path/to/campaign.toml
+   socm lat-mapmaking -t campaign.toml   # ML mapmaking and null tests
+   socm spectra -y campaign.yml          # PSpipe power spectra
+   socm lat-sims -y campaign.yml         # LAT simulations
 
-Options
-~~~~~~~
+Options:
 
-* ``-t, --toml``: Path to configuration file (required)
+* ``-t, --toml``: the TOML configuration (``lat-mapmaking``, required)
+* ``-y, --yaml``: the YAML configuration (``spectra`` and ``lat-sims``, required)
+* ``--dry-run``: plan the campaign and simulate its execution without submitting
+  anything to SLURM
 
-The CLI automatically:
+``socm`` then:
 
-1. Validates configuration
-2. Creates workflow instances
-3. Sets up resources
-4. Executes the campaign
+1. reads the configuration and creates the workflows;
+2. plans them with HEFT to fit the ``deadline``, picking the core count and QoS;
+3. submits them to SLURM through RADICAL-Pilot, each workflow once its dependencies
+   are done;
+4. returns when every workflow has finished, or when one has failed.
 
-Monitoring and Logging
-----------------------
+Keep ``socm`` running for the whole campaign, e.g. in ``tmux`` or ``screen`` on the
+login node.
 
-The campaign manager provides detailed logging of:
+Environment Variables for Tasks
+-------------------------------
 
-* Configuration validation
-* Workflow creation
-* Resource allocation
-* Job submission
-* Execution progress
-* Error handling
+A workflow's ``environment`` mapping is set in its task's environment:
 
-Logs are written to stdout and can be redirected as needed.
+.. code-block:: toml
 
-Best Practices
---------------
+   [campaign.ml-mapmaking.environment]
+   SOTODLIB_SITECONFIG = "/path/to/site.yaml"
 
-Configuration
-~~~~~~~~~~~~~
+In a ``lat-sims`` campaign, add ``environment:`` to a stage. ``socm spectra`` does not
+pass ``environment`` on.
 
-1. **Use absolute paths** for all file references
-2. **Test configurations** with small datasets first
-3. **Set realistic deadlines** based on data volume
-4. **Monitor resource usage** to optimize future runs
+Logs
+----
 
-Resource Management
-~~~~~~~~~~~~~~~~~~~
+Each component (bookkeeper, planner, enactor) writes its own log file in the session
+directory, which is created in the directory ``socm`` is started from. The terminal
+shows only warnings and errors; set ``SOCM_LOG_LEVEL`` to ``INFO`` or ``DEBUG`` to see
+more:
 
-1. **Right-size resources** - don't over-allocate
-2. **Consider queue limits** when setting runtime
-3. **Use appropriate memory estimates** to avoid OOM errors
-4. **Test on development queues** before production runs
+.. code-block:: bash
+
+   SOCM_LOG_LEVEL=INFO socm lat-sims -y campaign.yml
+
+Each task writes ``workflow.<id>.out`` and ``workflow.<id>.err`` in its sandbox. In
+power spectra and LAT simulations campaigns with a ``base-path``, the sandbox is
+``<base-path>/<workflow name>.<id>``; otherwise it is in RADICAL-Pilot's session
+sandbox. All tasks of a campaign run inside its pilot jobs, so ``squeue`` shows the
+pilot jobs, not the individual workflows.
+
+Resource Predictions
+--------------------
+
+After each successful workflow, its runtime and memory are recorded in Slurmise for
+future resource predictions. The Slurmise database is in ``$SOCM_SLURMISE_DIR`` if
+set, otherwise ``<base-path>/slurmise_dir``, otherwise ``./slurmise_dir``. Failed
+workflows are not recorded.
+
+When a Workflow Fails
+---------------------
+
+A workflow fails when its task ends as failed or canceled, for example because its
+command exits with a non-zero status. Then:
+
+* the workflows that depend on it are never started;
+* the campaign ends as ``FAILED`` and socm shuts down: workflows that are still
+  running are stopped and no further pilot jobs are submitted.
+
+To recover, fix the cause and run the campaign again. To skip work that already
+finished, remove those workflows from the configuration first; in a YAML campaign,
+also remove them from the ``depends`` lists of other stages.
+
+Scheduling Policy
+-----------------
+
+``policy = "time"``, the default and only policy, minimizes the campaign's completion
+time. The planner orders workflows with HEFT (Heterogeneous Earliest Finish Time).
+With ``execution_schema = "remote"`` it also searches for the smallest core count that
+still meets the deadline; with ``"batch"`` it uses ``requested_resources`` cores.
 
 Troubleshooting
 ---------------
 
-Common Issues
-~~~~~~~~~~~~~
+**The configuration is rejected**
+   Check the TOML or YAML syntax and the required keys, and run with ``--dry-run``.
+   In YAML flow style (``{...}``), quote values that contain ``${...}`` placeholders.
 
-**Configuration Errors:**
-   Check TOML syntax and required parameters
+**The deadline cannot be met**
+   The planner found no core count up to ``requested_resources`` that finishes in
+   time. Increase ``deadline`` or ``requested_resources``, or lower the workflows'
+   ``runtime``.
 
-**Resource Allocation Failures:**
-   Verify SLURM queue availability and limits
+**A workflow runs out of memory or time**
+   Increase its ``memory`` or ``runtime``. Remember that a bare number is bytes for
+   ``memory`` and seconds for ``runtime``.
 
-**Workflow Execution Errors:**
-   Check environment variables and file paths
-
-**Out of Memory Errors:**
-   Increase memory allocation or reduce data chunk size
-
-Getting Help
-~~~~~~~~~~~~
-
-* Check this documentation for configuration examples
-* Review example configurations in the ``examples/`` directory
-* Examine log output for specific error messages
-* File issues on the GitHub repository for bugs or feature requests
+**A workflow fails at once**
+   Check its output and error files in the sandbox: usually a wrong path, a missing
+   ``environment`` variable or a missing executable on the compute node. Paths shared
+   between stages must be absolute.

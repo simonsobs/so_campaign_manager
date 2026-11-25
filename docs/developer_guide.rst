@@ -16,17 +16,18 @@ Environment Setup
    git clone https://github.com/simonsobs/so_campaign_manager.git
    cd so_campaign_manager
 
-2. **Install development dependencies:**
+2. **Install the package with the development tools:**
 
 .. code-block:: bash
 
-   uv sync --group dev
+   uv sync --all-extras --group dev
 
-3. **Install pre-commit hooks (optional but recommended):**
+3. **Install the pre-commit hooks** (ruff, isort, whitespace checks, and a
+   conventional-commit check on commit messages):
 
 .. code-block:: bash
 
-   uv run pre-commit install
+   uv run pre-commit install --hook-type pre-commit --hook-type commit-msg
 
 Code Style and Quality
 ----------------------
@@ -37,12 +38,12 @@ PEP8 Compliance (Mandatory)
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 All code must be PEP8 compliant with a maximum line length of 120 characters
-(configured in ``pyproject.toml``). Use ruff and flake8 to check:
+(configured in ``pyproject.toml``). CI runs ruff and isort on every pull request:
 
 .. code-block:: bash
 
-   ruff check src/
-   uv run flake8 src/socm tests/
+   uv run ruff check src tests
+   uv run isort --check-only src tests
 
 Code Formatting (Optional)
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -63,54 +64,21 @@ Project Structure
 .. code-block::
 
    so_campaign_manager/
-   ├── src/socm/              # Main package
-   │   ├── __init__.py
-   │   ├── __main__.py        # CLI entry point
-   │   ├── core/              # Core models and abstractions
-   │   │   ├── __init__.py
-   │   │   └── models.py      # Pydantic models
-   │   ├── bookkeeper/        # Main execution engine
-   │   │   ├── __init__.py
-   │   │   └── bookkeeper.py
-   │   ├── workflows/         # Workflow implementations
-   │   │   ├── __init__.py    # registered_workflows dict + subcampaign_map
-   │   │   ├── ml_mapmaking.py
-   │   │   ├── sat_simulation.py
-   │   │   ├── spectra.py
-   │   │   └── ml_null_tests/
-   │   │       ├── __init__.py
-   │   │       ├── base.py
-   │   │       ├── time_null_test.py
-   │   │       ├── wafer_null_test.py
-   │   │       ├── direction_null_test.py
-   │   │       ├── pwv_null_test.py
-   │   │       ├── day_night_null_test.py
-   │   │       ├── moonrise_set_null_test.py
-   │   │       ├── elevation_null_test.py
-   │   │       ├── sun_close_null_test.py
-   │   │       ├── moon_close_null_test.py
-   │   │       └── smart_split_null_test.py
-   │   ├── enactor/           # Execution backends
-   │   │   ├── __init__.py
-   │   │   ├── base.py
-   │   │   ├── rp_enactor.py
-   │   │   └── dryrun_enactor.py
-   │   ├── planner/           # Campaign planning
-   │   │   ├── __init__.py
-   │   │   ├── base.py
-   │   │   └── heft_planner.py
-   │   ├── resources/         # HPC resource definitions
-   │   │   ├── __init__.py
-   │   │   ├── tiger.py
-   │   │   ├── perlmutter.py
-   │   │   └── universe.py
-   │   └── utils/             # Utilities
-   │       ├── __init__.py
-   │       ├── misc.py
-   │       └── states.py
-   ├── tests/                 # Test suite
-   ├── docs/                  # Documentation
-   └── pyproject.toml         # Project configuration
+   ├── src/socm/
+   │   ├── __main__.py        # CLI entry point: socm <subcommand>
+   │   ├── execs/             # one module per subcommand: mapmaking, power_spectra, lat_sims
+   │   ├── core/models.py     # Pydantic models: Workflow, Campaign, DAG, Resource, ...
+   │   ├── bookkeeper/        # orchestration: planning, enacting, monitoring
+   │   ├── planner/           # Planner base class and the HEFT planner
+   │   ├── enactor/           # Enactor base class, RADICAL-Pilot and dry-run enactors
+   │   ├── resources/         # tiger, perlmutter, universe, localhost
+   │   ├── workflows/         # workflow classes; __init__.py has registered_workflows
+   │   │   └── ml_null_tests/ # one module per null test
+   │   └── utils/             # misc (config and par-file parsing), log, states
+   ├── tests/                 # test suite; tests/workflows/ for workflow classes
+   ├── examples/              # example campaign configurations
+   ├── docs/
+   └── pyproject.toml
 
 Branching Model
 ---------------
@@ -143,11 +111,9 @@ Development Workflow
 .. code-block:: bash
 
    # Make changes
-   # Run tests
-   uv run pytest tests/ --cov
-   # Check code style
-   ruff check src/
-   uv run darker --diff -r origin/main src/ -L flake8
+   uv run pytest tests/
+   uv run ruff check src tests
+   uv run isort --check-only src tests
 
 3. **Create pull request:**
    * Target ``main`` branch
@@ -168,17 +134,11 @@ Testing
 Test Structure
 ~~~~~~~~~~~~~~
 
-Tests are organized to mirror the package structure:
-
-.. code-block::
-
-   tests/
-   ├── __init__.py
-   ├── conftest.py            # Test configuration and shared fixtures
-   ├── test_bookkeeper.py     # Bookkeeper tests
-   ├── test_misc.py           # Utility tests
-   ├── test_planner.py        # Planner tests
-   └── workflows/             # Workflow tests
+Tests mirror the package: ``tests/test_<module>.py`` for each component and
+``tests/workflows/`` for the workflow classes. ``tests/conftest.py`` replaces
+``radical.*`` and ``slurmise`` with mocks, so the suite runs without an HPC
+allocation and on macOS. Tests must not read files from ``examples/``, which users
+change freely; create what a test needs in ``tmp_path``.
 
 Running Tests
 ~~~~~~~~~~~~~
@@ -225,109 +185,8 @@ Follow these guidelines:
 Adding New Features
 -------------------
 
-Workflow Types
-~~~~~~~~~~~~~~
-
-To add a new workflow type:
-
-1. **Create workflow class:**
-
-.. code-block:: python
-
-   # src/socm/workflows/my_workflow.py
-   from typing import List
-   from socm.core.models import Workflow
-
-   class MyWorkflow(Workflow):
-       special_param: str
-
-       def get_command(self) -> str:
-           return f"{self.executable} {self.subcommand}"
-
-       def get_arguments(self) -> List[str]:
-           # get_arguments must return a List[str], not a plain str
-           return [f"--special={self.special_param}"]
-
-       @classmethod
-       def get_workflows(cls, descriptions):
-           if isinstance(descriptions, dict):
-               descriptions = [descriptions]
-           return [cls(**desc) for desc in descriptions]
-
-.. note::
-
-   ``get_arguments()`` must return a ``List[str]``, **not** a single string.
-   The enactor concatenates the list elements when building the RP task
-   description, so returning a plain string will cause incorrect argument
-   splitting at execution time.
-
-2. **Register workflow:**
-
-.. code-block:: python
-
-   # src/socm/workflows/__init__.py
-   from .my_workflow import MyWorkflow  # noqa: F401
-
-   registered_workflows = {
-       # ... existing workflows
-       'my-workflow': MyWorkflow,
-   }
-
-3. **If part of a subcampaign, update ``subcampaign_map``:**
-
-.. code-block:: python
-
-   subcampaign_map = {
-       # ... existing mappings
-       'my-subcampaign': ['my-workflow', ...],
-   }
-
-4. **Write tests:**
-
-.. code-block:: python
-
-   # tests/workflows/test_my_workflow.py
-   def test_my_workflow_creation():
-       workflow = MyWorkflow(
-           name="test",
-           executable="my-exe",
-           context="test.yaml",
-           special_param="value",
-           id=1,
-       )
-       assert workflow.special_param == "value"
-       assert workflow.get_arguments() == ["--special=value"]
-
-Enactor Backends
-~~~~~~~~~~~~~~~~
-
-To add a new execution backend:
-
-1. **Inherit from base enactor:**
-
-.. code-block:: python
-
-   from socm.enactor.base import Enactor
-
-   class MyEnactor(Enactor):
-       def setup(self, resource, walltime, cores, execution_schema=None):
-           # Set up the execution backend
-           pass
-
-       def enact(self, workflows):
-           # Submit workflows for execution
-           pass
-
-       def terminate(self):
-           # Clean up resources
-           pass
-
-       def teardown(self):
-           # Cancel the current allocation
-           pass
-
-2. **Implement all required methods from** :class:`~socm.enactor.base.Enactor`
-3. **Register in bookkeeper:** add a condition in ``Bookkeeper.__init__`` based on a flag
+:doc:`advanced_topics` shows how to add a workflow type, a planner or an enactor, and
+:doc:`resources` how to add a cluster.
 
 Documentation
 -------------
@@ -337,6 +196,7 @@ Building Documentation
 
 .. code-block:: bash
 
+   uv sync --all-extras --group docs
    cd docs
    make html
 

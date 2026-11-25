@@ -1,35 +1,31 @@
 Workflows
 =========
 
-SO Campaign Manager supports several types of workflows for different analysis tasks.
+A workflow is one task SO Campaign Manager runs: a command, its options and its
+resources. This page lists every workflow type and its options. Which ones a campaign
+can use depends on its type:
 
-Overview
---------
+* **Mapmaking** (``socm lat-mapmaking``): `ML Mapmaking`_, `ML Null Tests`_ and
+  `SAT Simulation`_, one TOML table each.
+* **Power spectra** (``socm spectra``): `Power Spectra`_ stages.
+* **LAT simulations** (``socm lat-sims``): ``get-schedule``, ``shell-script``,
+  ``lat-sims`` and ``sat-sims`` stages, see `LAT Simulations`_.
 
-Workflows are the fundamental units of computation in SO Campaign Manager. Each workflow:
+:doc:`campaigns` shows a complete campaign of each type. To add a workflow type, see
+:doc:`advanced_topics`.
 
-* Defines a specific analysis task
-* Specifies resource requirements
-* Includes environment configuration
-* Can have dependencies on other workflows
-
-All workflow classes inherit from :class:`~socm.core.models.Workflow` and must implement
-:meth:`~socm.core.models.Workflow.get_command` and
-:meth:`~socm.core.models.Workflow.get_arguments`.
-
-Available Workflows
--------------------
+Workflow Types
+--------------
 
 ML Mapmaking
 ~~~~~~~~~~~~
 
-Maximum likelihood mapmaking creates maps from time-ordered data using iterative algorithms.
+Makes maximum likelihood maps from time-ordered data with ``so-site-pipeline
+make-ml-map``. Runs in a mapmaking campaign.
 
 **Class:** :class:`~socm.workflows.ml_mapmaking.MLMapmakingWorkflow`
 
 **Registered key:** ``"ml-mapmaking"``
-
-**Purpose:** Generate high-quality maps with proper noise modeling and systematics mitigation.
 
 **Configuration Example:**
 
@@ -48,65 +44,64 @@ Maximum likelihood mapmaking creates maps from time-ordered data using iterative
    tiled = 1
    site = "so_lat"
 
-**Key Parameters:**
+**Parameters:**
 
-* ``context``: Context file defining data selection and processing parameters (``file://`` URI)
-* ``area``: FITS file defining the sky area to map (``file://`` URI)
-* ``preprocess_config``: Preprocessing configuration file (``file://`` URI)
-* ``bands``: Frequency bands to process (``"f090"``, ``"f150"``, etc.)
-* ``comps``: Map components (``"T"`` for temperature only, ``"TQU"`` for T+Q+U)
-* ``maxiter``: Maximum number of conjugate-gradient iterations for convergence
-* ``query``: SQL-style query for observation selection
-* ``tiled``: Enable tiled processing (``1``) or not (``0``)
+* ``context`` (required): sotodlib context file (``file://`` URI)
+* ``area`` (required): FITS file defining the sky area to map (``file://`` URI)
+* ``preprocess_config`` (required): preprocessing configuration (``file://`` URI)
+* ``output_dir`` (required): directory for the maps
+* ``query``: observation database query, or a ``file://`` list of observation IDs
+  (default: all observations)
+* ``bands``, ``wafers``: frequency bands and wafers to map
+* ``comps``: map components (default ``"TQU"``)
+* ``maxiter``, ``downsample``: iterations and downsampling factor per pass, e.g.
+  ``"200,200"`` and ``"4,2"`` (defaults 500 and 1)
+* ``tiled``: tiled maps, ``1`` (default) or ``0``
+* ``site``: observatory site (default ``"so_lat"``)
 
-**Resource Requirements:**
-
-* Memory-intensive (typically 64–128 GB per process)
-* Can benefit from multiple cores for linear algebra operations
-* Disk I/O intensive for large datasets
+The context is opened when the campaign is built, to size the workflow from the number
+of samples it will read.
 
 Power Spectra
 ~~~~~~~~~~~~~
 
-Power spectrum estimation workflow using PSpipe.
+Computes angular power spectra from maps with PSpipe. Each stage of a power spectra
+campaign is one of these workflows, running one PSpipe script.
 
 **Class:** :class:`~socm.workflows.spectra.SpectraWorkflow`
 
-**Registered key:** ``"power-spectra"``
-
-**Purpose:** Compute angular power spectra from maps produced by the mapmaking pipeline.
-
 **Configuration Example:**
 
-.. code-block:: toml
+.. code-block:: yaml
 
-   [campaign.power-spectra]
-   subcommand = "/path/to/script.py"
-   script_args = ["file:///path/to/paramfile.dict"]
-   script_flags = ["simulate-syst", "simulate-lens"]
+   stages:
+     get_spectra_from_maps:
+       executable: python -u
+       script: /path/to/PSpipe/project/SO/pISO/python/get_spectra_from_maps.py
+       script-args: [file:///path/to/paramfile.dict]
+       script-kwargs: {start: 0, stop: 10}
+       script-flags: [simulate-syst, simulate-lens]
+       depends: [get_pseudo2datavec]
+       resources: {memory: 600G, ranks: 17, threads: 4, runtime: 15m}
 
 **Key Parameters:**
 
-* ``subcommand``: Path to the PSpipe Python script to run
-* ``script_args``: Positional arguments passed to the script; ``file://`` URIs are resolved
-* ``script_flags``: Boolean flags passed as ``--flag`` (list)
+* ``script``: Path to the PSpipe Python script to run
+* ``script-args``: Positional arguments passed to the script. Only ``file://`` values
+  are passed on, resolved to absolute paths.
+* ``script-kwargs``: Options passed as ``--key=value`` (mapping)
+* ``script-flags``: Boolean flags passed as ``--flag`` (list)
 
-**Resource Requirements:**
-
-* Scales with the number of map products being cross-correlated
-* Some stages (e.g. mode-coupling matrix) are MPI-parallel and benefit from many ranks
+See :doc:`campaigns` for a complete power spectra campaign.
 
 SAT Simulation
 ~~~~~~~~~~~~~~
 
-Small Aperture Telescope (SAT) simulation workflows for generating synthetic observations
-using ``toast_so_sim``.
+Simulates Small Aperture Telescope (SAT) observations with ``toast_so_sim``.
 
 **Class:** :class:`~socm.workflows.sat_simulation.SATSimWorkflow`
 
 **Registered key:** ``"sat-sims"``
-
-**Purpose:** Create realistic simulated timestreams for validation and systematics studies.
 
 **Configuration Example:**
 
@@ -131,53 +126,22 @@ using ``toast_so_sim``.
 * ``bands``: Frequency band (e.g. ``SAT_f090``, ``SAT_f150``)
 * ``wafer_slots``: Wafer slot identifier (e.g. ``w25``)
 * ``sample_rate``: Detector sample rate in Hz (default: 37)
-* ``sim_noise``: Enable noise simulation (boolean)
-* ``scan_map``: Enable map scanning (boolean)
-* ``sim_atmosphere``: Enable atmosphere simulation (boolean)
-* ``sim_sss``: Enable spin-synchronous signal simulation (boolean)
-* ``sim_hwpss``: Enable HWP synchronous signal simulation (boolean)
+* ``sim_noise``, ``scan_map``, ``sim_atmosphere``, ``sim_sss``, ``sim_hwpss``: turn the
+  noise, map scanning, atmosphere, spin-synchronous and HWP-synchronous signal
+  operators on (``true``) or off (``false``, the default)
 * ``pixels_healpix_radec_nside``: HEALPix resolution (default: 512)
 
-Power Spectra
-~~~~~~~~~~~~~
-
-Power spectrum estimation workflow using PSpipe.
-
-**Purpose:** Compute power spectra from maps produced by the mapmaking pipeline.
-
-**Configuration Example:**
-
-.. code-block:: toml
-
-   [campaign.power-spectra]
-   subcommand = "/path/to/script.py"
-   script_args = ["/path/to/paramfile.dict"]
-   script_flags = ["simulate-syst", "simulate-lens"]
-
-**Key Parameters:**
-
-* ``subcommand``: Path to the PSpipe Python script to run
-* ``script_args``: Positional arguments passed to the script (list)
-* ``script_flags``: Boolean flags passed as ``--flag`` (list)
-
-**Resource Requirements:**
-
-* Scales with the number of map products being cross-correlated
-* Some stages (e.g. mode-coupling matrix) are MPI-parallel and benefit from many ranks
+A SAT simulation runs either as a ``[campaign.sat-sims]`` table in a mapmaking campaign
+(``socm lat-mapmaking``), or as a stage with ``type: sat-sims`` in a LAT simulations
+campaign (``socm lat-sims``), where it can depend on other stages and use a matrix.
 
 LAT Simulations
 ~~~~~~~~~~~~~~~
 
-LAT simulation campaigns are described as a DAG of stages in a YAML file and run
-with ``socm lat-sims``:
-
-.. code-block:: bash
-
-   socm lat-sims -y lat_campaign.yml            # add --dry-run to plan without running
-
-**Purpose:** Generate an observing schedule, split it, and run ``toast_so_sim`` for
-every split, band, tube and signal component, with each signal run waiting for the
-noise run it loads noise matrices from.
+A LAT simulations campaign (``socm lat-sims -y campaign.yml``) is a DAG of stages
+that typically generates an observing schedule, splits it, and runs ``toast_so_sim``
+for every split, band, tube and signal component. Each signal run waits for the noise
+run whose noise matrices it loads.
 
 **Workflow types** (selected with a stage's ``type``; the stage name is used when
 ``type`` is not given):
@@ -191,6 +155,7 @@ noise run it loads noise matrices from.
   ``config``, ``schedule``, ``sort_schedule``, ``bands``, ``tube_slots``,
   ``sample_rate`` and ``job_group_size`` (default 1). Every other key is passed
   through as a toast option.
+* ``sat-sims``: runs ``toast_so_sim`` for a SAT, see `SAT Simulation`_.
 
 **Stage keys** read by socm itself:
 
@@ -245,7 +210,7 @@ noise run it loads noise matrices from.
        operators:
          sim_noise: true
          common_mode_noise: {enable: true, alpha: "${alpha}", NET: 'Quantity("0.0004304 K s(1/2)")'}
-         mlmapmaker: {nmat_dir: /scratch/lat/out/${band}/${tube}/split_${split}/noise/nmats, nmat_mode: cache}
+         mlmapmaker: {nmat_dir: "/scratch/lat/out/${band}/${tube}/split_${split}/noise/nmats", nmat_mode: cache}
        depends: [split-schedule]
        resources: {memory: 8000G, ranks: 272, threads: 7, runtime: 40h}
 
@@ -314,13 +279,12 @@ works for every workflow type.
   inside par files, so values that change per workflow belong in the stage.
 * **Mapping rows:** a row can be a mapping, such as ``{band: LAT_f090, alpha: "2.654"}``.
   All of its keys become variables, and it must set the axis's own key.
-* **Booleans:** a boolean axis value placed as the whole value of a toast option or an
-  ``operators`` entry stays a boolean, so ``sim_noise: ${noise}`` is still a toggle.
-  The same holds for a ``script-kwargs`` entry, since each entry becomes an option of
-  its own: ``equalize-time: ${equalize}`` gives ``--equalize-time`` when true and
-  nothing when false. In declared fields, such as ``script-args`` and ``environment``,
-  including declared fields given under ``script-kwargs``, and inside longer strings,
-  it is inserted as text.
+* **Booleans:** when a placeholder is the whole value of an option (a toast option,
+  an ``operators`` entry or a ``script-kwargs`` entry), a boolean axis value stays a
+  boolean: ``sim_noise: ${noise}`` gives ``--sim_noise.enable`` or
+  ``--sim_noise.disable``, and ``equalize-time: ${equalize}`` gives ``--equalize-time``
+  or nothing. In the workflow's declared fields, such as ``script-args`` and
+  ``environment``, and inside longer strings, it is inserted as text (``True``).
 * **Dependencies:** ``depends: [parent]`` links each workflow to the workflows of the
   parent stage that have the same values on the axes the two stages share. In the
   example, each ``lat-signal`` run waits only for its own ``lat-noise`` run, and every
@@ -331,18 +295,19 @@ works for every workflow type.
 ML Null Tests
 ~~~~~~~~~~~~~
 
-Statistical tests to validate mapmaking results by creating maps from observation splits.
+Null tests split the observations in two or more groups and make an ML map of each,
+to check that the differences between them are consistent with noise. Each test table
+creates one workflow per split. They run in a mapmaking campaign; keys set in
+``[campaign.ml-null-tests]`` apply to, and override, every test table under it.
 
-**Purpose:** Detect systematic errors and validate noise models by checking that null maps
-(differences between splits) are consistent with noise.
+All null tests take the ML Mapmaking parameters (``context``, ``area``,
+``preprocess_config``, ``output_dir``, ``query``, ...) and:
 
-All null tests share these common parameters (inherited from
-:class:`~socm.workflows.ml_null_tests.base.NullTestWorkflow`):
-
-* ``chunk_nobs``: Number of observations per time chunk
-* ``context``, ``area``, ``output_dir``, ``query``, ``preprocess_config``: same as ML Mapmaking
-
-**Types of Null Tests:**
+* ``chunk_nobs``: number of observations per chunk; chunks are dealt to the splits in
+  turn, so every split spans the whole period
+* ``nsplits``: number of splits (default 8 for mission and wafer tests, 4 for smart
+  split tests, 2 for the others). Tests that first group observations, e.g. by scan
+  direction, make ``nsplits`` splits within each group.
 
 Mission Tests
 ^^^^^^^^^^^^^
@@ -388,7 +353,7 @@ Direction Tests
 **Registered key:** ``"ml-null-tests.direction-tests"``
 
 Splits observations by scan direction (rising, setting, or middle azimuth) to test for
-scan-synchronous systematics. Always uses ``nsplits = 2``.
+scan-synchronous systematics. Uses ``nsplits = 2`` by default.
 
 .. code-block:: toml
 
@@ -406,7 +371,7 @@ PWV Tests
 **Registered key:** ``"ml-null-tests.pwv-tests"``
 
 Splits observations by precipitable water vapour (PWV) level to test for
-atmosphere-dependent systematics. Always uses ``nsplits = 2``.
+atmosphere-dependent systematics. Uses ``nsplits = 2`` by default.
 
 .. code-block:: toml
 
@@ -425,7 +390,7 @@ Day/Night Tests
 **Registered key:** ``"ml-null-tests.day-night-tests"``
 
 Splits observations into daytime and nighttime subsets to test for solar-related
-systematics. Always uses ``nsplits = 2``.
+systematics. Uses ``nsplits = 2`` by default.
 
 .. code-block:: toml
 
@@ -443,7 +408,7 @@ Elevation Tests
 **Registered key:** ``"ml-null-tests.elevation-tests"``
 
 Splits observations by telescope elevation to test for elevation-dependent systematics
-such as ground pickup or atmospheric gradients. Always uses ``nsplits = 2``.
+such as ground pickup or atmospheric gradients. Uses ``nsplits = 2`` by default.
 
 .. code-block:: toml
 
@@ -462,7 +427,7 @@ Moon Rise/Set Tests
 **Registered key:** ``"ml-null-tests.moonrise-set-tests"``
 
 Splits observations by whether the Moon is above the horizon during the observation,
-to test for Moon-related contamination. Always uses ``nsplits = 2``.
+to test for Moon-related contamination. Uses ``nsplits = 2`` by default.
 
 .. code-block:: toml
 
@@ -480,7 +445,7 @@ Moon Close Tests
 **Registered key:** ``"ml-null-tests.moon-close-tests"``
 
 Splits observations by proximity to the Moon to test for near-field Moon sidelobe
-contamination. Always uses ``nsplits = 2``.
+contamination. Uses ``nsplits = 2`` by default.
 
 .. code-block:: toml
 
@@ -500,7 +465,7 @@ Sun Close Tests
 **Registered key:** ``"ml-null-tests.sun-close-tests"``
 
 Splits observations by proximity to the Sun to test for near-field Sun sidelobe
-contamination. Always uses ``nsplits = 2``.
+contamination. Uses ``nsplits = 2`` by default.
 
 .. code-block:: toml
 
@@ -549,159 +514,14 @@ relocation-based optimisation assigns blocks to balanced splits.
 * ``weight``: ``"plain"`` weights each scan by duration; ``"det"`` weights by n_samples.
 * ``prefix``: Optional string prepended to virtual array names in the output.
 
-Creating Custom Workflows
---------------------------
-
-To create a new workflow type:
-
-1. **Inherit from base Workflow class:**
-
-.. code-block:: python
-
-   from socm.core.models import Workflow
-
-   class MyCustomWorkflow(Workflow):
-       # Define additional parameters
-       custom_param: str
-       threshold: float = 0.5
-
-2. **Implement required methods:**
-
-.. code-block:: python
-
-   def get_command(self) -> str:
-       """Return the command to execute."""
-       return f"{self.executable} {self.subcommand}"
-
-   def get_arguments(self) -> List[str]:
-       """Return command arguments as a list of strings."""
-       return [f"--param", self.custom_param, f"--threshold={self.threshold}"]
-
-3. **Register the workflow:**
-
-.. code-block:: python
-
-   from socm.workflows import registered_workflows
-
-   registered_workflows['my-custom'] = MyCustomWorkflow
-
 Workflow Dependencies
 ---------------------
 
-Workflows can depend on outputs from other workflows. The campaign manager handles:
+Dependencies exist only in the YAML campaigns: each stage lists the stages it waits for
+under ``depends``, and a stage starts only once all of them are done. If one fails, the
+stage is never started. In a ``lat-sims`` campaign, a matrix stage's workflows wait only
+for the parent workflows with the same values on the shared axes (see
+`Stage Matrices`_).
 
-* **Dependency resolution** - Ensures workflows run in the correct order
-* **Resource optimization** - Schedules dependent workflows as early as possible using HEFT
-
-Specify dependencies in the ``depends`` field using workflow names:
-
-.. code-block:: toml
-
-   [campaign.power-spectra]
-   subcommand = "/path/to/spectra.py"
-   depends = ["ml-mapmaking"]
-
-For TOML-based campaigns, subcampaigns provide a grouping mechanism. For explicit
-stage-by-stage dependency graphs, use the DAG YAML format:
-
-.. code-block:: yaml
-
-   stages:
-     preprocess:
-       executable: python -u
-       script: preprocess.py
-       depends: null
-       resources:
-         memory: 48G
-         ranks: 1
-         threads: 4
-         runtime: 10m
-
-     mapmaking:
-       executable: python -u
-       script: mapmaking.py
-       depends:
-         - preprocess
-       resources:
-         ranks: 14
-         threads: 8
-         memory: 128G
-         runtime: 60m
-
-     spectra:
-       executable: python -u
-       script: spectra.py
-       depends:
-         - mapmaking
-       resources:
-         ranks: 4
-         threads: 4
-         memory: 32G
-         runtime: 20m
-
-See the :doc:`user_guide` for a full annotated example.
-
-Best Practices
---------------
-
-Resource Sizing
-~~~~~~~~~~~~~~~
-
-* **Memory:** Allocate 20–50% more than estimated need
-* **Runtime:** Set conservative estimates to avoid queue timeouts
-* **Cores:** Balance between parallelization and memory per core
-
-Data Management
-~~~~~~~~~~~~~~~
-
-* Use fast local storage for temporary files
-* Ensure output directories have sufficient space
-* Clean up intermediate files when possible
-
-Configuration
-~~~~~~~~~~~~~
-
-* Use descriptive workflow names for tracking
-* Document custom parameters in configuration files
-* Test workflows on small datasets first
-
-Monitoring
-~~~~~~~~~~
-
-* Check log files for workflow progress
-* Monitor resource usage to optimize future runs
-* Validate outputs before proceeding to dependent workflows
-
-Troubleshooting
----------------
-
-Common Issues
-~~~~~~~~~~~~~
-
-**Memory Errors:**
-   * Increase memory allocation
-   * Reduce data chunk size
-   * Use tiled processing for large areas
-
-**Timeout Errors:**
-   * Increase runtime estimates
-   * Check for hung processes
-   * Optimize algorithm parameters
-
-**Dependency Errors:**
-   * Verify input file paths
-   * Check workflow ordering
-   * Ensure dependent outputs exist
-
-**Environment Issues:**
-   * Verify environment variables
-   * Check module availability
-   * Validate file permissions
-
-Performance Tips
-~~~~~~~~~~~~~~~~
-
-* Use SSD storage for temporary files
-* Optimize number of MPI ranks vs threads
-* Consider memory bandwidth limitations
-* Profile workflows to identify bottlenecks
+Mapmaking campaigns (TOML) have no dependencies: their workflows may run in any order,
+and subcampaigns such as ``ml-null-tests`` only share configuration.
