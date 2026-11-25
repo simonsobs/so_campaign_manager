@@ -5,7 +5,7 @@ repos:
       - id: isort
 
   - repo: https://github.com/charliermarsh/ruff-pre-commit
-    rev: v0.17.5
+    rev: v0.17.6
     hooks:
       - id: ruff
 
@@ -23,7 +23,7 @@ repos:
 
 # Replace commitsar with conventional commit checker
   - repo: https://github.com/compilerla/conventional-pre-commit
-    rev: v4.4.0
+    rev: v4.5.0
     hooks:
       - id: conventional-pre-commit
         stages: [commit-msg]
